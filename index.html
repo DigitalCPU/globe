@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Monochrome Green Globe</title>
+  <style>
+    html,body{height:100%;margin:0;background:#000;overflow:hidden;font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial}
+    #container{width:100%;height:100%;position:relative}
+    .info{position:absolute;left:12px;top:12px;color:#0f0a0a88;font-size:13px}
+    .credits{position:absolute;right:12px;bottom:12px;color:#0f0a0a66;font-size:12px}
+    /* ensure GUI appears above canvas */
+    .dg.ac{z-index:20}
+  </style>
+</head>
+<body>
+  <div id="container">
+    <div class="info">Mouse: wheel=zoom · left-drag=rotate left/right · right-drag=rotate any direction</div>
+    <div class="credits">DigitalCPU / globe</div>
+  </div>
+
+  <!-- THREE.js and dat.GUI via CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dat.gui@0.7.9/build/dat.gui.min.js"></script>
+
+  <script>
+    // Basic scene setup
+    const container = document.getElementById('container');
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x000000);
+
+    const renderer = new THREE.WebGLRenderer({antialias:true, alpha:false});
+    renderer.setPixelRatio(window.devicePixelRatio || 1);
+    renderer.setSize(container.clientWidth, container.clientHeight);
+    container.appendChild(renderer.domElement);
+
+    const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
+    camera.position.set(0, 0, 4);
+
+    // Lights
+    const ambient = new THREE.AmbientLight(0x444444);
+    scene.add(ambient);
+    const dir = new THREE.DirectionalLight(0x99ff99, 1.0);
+    dir.position.set(5,3,5);
+    scene.add(dir);
+
+    // Globe material (monochrome green), allow transparency
+    const material = new THREE.MeshStandardMaterial({
+      color: 0x00ff33,
+      metalness: 0.2,
+      roughness: 0.7,
+      transparent: true,
+      opacity: 1.0
+    });
+
+    // Sphere geometry
+    const geometry = new THREE.SphereGeometry(1, 64, 64);
+
+    // Optional subtle grid overlay using LineSegments
+    function makeLongitudeLatitudeLines(radius = 1, latLines = 12, lonLines = 24){
+      const lines = new THREE.Group();
+      const materialLines = new THREE.LineBasicMaterial({color:0x002200, transparent:true, opacity:0.2});
+
+      for(let i=1;i<latLines;i++){
+        const phi = (i/latLines) * Math.PI - Math.PI/2;
+        const r = Math.cos(phi) * radius;
+        const y = Math.sin(phi) * radius;
+        const curve = new THREE.CircleGeometry(r, 128);
+        curve.rotateX(Math.PI/2);
+        curve.translate(0,y,0);
+        const circle = new THREE.Line(curve, materialLines);
+        lines.add(circle);
+      }
+
+      for(let j=0;j<lonLines;j++){
+        const lon = (j/lonLines) * Math.PI*2;
+        const pts = [];
+        for(let t=0;t<=64;t++){
+          const v = t/64;
+          const theta = v * Math.PI - Math.PI/2;
+          const x = Math.cos(theta) * Math.cos(lon) * radius;
+          const y = Math.sin(theta) * radius;
+          const z = Math.cos(theta) * Math.sin(lon) * radius;
+          pts.push(new THREE.Vector3(x,y,z));
+        }
+        const geom = new THREE.BufferGeometry().setFromPoints(pts);
+        const line = new THREE.Line(geom, materialLines);
+        lines.add(line);
+      }
+      return lines;
+    }
+
+    const globe = new THREE.Mesh(geometry, material);
+    scene.add(globe);
+
+    const gridLines = makeLongitudeLatitudeLines(1, 12, 24);
+    scene.add(gridLines);
+
+    // Controls state
+    const state = {
+      autoRotate: true,
+      autoRotateSpeed: 0.15, // radians per second
+      opacity: 1.0,
+      color: '#00ff33',
+      zoom: camera.position.z
+    };
+
+    // GUI
+    const gui = new dat.GUI({width:300});
+    gui.add(state, 'autoRotate').name('Auto Rotate');
+    gui.add(state, 'autoRotateSpeed', 0, 2, 0.01).name('Rotate Speed');
+    gui.add(state, 'opacity', 0, 1, 0.01).name('Opacity').onChange(v => { material.opacity = v; });
+    gui.addColor(state, 'color').name('Color').onChange(v => { material.color.set(v); });
+
+    // Mouse interaction: custom behavior
+    let dragging = false;
+    let pointer = {x:0,y:0};
+    let prev = {x:0,y:0};
+    let pointerButton = null; // 0 left, 2 right
+
+    renderer.domElement.addEventListener('contextmenu', e=>e.preventDefault());
+
+    renderer.domElement.addEventListener('pointerdown', (e)=>{
+      dragging = true;
+      pointerButton = e.button;
+      prev.x = e.clientX;
+      prev.y = e.clientY;
+      renderer.domElement.setPointerCapture(e.pointerId);
+    });
+
+    renderer.domElement.addEventListener('pointerup', (e)=>{
+      dragging = false;
+      pointerButton = null;
+      renderer.domElement.releasePointerCapture(e.pointerId);
+    });
+
+    renderer.domElement.addEventListener('pointermove', (e)=>{
+      if(!dragging) return;
+      const dx = e.clientX - prev.x;
+      const dy = e.clientY - prev.y;
+      prev.x = e.clientX;
+      prev.y = e.clientY;
+
+      // left-button (0): rotate left/right only (azimuth)
+      if(pointerButton === 0){
+        const factor = 0.005;
+        globe.rotation.y += dx * factor;
+      }
+      // right-button (2): rotate any direction following mouse cursor
+      else if(pointerButton === 2){
+        const factor = 0.005;
+        globe.rotation.y += dx * factor;
+        globe.rotation.x += dy * factor;
+        // clamp x rotation to avoid flipping
+        globe.rotation.x = Math.max(Math.min(globe.rotation.x, Math.PI/2), -Math.PI/2);
+      }
+    });
+
+    // Wheel to zoom in/out: move camera on z axis
+    renderer.domElement.addEventListener('wheel', (e)=>{
+      e.preventDefault();
+      const delta = Math.sign(e.deltaY);
+      const zoomSpeed = 0.5;
+      camera.position.z += delta * zoomSpeed;
+      camera.position.z = Math.max(1.5, Math.min(12, camera.position.z));
+      state.zoom = camera.position.z;
+    }, {passive:false});
+
+    // Resize
+    window.addEventListener('resize', onWindowResize);
+    function onWindowResize(){
+      camera.aspect = container.clientWidth / container.clientHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(container.clientWidth, container.clientHeight);
+    }
+
+    // Animation loop
+    let last = performance.now();
+    function animate(now){
+      const dt = (now - last) / 1000; // seconds
+      last = now;
+
+      if(state.autoRotate){
+        globe.rotation.y += state.autoRotateSpeed * dt;
+      }
+
+      // ensure material opacity/color sync if changed outside GUI callback
+      material.opacity = state.opacity;
+      material.color.set(state.color);
+
+      renderer.render(scene, camera);
+      requestAnimationFrame(animate);
+    }
+    requestAnimationFrame(animate);
+
+    // Initial hint: make sure pointer events work
+    // Also allow keyboard controls for convenience
+    window.addEventListener('keydown', (e)=>{
+      if(e.key === '+') camera.position.z = Math.max(1.5, camera.position.z - 0.5);
+      if(e.key === '-') camera.position.z = Math.min(12, camera.position.z + 0.5);
+    });
+
+    // Expose controls to console for debugging
+    window._globe = {scene, camera, renderer, globe, material, state};
+  </script>
+</body>
+</html>
