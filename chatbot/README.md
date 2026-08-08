@@ -94,19 +94,19 @@ or double-click:
 start_cloudflare_quick_tunnel.bat
 ```
 
-This starts the Qwen backend, starts Cloudflare Tunnel, opens the GitHub Pages
+This starts the Qwen backend, starts Cloudflare Tunnel, opens the Netlify
 globe, and prints:
 
 ```text
 Widget endpoint: https://random-name.trycloudflare.com/api/chat
-Widget access token: ...
+Widget access token: not required
 ```
 
-On the widget settings panel, paste those values into:
+On the widget settings panel, paste the endpoint and leave the token box empty:
 
 ```text
 Endpoint
-Access token / API key
+Access token / API key: blank
 ```
 
 The latest values are also saved locally in:
@@ -124,4 +124,5 @@ cloudflared tunnel --url http://127.0.0.1:8091
 Quick Tunnel URLs are temporary. For a permanent URL, create a named tunnel in
 the Cloudflare dashboard and point it at `http://127.0.0.1:8091`.
 
-Do not expose a public relay without an access token.
+This no-token mode is easiest for testing. Close the tunnel window when you are
+done so the public URL stops working.

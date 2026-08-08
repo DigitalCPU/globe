@@ -1,6 +1,5 @@
 import json
 import re
-import secrets
 import subprocess
 import sys
 import threading
@@ -14,21 +13,21 @@ import backend
 ROOT = Path(__file__).resolve().parent
 CLOUDFLARED = ROOT / "tools" / "cloudflared.exe"
 LAST_TUNNEL = ROOT / "last_tunnel.json"
-GITHUB_GLOBE = "https://digitalcpu.github.io/globe/"
+PUBLIC_GLOBE = "https://livesatellite.netlify.app/"
 PUBLIC_ORIGINS = [
+    "https://livesatellite.netlify.app",
     "https://digitalcpu.github.io",
     "http://127.0.0.1:8019",
     "http://localhost:8019",
 ]
-TUNNEL_RE = re.compile(r"https://[-a-z0-9]+\\.trycloudflare\\.com", re.IGNORECASE)
+TUNNEL_RE = re.compile(r"https://[-a-z0-9]+\.trycloudflare\.com", re.IGNORECASE)
 
 
 def ensure_config():
     config = backend.load_config()
     config.host = "127.0.0.1"
     config.port = 8091
-    if not config.access_token:
-        config.access_token = secrets.token_urlsafe(32)
+    config.access_token = ""
 
     origins = {item.strip().rstrip("/") for item in config.allowed_origins.split(",") if item.strip()}
     origins.update(PUBLIC_ORIGINS)
@@ -38,18 +37,16 @@ def ensure_config():
 
 
 def pipe_cloudflared_output(process, found_url):
-    streams = [process.stdout, process.stderr]
     while process.poll() is None:
-        for stream in streams:
-            if stream is None:
-                continue
-            line = stream.readline()
-            if not line:
-                continue
-            print(line.rstrip())
-            match = TUNNEL_RE.search(line)
-            if match and not found_url["url"]:
-                found_url["url"] = match.group(0)
+        if process.stdout is None:
+            return
+        line = process.stdout.readline()
+        if not line:
+            continue
+        print(line.rstrip())
+        match = TUNNEL_RE.search(line)
+        if match and not found_url["url"]:
+            found_url["url"] = match.group(0)
         time.sleep(0.02)
 
 
@@ -75,7 +72,7 @@ def main():
         command,
         cwd=str(ROOT),
         stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
         text=True,
         bufsize=1,
     )
@@ -93,7 +90,7 @@ def main():
                 json.dumps(
                     {
                         "endpoint": endpoint,
-                        "access_token": config.access_token,
+                        "access_token": "",
                         "model": config.model_name,
                         "allowed_origins": config.allowed_origins,
                     },
@@ -104,9 +101,9 @@ def main():
             print()
             print("Cloudflare tunnel is ready.")
             print(f"Widget endpoint: {endpoint}")
-            print(f"Widget access token: {config.access_token}")
+            print("Widget access token: not required")
             print(f"Saved details: {LAST_TUNNEL}")
-            webbrowser.open(GITHUB_GLOBE)
+            webbrowser.open(PUBLIC_GLOBE)
             break
         if process.poll() is not None:
             raise SystemExit(process.returncode or 1)
