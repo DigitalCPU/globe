@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Qwen Chat Widget</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="demo-shell">
+    <section class="demo-copy">
+      <p class="eyebrow">DigitalCPU / globe</p>
+      <h1>Qwen 34B Chat Widget</h1>
+      <p>Floating chat UI for a Qwen OpenAI-compatible endpoint or the included secure relay.</p>
+    </section>
+  </main>
+
+  <section class="chat-widget is-open" id="chatWidget" aria-label="Qwen chat widget">
+    <header class="chat-header">
+      <div>
+        <strong>Qwen 34B</strong>
+        <span id="chatStatus">ready</span>
+      </div>
+      <div class="chat-actions">
+        <button id="chatSettingsToggle" type="button">Settings</button>
+        <button id="chatMinimize" type="button">-</button>
+      </div>
+    </header>
+
+    <form class="chat-settings" id="chatSettings">
+      <label>
+        <span>API mode</span>
+        <select id="apiMode">
+          <option value="relay">Relay server</option>
+          <option value="direct">Direct endpoint</option>
+        </select>
+      </label>
+      <label>
+        <span>Endpoint</span>
+        <input id="apiEndpoint" type="url" autocomplete="off" spellcheck="false">
+      </label>
+      <label>
+        <span>Model</span>
+        <input id="apiModel" type="text" autocomplete="off" spellcheck="false">
+      </label>
+      <label>
+        <span>Access token / API key</span>
+        <input id="apiKey" type="password" autocomplete="off" spellcheck="false" placeholder="optional">
+      </label>
+      <label>
+        <span>Opacity</span>
+        <span class="opacity-row">
+          <input id="chatOpacity" type="range" min="35" max="100" step="5">
+          <span id="chatOpacityValue">90%</span>
+        </span>
+      </label>
+      <div class="settings-row">
+        <button id="saveSettings" type="submit">Save</button>
+        <button id="resetSettings" type="button">Reset</button>
+      </div>
+    </form>
+
+    <div class="chat-log" id="chatLog" aria-live="polite"></div>
+
+    <form class="chat-composer" id="chatForm">
+      <textarea id="chatInput" rows="2" placeholder="Ask Qwen..." required></textarea>
+      <button id="sendButton" type="submit">Send</button>
+    </form>
+  </section>
+
+  <button class="chat-launcher" id="chatLauncher" type="button" aria-label="Open chat">Chat</button>
+
+  <script src="chat-widget.js"></script>
+</body>
+</html>

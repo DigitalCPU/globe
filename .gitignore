@@ -1,0 +1,6 @@
+chatbot/.venv/
+chatbot/__pycache__/
+chatbot/tools/
+chatbot/backend_config.json
+chatbot/last_tunnel.json
+*.pyc
