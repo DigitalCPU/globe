@@ -2,7 +2,7 @@
   const storageKey = 'digitalcpu:qwen-chat-widget:v1';
   const defaultSettings = {
     mode: 'relay',
-    endpoint: 'http://127.0.0.1:8091/api/chat',
+    endpoint: 'https://globe-qwen-relay.digitalcomputermail.workers.dev/api/chat',
     model: 'qwen3-4b-instruct-2507-q5_k_m',
     apiKey: '',
     opacity: 90

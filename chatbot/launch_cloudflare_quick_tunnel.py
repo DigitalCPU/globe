@@ -6,6 +6,8 @@ import threading
 import time
 import webbrowser
 from pathlib import Path
+from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
 
 import backend
 
@@ -13,7 +15,9 @@ import backend
 ROOT = Path(__file__).resolve().parent
 CLOUDFLARED = ROOT / "tools" / "cloudflared.exe"
 LAST_TUNNEL = ROOT / "last_tunnel.json"
+RELAY_CONFIG = ROOT / "relay_config.json"
 PUBLIC_GLOBE = "https://livesatellite.netlify.app/"
+STABLE_RELAY = "https://globe-qwen-relay.digitalcomputermail.workers.dev"
 PUBLIC_ORIGINS = [
     "https://livesatellite.netlify.app",
     "https://digitalcpu.github.io",
@@ -21,6 +25,20 @@ PUBLIC_ORIGINS = [
     "http://localhost:8019",
 ]
 TUNNEL_RE = re.compile(r"https://[-a-z0-9]+\.trycloudflare\.com", re.IGNORECASE)
+
+
+def load_relay_config():
+    if not RELAY_CONFIG.exists():
+        return {"relay_url": STABLE_RELAY, "update_secret": ""}
+
+    try:
+        data = json.loads(RELAY_CONFIG.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        data = {}
+    return {
+        "relay_url": str(data.get("relay_url") or STABLE_RELAY).rstrip("/"),
+        "update_secret": str(data.get("update_secret") or ""),
+    }
 
 
 def ensure_config():
@@ -34,6 +52,30 @@ def ensure_config():
     config.allowed_origins = ",".join(sorted(origins))
     backend.save_config(config)
     return config
+
+
+def publish_tunnel(endpoint):
+    relay = load_relay_config()
+    if not relay["update_secret"]:
+        print("Stable relay update skipped: relay_config.json is missing update_secret.")
+        return None
+
+    body = json.dumps({"endpoint": endpoint}).encode("utf-8")
+    request = Request(
+        f"{relay['relay_url']}/admin/tunnel",
+        data=body,
+        method="POST",
+        headers={
+            "Content-Type": "application/json",
+            "X-Update-Secret": relay["update_secret"],
+        },
+    )
+    try:
+        with urlopen(request, timeout=20) as response:
+            return json.loads(response.read().decode("utf-8"))
+    except (HTTPError, URLError, TimeoutError, json.JSONDecodeError) as error:
+        print(f"Stable relay update failed: {error}")
+        return None
 
 
 def pipe_cloudflared_output(process, found_url):
@@ -85,11 +127,15 @@ def main():
     print("Waiting for Cloudflare to assign a public URL...")
     for _ in range(90):
         if found_url["url"]:
-            endpoint = f"{found_url['url']}/api/chat"
+            tunnel_endpoint = f"{found_url['url']}/api/chat"
+            stable_endpoint = f"{STABLE_RELAY}/api/chat"
+            relay_result = publish_tunnel(tunnel_endpoint)
             LAST_TUNNEL.write_text(
                 json.dumps(
                     {
-                        "endpoint": endpoint,
+                        "endpoint": stable_endpoint,
+                        "current_tunnel_endpoint": tunnel_endpoint,
+                        "stable_relay_updated": bool(relay_result and relay_result.get("ok")),
                         "access_token": "",
                         "model": config.model_name,
                         "allowed_origins": config.allowed_origins,
@@ -100,7 +146,8 @@ def main():
             )
             print()
             print("Cloudflare tunnel is ready.")
-            print(f"Widget endpoint: {endpoint}")
+            print(f"Stable widget endpoint: {stable_endpoint}")
+            print(f"Current tunnel endpoint: {tunnel_endpoint}")
             print("Widget access token: not required")
             print(f"Saved details: {LAST_TUNNEL}")
             webbrowser.open(PUBLIC_GLOBE)

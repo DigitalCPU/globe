@@ -69,7 +69,7 @@ chatbot\.venv
 The embedded globe widget default endpoint is:
 
 ```text
-http://127.0.0.1:8091/api/chat
+https://globe-qwen-relay.digitalcomputermail.workers.dev/api/chat
 ```
 
 ## Node Relay
@@ -94,18 +94,21 @@ or double-click:
 start_cloudflare_quick_tunnel.bat
 ```
 
-This starts the Qwen backend, starts Cloudflare Tunnel, opens the Netlify
+This starts the Qwen backend, starts Cloudflare Tunnel, publishes the fresh
+temporary tunnel URL to the stable Cloudflare Worker relay, opens the Netlify
 globe, and prints:
 
 ```text
-Widget endpoint: https://random-name.trycloudflare.com/api/chat
+Stable widget endpoint: https://globe-qwen-relay.digitalcomputermail.workers.dev/api/chat
+Current tunnel endpoint: https://random-name.trycloudflare.com/api/chat
 Widget access token: not required
 ```
 
-On the widget settings panel, paste the endpoint and leave the token box empty:
+On mobile, open the Netlify site. You should not need to edit the widget
+settings if the page has the latest code:
 
 ```text
-Endpoint
+Endpoint: https://globe-qwen-relay.digitalcomputermail.workers.dev/api/chat
 Access token / API key: blank
 ```
 
@@ -121,8 +124,8 @@ Manual tunnel command:
 cloudflared tunnel --url http://127.0.0.1:8091
 ```
 
-Quick Tunnel URLs are temporary. For a permanent URL, create a named tunnel in
-the Cloudflare dashboard and point it at `http://127.0.0.1:8091`.
+Quick Tunnel URLs are temporary, but the widget uses the stable Worker relay.
+The launcher updates the Worker whenever the laptop starts a new tunnel.
 
 This no-token mode is easiest for testing. Close the tunnel window when you are
 done so the public URL stops working.
