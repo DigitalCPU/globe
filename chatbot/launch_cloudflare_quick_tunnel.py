@@ -7,6 +7,7 @@ import time
 import webbrowser
 from pathlib import Path
 from urllib.error import HTTPError, URLError
+from urllib.parse import quote
 from urllib.request import Request, urlopen
 
 import backend
@@ -32,7 +33,7 @@ def load_relay_config():
         return {"relay_url": STABLE_RELAY, "update_secret": ""}
 
     try:
-        data = json.loads(RELAY_CONFIG.read_text(encoding="utf-8"))
+        data = json.loads(RELAY_CONFIG.read_text(encoding="utf-8-sig"))
     except json.JSONDecodeError:
         data = {}
     return {
@@ -62,12 +63,12 @@ def publish_tunnel(endpoint):
 
     body = json.dumps({"endpoint": endpoint}).encode("utf-8")
     request = Request(
-        f"{relay['relay_url']}/admin/tunnel",
+        f"{relay['relay_url']}/admin/tunnel?secret={quote(relay['update_secret'])}",
         data=body,
         method="POST",
         headers={
             "Content-Type": "application/json",
-            "X-Update-Secret": relay["update_secret"],
+            "User-Agent": "DigitalCPU-Globe-Launcher/1.0",
         },
     )
     try:
