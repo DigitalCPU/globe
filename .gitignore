@@ -4,4 +4,5 @@ chatbot/tools/
 chatbot/backend_config.json
 chatbot/last_tunnel.json
 chatbot/relay_config.json
+chatbot/control_panel_config.json
 *.pyc
