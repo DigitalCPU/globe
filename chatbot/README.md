@@ -96,10 +96,13 @@ This applies the standard settings first:
 temperature 0.7
 max_tokens 768
 context 8192
-gpu_offload_layers -1
+gpu_offload_layers 12
 ```
 
 Then it starts mobile access.
+
+Increase gradually only after confirming the model loads reliably on the current
+4 GB NVIDIA GPU.
 
 Future `.exe` packaging files live in:
 

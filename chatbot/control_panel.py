@@ -213,7 +213,7 @@ class ControlPanel:
         self.config.temperature = 0.7
         self.config.max_tokens = 768
         self.config.n_ctx = 8192
-        self.config.n_gpu_layers = -1
+        self.config.n_gpu_layers = 12
         self.save()
         self.log("Starting mobile access with standard model operation settings...")
         self.start_mobile()
@@ -346,7 +346,7 @@ class ControlPanel:
             self.config.temperature = 0.7
             self.config.max_tokens = 768
             self.config.n_ctx = 8192
-            self.config.n_gpu_layers = -1
+            self.config.n_gpu_layers = 12
         elif preset == "cpu":
             self.config.temperature = 0.7
             self.config.max_tokens = 512
