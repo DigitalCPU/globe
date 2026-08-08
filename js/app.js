@@ -16,6 +16,7 @@
     const satelliteSourceInput = document.getElementById('satelliteSource');
     const slowTimeButton = document.getElementById('slowTime');
     const earthFocusButton = document.getElementById('earthFocus');
+    const fullscreenToggleButton = document.getElementById('fullscreenToggle');
     const useLocationButton = document.getElementById('useLocation');
     const loadWeatherButton = document.getElementById('loadWeather');
     const sunDirection = document.getElementById('sunDirection');
@@ -815,6 +816,51 @@ const distanceLines = new THREE.Group();
     });
 
     setPanelMinimized(true);
+
+    function isFullscreen() {
+      return Boolean(
+        document.fullscreenElement
+        || document.webkitFullscreenElement
+        || document.msFullscreenElement
+      );
+    }
+
+    function updateFullscreenButton() {
+      if (!fullscreenToggleButton) return;
+      const fullscreen = isFullscreen();
+      fullscreenToggleButton.textContent = fullscreen ? 'Exit immersion' : 'Full immersion';
+      fullscreenToggleButton.setAttribute(
+        'aria-label',
+        fullscreen ? 'Exit full screen view' : 'Enter full screen view'
+      );
+    }
+
+    async function toggleFullscreen() {
+      try {
+        if (isFullscreen()) {
+          const exitFullscreen = document.exitFullscreen
+            || document.webkitExitFullscreen
+            || document.msExitFullscreen;
+          if (exitFullscreen) await exitFullscreen.call(document);
+        } else {
+          const requestFullscreen = container.requestFullscreen
+            || container.webkitRequestFullscreen
+            || container.msRequestFullscreen;
+          if (requestFullscreen) await requestFullscreen.call(container);
+        }
+      } catch (error) {
+        console.warn('Fullscreen request failed.', error);
+      } finally {
+        updateFullscreenButton();
+      }
+    }
+
+    if (fullscreenToggleButton) {
+      fullscreenToggleButton.addEventListener('click', toggleFullscreen);
+      document.addEventListener('fullscreenchange', updateFullscreenButton);
+      document.addEventListener('webkitfullscreenchange', updateFullscreenButton);
+      updateFullscreenButton();
+    }
 
     function setWidgetVisible(widget, visible) {
       widget.style.display = visible ? 'flex' : 'none';

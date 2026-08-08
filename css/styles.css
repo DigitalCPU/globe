@@ -36,16 +36,18 @@
     }
 
     .credits {
-      right: 16px;
-      bottom: 14px;
+      left: 50%;
+      bottom: 6px;
+      transform: translateX(-50%);
       font-size: 12px;
       color: rgba(216, 247, 255, 0.48);
+      white-space: nowrap;
     }
 
     .clock {
       position: absolute;
       left: 50%;
-      bottom: 14px;
+      bottom: 24px;
       z-index: 2;
       transform: translateX(-50%);
       color: rgba(216, 247, 255, 0.78);
@@ -144,6 +146,9 @@
     }
 
     .panel.is-minimized {
+      left: 14px;
+      top: auto;
+      bottom: 14px;
       width: auto;
       min-width: 118px;
       max-height: none;
@@ -246,13 +251,12 @@
       }
 
       .credits {
-        right: 12px;
-        bottom: 10px;
+        bottom: 6px;
         font-size: 11px;
       }
 
       .clock {
-        bottom: 28px;
+        bottom: 24px;
         font-size: 11px;
       }
 
@@ -273,6 +277,14 @@
         width: min(210px, calc(100% - 20px));
         padding: 10px;
         font-size: 11px;
+      }
+
+      .panel.is-minimized {
+        left: 10px;
+        top: auto;
+        bottom: 10px;
+        width: auto;
+        min-width: 112px;
       }
     }
 
