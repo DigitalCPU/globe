@@ -7,6 +7,8 @@ import time
 import webbrowser
 from dataclasses import asdict
 from pathlib import Path
+from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
 
 import backend
 import launch_cloudflare_quick_tunnel as mobile
@@ -206,6 +208,11 @@ class ControlPanel:
         self.start_mobile()
         self.open_site()
 
+    def restart_all(self):
+        self.stop_all()
+        time.sleep(1)
+        self.start_all()
+
     def stop_all(self):
         if self.tunnel_running():
             self.log("Stopping Cloudflare tunnel...")
@@ -221,6 +228,64 @@ class ControlPanel:
     def open_site(self):
         webbrowser.open(mobile.PUBLIC_GLOBE)
         self.log(f"Opened {mobile.PUBLIC_GLOBE}")
+
+    def request_json(self, url, method="GET", payload=None, timeout=20):
+        body = None if payload is None else json.dumps(payload).encode("utf-8")
+        request = Request(
+            url,
+            data=body,
+            method=method,
+            headers={
+                "Content-Type": "application/json",
+                "User-Agent": "DigitalCPU-Globe-ControlPanel/1.0",
+            },
+        )
+        try:
+            with urlopen(request, timeout=timeout) as response:
+                return response.status, json.loads(response.read().decode("utf-8"))
+        except HTTPError as error:
+            try:
+                data = json.loads(error.read().decode("utf-8"))
+            except (json.JSONDecodeError, UnicodeDecodeError):
+                data = {"error": str(error)}
+            return error.code, data
+        except (URLError, TimeoutError) as error:
+            return 0, {"error": str(error)}
+
+    def check_local(self):
+        url = f"http://127.0.0.1:{self.config.port}/api/status"
+        status, data = self.request_json(url, timeout=8)
+        ready = status == 200 and bool(data.get("ready"))
+        self.log(f"Local API {'ready' if ready else 'not ready'}: status={status} {data}")
+        return ready
+
+    def check_relay(self):
+        url = f"{mobile.STABLE_RELAY}/api/status"
+        status, data = self.request_json(url, timeout=20)
+        ready = status == 200 and bool(data.get("ready"))
+        self.mobile_ready = ready
+        self.log(f"Stable relay {'ready' if ready else 'not ready'}: status={status} {data}")
+        return ready
+
+    def check_chat(self):
+        payload = {
+            "model": self.config.model_name,
+            "messages": [{"role": "user", "content": "Reply with only: mobile ready"}],
+            "max_tokens": 12,
+        }
+        status, data = self.request_json(f"{mobile.STABLE_RELAY}/api/chat", method="POST", payload=payload, timeout=60)
+        reply = str(data.get("reply", "")).strip()
+        ok = status == 200 and "mobile ready" in reply.lower()
+        self.log(f"Relay chat {'ready' if ok else 'not ready'}: status={status} reply={reply or data}")
+        return ok
+
+    def check_mobile(self):
+        local_ok = self.check_local()
+        relay_ok = self.check_relay()
+        chat_ok = self.check_chat() if relay_ok else False
+        self.mobile_ready = local_ok and relay_ok and chat_ok
+        self.log(f"Mobile access {'READY' if self.mobile_ready else 'NOT READY'}")
+        return self.mobile_ready
 
     def set_value(self, key, value):
         backend.set_config_value(self.config, key, value)
@@ -309,7 +374,12 @@ Commands:
   start-mobile                 Run model/API/tunnel sequence from this panel
   start-mobile-window          Fallback: start old launcher in a new window
   start-all                    Save settings, run mobile sequence, open Netlify
+  restart-all                  Stop then start the full mobile sequence
   stop-all                     Stop tunnel/API started by this panel
+  check-local                  Check local Qwen API
+  check-relay                  Check stable Cloudflare relay
+  check-chat                   Send a test prompt through the relay
+  check-mobile                 Run all readiness checks
   open-site                    Open Netlify site
   set <key> <value>            Advanced: set any backend setting
   quit                         Exit control panel
@@ -395,8 +465,18 @@ def main():
                 panel.start_mobile_window()
             elif command == "start-all":
                 panel.start_all()
+            elif command == "restart-all":
+                panel.restart_all()
             elif command == "stop-all":
                 panel.stop_all()
+            elif command == "check-local":
+                panel.check_local()
+            elif command == "check-relay":
+                panel.check_relay()
+            elif command == "check-chat":
+                panel.check_chat()
+            elif command == "check-mobile":
+                panel.check_mobile()
             elif command == "open-site":
                 panel.open_site()
             elif command == "set":
