@@ -84,6 +84,23 @@ The terminal control panel is:
 .\start_control_panel.bat
 ```
 
+Recommended command inside the control panel:
+
+```text
+quick-launch
+```
+
+This applies the standard settings first:
+
+```text
+temperature 0.7
+max_tokens 768
+context 8192
+gpu_offload_layers -1
+```
+
+Then it starts mobile access.
+
 Future `.exe` packaging files live in:
 
 ```text

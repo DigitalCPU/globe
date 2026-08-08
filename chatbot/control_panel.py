@@ -208,6 +208,17 @@ class ControlPanel:
         self.start_mobile()
         self.open_site()
 
+    def quick_launch(self):
+        self.log("Applying standard quick-launch settings...")
+        self.config.temperature = 0.7
+        self.config.max_tokens = 768
+        self.config.n_ctx = 8192
+        self.config.n_gpu_layers = -1
+        self.save()
+        self.log("Starting mobile access with standard model operation settings...")
+        self.start_mobile()
+        self.open_site()
+
     def restart_all(self):
         self.stop_all()
         time.sleep(1)
@@ -371,6 +382,7 @@ Commands:
   stop-api                     Stop local API in this control panel process
   start-tunnel                 Start Cloudflare tunnel from this panel
   publish-relay                Publish detected tunnel to stable Cloudflare relay
+  quick-launch                 Apply standard settings and start mobile access
   start-mobile                 Run model/API/tunnel sequence from this panel
   start-mobile-window          Fallback: start old launcher in a new window
   start-all                    Save settings, run mobile sequence, open Netlify
@@ -393,7 +405,7 @@ Useful keys:
 def main():
     panel = ControlPanel()
     print("Qwen mobile access control panel. Type `help`.")
-    print("Use `start-all` for the current working mobile launch flow.")
+    print("Use `quick-launch` for standard settings plus mobile access.")
     while True:
         try:
             raw = input("control-panel> ").strip()
@@ -459,6 +471,8 @@ def main():
                 panel.start_tunnel()
             elif command == "publish-relay":
                 panel.publish_relay()
+            elif command == "quick-launch":
+                panel.quick_launch()
             elif command == "start-mobile":
                 panel.start_mobile()
             elif command == "start-mobile-window":
