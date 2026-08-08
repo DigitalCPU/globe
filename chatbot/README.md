@@ -76,6 +76,23 @@ https://globe-qwen-relay.digitalcomputermail.workers.dev/api/chat
 
 `server.js` is still available if you already have another OpenAI-compatible Qwen server running.
 
+## Control Panel / Future EXE
+
+The terminal control panel is:
+
+```powershell
+.\start_control_panel.bat
+```
+
+Future `.exe` packaging files live in:
+
+```text
+packaging\
+```
+
+The future executable should keep `backend_config.json`, `relay_config.json`,
+and `tools\cloudflared.exe` beside it.
+
 ## Public Access
 
 For public access, keep the Python backend local and put it behind Cloudflare

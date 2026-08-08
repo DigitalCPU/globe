@@ -13,7 +13,13 @@ from urllib.request import Request, urlopen
 import backend
 
 
-ROOT = Path(__file__).resolve().parent
+def app_root():
+    if getattr(sys, "frozen", False):
+        return Path(sys.executable).resolve().parent
+    return Path(__file__).resolve().parent
+
+
+ROOT = app_root()
 CLOUDFLARED = ROOT / "tools" / "cloudflared.exe"
 LAST_TUNNEL = ROOT / "last_tunnel.json"
 RELAY_CONFIG = ROOT / "relay_config.json"

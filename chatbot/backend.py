@@ -12,7 +12,13 @@ from pathlib import Path
 from urllib.parse import unquote, urlparse
 
 
-ROOT = Path(__file__).resolve().parent
+def app_root():
+    if getattr(sys, "frozen", False):
+        return Path(sys.executable).resolve().parent
+    return Path(__file__).resolve().parent
+
+
+ROOT = app_root()
 CONFIG_PATH = ROOT / "backend_config.json"
 DEFAULT_MODEL_PATH = r"C:\Users\inter\Desktop\votronix\models\llm\qwen3-4b-instruct-2507-q5_k_m.gguf"
 

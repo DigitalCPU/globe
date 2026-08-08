@@ -12,7 +12,13 @@ import backend
 import launch_cloudflare_quick_tunnel as mobile
 
 
-ROOT = Path(__file__).resolve().parent
+def app_root():
+    if getattr(sys, "frozen", False):
+        return Path(sys.executable).resolve().parent
+    return Path(__file__).resolve().parent
+
+
+ROOT = app_root()
 CONTROL_CONFIG = ROOT / "control_panel_config.json"
 MOBILE_LAUNCHER = ROOT / "start_cloudflare_quick_tunnel.bat"
 
