@@ -1,8 +1,9 @@
 (function () {
-  const storageKey = 'digitalcpu:qwen-chat-widget:v1';
+  const storageKey = 'digitalcpu:qwen-chat-widget:v2';
+  const stableRelayEndpoint = 'https://globe-qwen-relay.digitalcomputermail.workers.dev/api/chat';
   const defaultSettings = {
     mode: 'relay',
-    endpoint: 'https://globe-qwen-relay.digitalcomputermail.workers.dev/api/chat',
+    endpoint: stableRelayEndpoint,
     model: 'qwen3-4b-instruct-2507-q5_k_m',
     apiKey: '',
     opacity: 90
@@ -36,14 +37,37 @@
 
   function loadSettings() {
     try {
-      return { ...defaultSettings, ...JSON.parse(localStorage.getItem(storageKey) || '{}') };
+      return normalizeSettings({ ...defaultSettings, ...JSON.parse(localStorage.getItem(storageKey) || '{}') });
     } catch (error) {
       return { ...defaultSettings };
     }
   }
 
+  function cleanEndpoint(value) {
+    return String(value || '')
+      .trim()
+      .replace(/^[`'"]+|[`'"]+$/g, '')
+      .replace(/\s*`\s*$/, '')
+      .replace(/\s+/g, '');
+  }
+
+  function normalizeSettings(nextSettings) {
+    const normalized = { ...defaultSettings, ...nextSettings };
+    normalized.endpoint = cleanEndpoint(normalized.endpoint);
+    if (
+      !normalized.endpoint
+      || normalized.endpoint.includes('127.0.0.1')
+      || normalized.endpoint.includes('localhost')
+      || !/^https:\/\/.+\/api\/chat$/.test(normalized.endpoint)
+    ) {
+      normalized.endpoint = stableRelayEndpoint;
+      normalized.apiKey = '';
+    }
+    return normalized;
+  }
+
   function saveSettings(nextSettings) {
-    settings = { ...defaultSettings, ...nextSettings };
+    settings = normalizeSettings(nextSettings);
     localStorage.setItem(storageKey, JSON.stringify(settings));
     renderSettings();
   }
@@ -140,7 +164,7 @@
     event.preventDefault();
     saveSettings({
       mode: apiMode.value,
-      endpoint: apiEndpoint.value.trim(),
+      endpoint: cleanEndpoint(apiEndpoint.value),
       model: apiModel.value.trim(),
       apiKey: apiKey.value.trim(),
       opacity: Number(chatOpacity.value)
