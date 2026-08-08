@@ -1,4 +1,4 @@
-(function () {
+(async function () {
   const storageKey = 'digitalcpu:qwen-chat-widget:v2';
   const stableRelayEndpoint = 'https://globe-qwen-relay.digitalcomputermail.workers.dev/api/chat';
   const defaultSettings = {
@@ -8,6 +8,24 @@
     apiKey: '',
     opacity: 90
   };
+
+  async function loadWidgetMarkup() {
+    if (document.getElementById('chatWidget')) return true;
+
+    try {
+      const script = document.currentScript;
+      const widgetUrl = new URL('widget.html?v=module1', script ? script.src : window.location.href);
+      const response = await fetch(widgetUrl);
+      if (!response.ok) throw new Error(`Widget markup failed: ${response.status}`);
+      document.body.insertAdjacentHTML('beforeend', await response.text());
+      return true;
+    } catch (error) {
+      console.error(error);
+      return false;
+    }
+  }
+
+  if (!await loadWidgetMarkup()) return;
 
   const widget = document.getElementById('chatWidget');
   const launcher = document.getElementById('chatLauncher');
