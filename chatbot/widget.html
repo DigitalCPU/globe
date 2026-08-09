@@ -37,15 +37,20 @@
         <span id="chatOpacityValue">90%</span>
       </span>
     </label>
-    <div class="cloud-id">Cloud ID <span id="cloudUserLabel">--</span></div>
+    <div class="cloud-id">Cloud account <span id="cloudUserLabel">--</span></div>
+    <div class="settings-row">
+      <button id="copyCloudKey" type="button">Copy key</button>
+      <button id="importCloudKey" type="button">Use key</button>
+    </div>
     <div class="settings-row">
       <button id="saveSettings" type="submit">Save</button>
       <button id="resetSettings" type="button">Reset</button>
     </div>
     <div class="settings-row">
       <button id="cloudSaveChat" type="button">Cloud save</button>
-      <button id="cloudLoadChat" type="button">Cloud load</button>
+      <button id="cloudLoadChat" type="button">Refresh cloud</button>
     </div>
+    <div class="cloud-list" id="cloudConversationList" aria-live="polite"></div>
     <div class="settings-row">
       <button id="exportChat" type="button">Save chat</button>
       <button id="importChat" type="button">Load chat</button>

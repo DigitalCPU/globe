@@ -208,6 +208,69 @@ body {
   font-family: Consolas, "Courier New", monospace;
 }
 
+.cloud-list {
+  display: grid;
+  gap: 6px;
+  max-height: 170px;
+  overflow-y: auto;
+}
+
+.cloud-empty,
+.cloud-chat-row {
+  border: 1px solid rgba(84, 218, 255, 0.18);
+  border-radius: 6px;
+  background: rgba(2, 18, 24, 0.72);
+}
+
+.cloud-empty {
+  padding: 8px;
+  color: rgba(137, 239, 255, 0.7);
+  font-size: 11px;
+}
+
+.cloud-chat-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+  padding: 7px;
+}
+
+.cloud-chat-meta {
+  min-width: 0;
+}
+
+.cloud-chat-meta strong,
+.cloud-chat-meta span {
+  display: block;
+}
+
+.cloud-chat-meta strong {
+  overflow: hidden;
+  color: rgba(230, 252, 255, 0.92);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cloud-chat-meta span {
+  margin-top: 2px;
+  color: rgba(137, 239, 255, 0.68);
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 10px;
+}
+
+.cloud-chat-actions {
+  display: flex;
+  gap: 5px;
+}
+
+.cloud-chat-actions button {
+  min-height: 28px;
+  padding: 0 7px;
+  font-size: 11px;
+}
+
 .hidden-file {
   display: none;
 }

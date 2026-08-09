@@ -47,9 +47,12 @@
   const chatOpacity = document.getElementById('chatOpacity');
   const chatOpacityValue = document.getElementById('chatOpacityValue');
   const cloudUserLabel = document.getElementById('cloudUserLabel');
+  const copyCloudKey = document.getElementById('copyCloudKey');
+  const importCloudKey = document.getElementById('importCloudKey');
   const resetSettings = document.getElementById('resetSettings');
   const cloudSaveChat = document.getElementById('cloudSaveChat');
   const cloudLoadChat = document.getElementById('cloudLoadChat');
+  const cloudConversationList = document.getElementById('cloudConversationList');
   const exportChat = document.getElementById('exportChat');
   const importChat = document.getElementById('importChat');
   const importChatFile = document.getElementById('importChatFile');
@@ -142,6 +145,17 @@
     return key;
   }
 
+  function setCloudUserKey(nextKey) {
+    const key = String(nextKey || '').trim();
+    if (!/^[a-zA-Z0-9_-]{24,96}$/.test(key)) throw new Error('Cloud key format is invalid.');
+    cloudUserKey = key;
+    cloudConversationId = '';
+    localStorage.setItem(cloudUserStorageKey, cloudUserKey);
+    localStorage.removeItem(cloudConversationStorageKey);
+    renderSettings();
+    renderCloudConversations([]);
+  }
+
   function cloudHeaders() {
     return {
       'Content-Type': 'application/json',
@@ -179,7 +193,52 @@
     apiKey.value = settings.apiKey;
     chatOpacity.value = String(settings.opacity);
     applyOpacity(settings.opacity);
-    cloudUserLabel.textContent = cloudUserKey.slice(0, 10);
+    cloudUserLabel.textContent = `${cloudUserKey.slice(0, 10)}...`;
+  }
+
+  function formatCloudDate(value) {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '--';
+    return date.toLocaleDateString([], { month: '2-digit', day: '2-digit', year: '2-digit' });
+  }
+
+  function renderCloudConversations(conversations) {
+    cloudConversationList.textContent = '';
+    if (!conversations.length) {
+      const empty = document.createElement('div');
+      empty.className = 'cloud-empty';
+      empty.textContent = 'No cloud chats saved.';
+      cloudConversationList.appendChild(empty);
+      return;
+    }
+
+    conversations.slice(0, 12).forEach((conversation) => {
+      const row = document.createElement('div');
+      row.className = 'cloud-chat-row';
+
+      const meta = document.createElement('div');
+      meta.className = 'cloud-chat-meta';
+      const title = document.createElement('strong');
+      title.textContent = conversation.title || 'New chat';
+      const date = document.createElement('span');
+      date.textContent = formatCloudDate(conversation.updated_at || conversation.created_at);
+      meta.append(title, date);
+
+      const actions = document.createElement('div');
+      actions.className = 'cloud-chat-actions';
+      const load = document.createElement('button');
+      load.type = 'button';
+      load.textContent = 'Load';
+      load.addEventListener('click', () => loadCloudConversation(conversation.id));
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.textContent = 'Del';
+      remove.addEventListener('click', () => deleteCloudConversation(conversation.id));
+      actions.append(load, remove);
+
+      row.append(meta, actions);
+      cloudConversationList.appendChild(row);
+    });
   }
 
   function applyOpacity(value) {
@@ -279,27 +338,23 @@
     cloudConversationId = data.conversation?.id || cloudConversationId;
     if (cloudConversationId) localStorage.setItem(cloudConversationStorageKey, cloudConversationId);
     status.textContent = 'cloud saved';
+    refreshCloudConversations().catch(() => {});
   }
 
-  async function loadConversationFromCloud() {
+  async function refreshCloudConversations() {
     const data = await cloudRequest('/conversations');
     const conversations = data.conversations || [];
+    renderCloudConversations(conversations);
     if (!conversations.length) {
       status.textContent = 'no cloud chats';
-      addMessage('system', 'No cloud conversations saved for this Cloud ID yet.');
-      return;
+    } else {
+      status.textContent = 'cloud list ready';
     }
+  }
 
-    const menu = conversations
-      .slice(0, 10)
-      .map((conversation, index) => `${index + 1}. ${conversation.title}`)
-      .join('\n');
-    const choice = window.prompt(`Choose a cloud chat:\n${menu}`, '1');
-    const selected = conversations[Number(choice) - 1];
-    if (!selected) return;
-
-    const loaded = await cloudRequest(`/conversations/${encodeURIComponent(selected.id)}`);
-    cloudConversationId = selected.id;
+  async function loadCloudConversation(id) {
+    const loaded = await cloudRequest(`/conversations/${encodeURIComponent(id)}`);
+    cloudConversationId = id;
     localStorage.setItem(cloudConversationStorageKey, cloudConversationId);
     messages = (loaded.messages || []).map((message) => ({
       role: message.role,
@@ -309,6 +364,17 @@
     saveConversation();
     renderConversation();
     status.textContent = 'cloud loaded';
+  }
+
+  async function deleteCloudConversation(id) {
+    if (!window.confirm('Delete this cloud chat?')) return;
+    await cloudRequest(`/conversations/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    if (cloudConversationId === id) {
+      cloudConversationId = '';
+      localStorage.removeItem(cloudConversationStorageKey);
+    }
+    status.textContent = 'cloud deleted';
+    await refreshCloudConversations();
   }
 
   async function exportConversation() {
@@ -417,6 +483,28 @@
     saveSettings(defaultSettings);
   });
 
+  copyCloudKey.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(cloudUserKey);
+      status.textContent = 'cloud key copied';
+    } catch (error) {
+      window.prompt('Copy this cloud key:', cloudUserKey);
+    }
+  });
+
+  importCloudKey.addEventListener('click', () => {
+    const nextKey = window.prompt('Paste cloud account key:');
+    if (!nextKey) return;
+    try {
+      setCloudUserKey(nextKey);
+      status.textContent = 'cloud key set';
+      refreshCloudConversations().catch(() => {});
+    } catch (error) {
+      status.textContent = 'invalid key';
+      addMessage('system', error.message);
+    }
+  });
+
   cloudSaveChat.addEventListener('click', () => {
     saveConversationToCloud().catch((error) => {
       status.textContent = 'cloud save failed';
@@ -425,7 +513,7 @@
   });
 
   cloudLoadChat.addEventListener('click', () => {
-    loadConversationFromCloud().catch((error) => {
+    refreshCloudConversations().catch((error) => {
       status.textContent = 'cloud load failed';
       addMessage('system', `Cloud load failed: ${error.message}`);
     });
@@ -494,4 +582,5 @@
 
   renderSettings();
   renderConversation();
+  renderCloudConversations([]);
 }());
