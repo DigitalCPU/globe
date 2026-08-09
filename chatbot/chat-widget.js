@@ -303,6 +303,7 @@
       saveConversation();
       assistantNode.textContent = reply;
       status.textContent = 'ready';
+      autoSaveConversationToCloud();
     } catch (error) {
       assistantNode.textContent = `Connection failed: ${error.message}`;
       status.textContent = 'offline';
@@ -322,7 +323,7 @@
     };
   }
 
-  async function saveConversationToCloud() {
+  async function saveConversationToCloud(options = {}) {
     const title = messages.find((message) => message.role === 'user')?.content
       ?.replace(/\s+/g, ' ')
       .trim()
@@ -337,8 +338,20 @@
     });
     cloudConversationId = data.conversation?.id || cloudConversationId;
     if (cloudConversationId) localStorage.setItem(cloudConversationStorageKey, cloudConversationId);
-    status.textContent = 'cloud saved';
+    if (!options.quiet) status.textContent = 'cloud saved';
     refreshCloudConversations().catch(() => {});
+  }
+
+  function autoSaveConversationToCloud() {
+    saveConversationToCloud({ quiet: true }).then(() => {
+      if (status.textContent === 'ready') status.textContent = 'saved';
+      setTimeout(() => {
+        if (status.textContent === 'saved') status.textContent = 'ready';
+      }, 1200);
+    }).catch((error) => {
+      console.warn('Cloud autosave failed.', error);
+      if (status.textContent === 'ready') status.textContent = 'save failed';
+    });
   }
 
   async function refreshCloudConversations() {
