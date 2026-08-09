@@ -195,6 +195,10 @@ body {
   gap: 8px;
 }
 
+.hidden-file {
+  display: none;
+}
+
 .settings-row button,
 .chat-composer button {
   min-height: 34px;

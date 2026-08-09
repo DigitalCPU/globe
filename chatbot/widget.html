@@ -41,6 +41,16 @@
       <button id="saveSettings" type="submit">Save</button>
       <button id="resetSettings" type="button">Reset</button>
     </div>
+    <div class="settings-row">
+      <button id="exportChat" type="button">Save chat</button>
+      <button id="importChat" type="button">Load chat</button>
+    </div>
+    <div class="settings-row">
+      <button id="attachFile" type="button">Upload file</button>
+      <button id="clearChat" type="button">Clear chat</button>
+    </div>
+    <input id="importChatFile" class="hidden-file" type="file" accept="application/json,.json">
+    <input id="attachFileInput" class="hidden-file" type="file" accept=".txt,.md,.json,.csv,.log,text/plain,application/json,text/csv">
   </form>
 
   <div class="chat-log" id="chatLog" aria-live="polite"></div>

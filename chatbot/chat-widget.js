@@ -1,6 +1,11 @@
 (async function () {
   const storageKey = 'digitalcpu:qwen-chat-widget:v2';
+  const conversationStorageKey = 'digitalcpu:qwen-chat-widget:conversation:v1';
   const stableRelayEndpoint = 'https://globe-qwen-relay.digitalcomputermail.workers.dev/api/chat';
+  const systemMessage = {
+    role: 'system',
+    content: 'You are a helpful assistant embedded in the DigitalCPU globe project.'
+  };
   const defaultSettings = {
     mode: 'relay',
     endpoint: stableRelayEndpoint,
@@ -39,6 +44,12 @@
   const chatOpacity = document.getElementById('chatOpacity');
   const chatOpacityValue = document.getElementById('chatOpacityValue');
   const resetSettings = document.getElementById('resetSettings');
+  const exportChat = document.getElementById('exportChat');
+  const importChat = document.getElementById('importChat');
+  const importChatFile = document.getElementById('importChatFile');
+  const attachFile = document.getElementById('attachFile');
+  const attachFileInput = document.getElementById('attachFileInput');
+  const clearChat = document.getElementById('clearChat');
   const chatLog = document.getElementById('chatLog');
   const chatForm = document.getElementById('chatForm');
   const chatInput = document.getElementById('chatInput');
@@ -46,12 +57,7 @@
   const status = document.getElementById('chatStatus');
 
   let settings = loadSettings();
-  let messages = [
-    {
-      role: 'system',
-      content: 'You are a helpful assistant embedded in the DigitalCPU globe project.'
-    }
-  ];
+  let messages = loadConversation();
 
   function loadSettings() {
     try {
@@ -90,6 +96,36 @@
     renderSettings();
   }
 
+  function loadConversation() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(conversationStorageKey) || 'null');
+      if (!Array.isArray(saved)) return [{ ...systemMessage }];
+      const safeMessages = saved
+        .filter((message) => message && ['system', 'user', 'assistant'].includes(message.role))
+        .map((message) => ({
+          role: message.role,
+          content: String(message.content || '').slice(0, 200000)
+        }));
+      return safeMessages.length ? safeMessages : [{ ...systemMessage }];
+    } catch (error) {
+      return [{ ...systemMessage }];
+    }
+  }
+
+  function saveConversation() {
+    localStorage.setItem(conversationStorageKey, JSON.stringify(messages));
+  }
+
+  function renderConversation() {
+    chatLog.textContent = '';
+    const visibleMessages = messages.filter((message) => message.role !== 'system');
+    if (!visibleMessages.length) {
+      addMessage('system', 'Chat history saves on this device. Use Save chat to export a copy.');
+      return;
+    }
+    visibleMessages.forEach((message) => addMessage(message.role, message.content));
+  }
+
   function renderSettings() {
     apiMode.value = settings.mode;
     apiEndpoint.value = settings.endpoint;
@@ -113,6 +149,12 @@
     chatLog.appendChild(message);
     chatLog.scrollTop = chatLog.scrollHeight;
     return message;
+  }
+
+  function pushMessage(role, content) {
+    messages.push({ role, content });
+    saveConversation();
+    return addMessage(role, content);
   }
 
   function buildPayload() {
@@ -144,8 +186,7 @@
   }
 
   async function sendMessage(userText) {
-    messages.push({ role: 'user', content: userText });
-    addMessage('user', userText);
+    pushMessage('user', userText);
     const assistantNode = addMessage('assistant', 'Thinking...');
     status.textContent = 'thinking';
     sendButton.disabled = true;
@@ -153,6 +194,7 @@
     try {
       const reply = await requestCompletion();
       messages.push({ role: 'assistant', content: reply });
+      saveConversation();
       assistantNode.textContent = reply;
       status.textContent = 'ready';
     } catch (error) {
@@ -162,6 +204,76 @@
       sendButton.disabled = false;
       chatInput.focus();
     }
+  }
+
+  function chatExportPayload() {
+    return {
+      app: 'DigitalCPU globe Qwen chat',
+      exported_at: new Date().toISOString(),
+      endpoint: settings.endpoint,
+      model: settings.model,
+      messages
+    };
+  }
+
+  async function exportConversation() {
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const fileName = `digitalcpu-qwen-chat-${stamp}.json`;
+    const body = JSON.stringify(chatExportPayload(), null, 2);
+    const blob = new Blob([body], { type: 'application/json' });
+    const file = new File([blob], fileName, { type: 'application/json' });
+
+    if (navigator.canShare && navigator.canShare({ files: [file] }) && navigator.share) {
+      try {
+        await navigator.share({
+          files: [file],
+          title: 'DigitalCPU Qwen chat',
+          text: 'Saved Qwen conversation'
+        });
+        status.textContent = 'chat shared';
+        return;
+      } catch (error) {
+        if (error.name === 'AbortError') return;
+      }
+    }
+
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    status.textContent = 'chat saved';
+  }
+
+  async function importConversation(file) {
+    if (!file) return;
+    const data = JSON.parse(await file.text());
+    const imported = Array.isArray(data) ? data : data.messages;
+    if (!Array.isArray(imported)) throw new Error('No messages found in chat file.');
+    messages = imported
+      .filter((message) => message && ['system', 'user', 'assistant'].includes(message.role))
+      .map((message) => ({ role: message.role, content: String(message.content || '') }));
+    if (!messages.some((message) => message.role === 'system')) messages.unshift({ ...systemMessage });
+    saveConversation();
+    renderConversation();
+    status.textContent = 'chat loaded';
+  }
+
+  async function attachTextFile(file) {
+    if (!file) return;
+    if (file.size > 1024 * 1024) throw new Error('File is larger than 1 MB.');
+    const text = await file.text();
+    const prompt = [
+      `Uploaded file: ${file.name}`,
+      `Type: ${file.type || 'unknown'}`,
+      '',
+      text.slice(0, 60000)
+    ].join('\n');
+    pushMessage('user', prompt);
+    status.textContent = 'file added';
   }
 
   settingsToggle.addEventListener('click', () => {
@@ -197,6 +309,47 @@
     saveSettings(defaultSettings);
   });
 
+  exportChat.addEventListener('click', () => {
+    exportConversation().catch((error) => {
+      status.textContent = 'save failed';
+      addMessage('system', `Save failed: ${error.message}`);
+    });
+  });
+
+  importChat.addEventListener('click', () => {
+    importChatFile.click();
+  });
+
+  importChatFile.addEventListener('change', () => {
+    importConversation(importChatFile.files[0]).catch((error) => {
+      status.textContent = 'load failed';
+      addMessage('system', `Load failed: ${error.message}`);
+    }).finally(() => {
+      importChatFile.value = '';
+    });
+  });
+
+  attachFile.addEventListener('click', () => {
+    attachFileInput.click();
+  });
+
+  attachFileInput.addEventListener('change', () => {
+    attachTextFile(attachFileInput.files[0]).catch((error) => {
+      status.textContent = 'upload failed';
+      addMessage('system', `Upload failed: ${error.message}`);
+    }).finally(() => {
+      attachFileInput.value = '';
+    });
+  });
+
+  clearChat.addEventListener('click', () => {
+    if (!window.confirm('Clear this chat on this device?')) return;
+    messages = [{ ...systemMessage }];
+    saveConversation();
+    renderConversation();
+    status.textContent = 'chat cleared';
+  });
+
   chatOpacity.addEventListener('input', () => {
     applyOpacity(chatOpacity.value);
   });
@@ -218,5 +371,5 @@
   });
 
   renderSettings();
-  addMessage('system', 'Configure a direct OpenAI-compatible endpoint, or run the included relay server.');
+  renderConversation();
 }());
