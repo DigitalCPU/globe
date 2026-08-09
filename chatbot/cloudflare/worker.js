@@ -12,7 +12,7 @@ function corsHeaders(request) {
   const allowOrigin = ALLOWED_ORIGINS.has(origin) ? origin : 'https://livesatellite.netlify.app';
   return {
     'Access-Control-Allow-Origin': allowOrigin,
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Update-Secret, X-Globe-User',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Update-Secret, X-Admin-Secret, X-Globe-User',
     'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
     'Vary': 'Origin'
   };
@@ -46,6 +46,14 @@ function userKey(request) {
   const token = auth.toLowerCase().startsWith('bearer ') ? auth.slice(7) : '';
   const value = (header || token).trim();
   return /^[a-zA-Z0-9_-]{24,96}$/.test(value) ? value : '';
+}
+
+function adminAllowed(request, env) {
+  const provided = request.headers.get('X-Admin-Secret')
+    || request.headers.get('X-Update-Secret')
+    || new URL(request.url).searchParams.get('secret')
+    || '';
+  return provided === env.UPDATE_SECRET;
 }
 
 function newId(prefix) {
@@ -203,6 +211,81 @@ async function handleCloudStorage(request, env, url) {
   return json({ error: 'Cloud storage route not found.' }, 404, request);
 }
 
+async function adminListUsers(request, env) {
+  const rows = await env.DB.prepare(
+    `SELECT
+       user_key,
+       COUNT(*) AS conversations,
+       MIN(created_at) AS first_seen,
+       MAX(updated_at) AS last_seen
+     FROM conversations
+     GROUP BY user_key
+     ORDER BY last_seen DESC
+     LIMIT 200`
+  ).all();
+  return json({ users: rows.results || [] }, 200, request);
+}
+
+async function adminListConversations(request, env) {
+  const rows = await env.DB.prepare(
+    `SELECT
+       id,
+       user_key,
+       title,
+       created_at,
+       updated_at
+     FROM conversations
+     ORDER BY updated_at DESC
+     LIMIT 200`
+  ).all();
+  return json({ conversations: rows.results || [] }, 200, request);
+}
+
+async function adminGetConversation(request, env, id) {
+  const conversation = await env.DB.prepare(
+    'SELECT id, user_key, title, created_at, updated_at FROM conversations WHERE id = ?'
+  ).bind(id).first();
+  if (!conversation) return json({ error: 'Conversation not found.' }, 404, request);
+
+  const messages = await env.DB.prepare(
+    'SELECT role, content, created_at FROM messages WHERE conversation_id = ? ORDER BY created_at ASC'
+  ).bind(id).all();
+  return json({ conversation, messages: messages.results || [] }, 200, request);
+}
+
+async function adminListFiles(request, env) {
+  const rows = await env.DB.prepare(
+    `SELECT
+       id,
+       user_key,
+       conversation_id,
+       name,
+       type,
+       size,
+       created_at
+     FROM files
+     ORDER BY created_at DESC
+     LIMIT 200`
+  ).all();
+  return json({ files: rows.results || [] }, 200, request);
+}
+
+async function handleAdmin(request, env, url) {
+  if (!adminAllowed(request, env)) return json({ error: 'Unauthorized.' }, 401, request);
+
+  const parts = url.pathname.split('/').filter(Boolean);
+  const offset = parts[0] === 'api' ? 2 : 1;
+  const resource = parts[offset];
+  const id = parts[offset + 1] || '';
+
+  if (resource === 'users' && request.method === 'GET') return adminListUsers(request, env);
+  if (resource === 'conversations' && request.method === 'GET' && !id) return adminListConversations(request, env);
+  if (resource === 'conversations' && request.method === 'GET' && id) return adminGetConversation(request, env, id);
+  if (resource === 'files' && request.method === 'GET') return adminListFiles(request, env);
+
+  return json({ error: 'Admin route not found.' }, 404, request);
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -218,6 +301,10 @@ export default {
       await env.RELAY.put('tunnel_base', tunnelBase);
       await env.RELAY.put('updated_at', new Date().toISOString());
       return json({ ok: true, tunnel_base: tunnelBase }, 200, request);
+    }
+
+    if (url.pathname.startsWith('/admin/') || url.pathname.startsWith('/api/admin/')) {
+      return handleAdmin(request, env, url);
     }
 
     if (url.pathname === '/api/status' && request.method === 'GET') return proxyToTunnel(request, env, '/api/status');

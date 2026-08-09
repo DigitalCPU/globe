@@ -23,6 +23,9 @@ def app_root():
 ROOT = app_root()
 CONTROL_CONFIG = ROOT / "control_panel_config.json"
 MOBILE_LAUNCHER = ROOT / "start_cloudflare_quick_tunnel.bat"
+BACKEND_SCRIPT = ROOT / "backend.py"
+VENV_PYTHON = ROOT / ".venv" / "Scripts" / "python.exe"
+RELAY_CONFIG = ROOT / "relay_config.json"
 
 LLM_SETTING_KEYS = {
     "model_path",
@@ -39,6 +42,7 @@ class ControlPanel:
     def __init__(self):
         self.config = mobile.ensure_config()
         self.state = backend.AppState(self.config)
+        self.backend_process = None
         self.mobile_process = None
         self.tunnel_process = None
         self.tunnel_thread = None
@@ -69,8 +73,9 @@ class ControlPanel:
         if data["access_token"]:
             data["access_token"] = "(set)"
         print(json.dumps(data, indent=2))
-        print(f"model_loaded: {self.state.engine.ready}")
-        print(f"local_api: {'running' if self.state.server else 'stopped'}")
+        print(f"backend_python: {self.backend_python()}")
+        print(f"backend_process: {'running' if self.backend_running() else 'stopped'}")
+        print(f"local_api: {'ready' if self.local_ready(log_result=False) else 'not ready'}")
         print(f"cloudflare_tunnel: {'running' if self.tunnel_running() else 'stopped'}")
         print(f"mobile_ready: {self.mobile_ready}")
         print(f"current_tunnel: {self.tunnel_url or '-'}")
@@ -91,21 +96,82 @@ class ControlPanel:
     def mobile_running(self):
         return bool(self.mobile_process and self.mobile_process.poll() is None)
 
+    def backend_python(self):
+        return VENV_PYTHON if VENV_PYTHON.exists() else Path(sys.executable)
+
+    def backend_running(self):
+        return bool(self.backend_process and self.backend_process.poll() is None)
+
     def tunnel_running(self):
         return bool(self.tunnel_process and self.tunnel_process.poll() is None)
 
+    def start_backend(self, load_model=False):
+        if self.backend_running():
+            self.log("Qwen backend is already running.")
+            return True
+        if not BACKEND_SCRIPT.exists():
+            self.log(f"Missing backend script: {BACKEND_SCRIPT}")
+            return False
+
+        python_path = self.backend_python()
+        command = [
+            str(python_path),
+            str(BACKEND_SCRIPT),
+            "--serve",
+            "--no-console",
+        ]
+        if load_model:
+            command.insert(2, "--load-model")
+
+        self.log(f"Starting Qwen backend with {python_path}...")
+        self.backend_process = subprocess.Popen(
+            command,
+            cwd=str(ROOT),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1,
+        )
+        threading.Thread(target=self.watch_backend_output, daemon=True).start()
+        return True
+
+    def watch_backend_output(self):
+        while self.backend_running():
+            if self.backend_process.stdout is None:
+                return
+            line = self.backend_process.stdout.readline()
+            if line:
+                print(line.rstrip())
+
     def load_model(self):
-        self.log("Loading Qwen model...")
-        if self.state.engine.load():
-            self.log("Model loaded.")
-        else:
-            self.log(self.state.engine.error)
+        if not self.start_backend(load_model=True):
+            return
+        self.log("Waiting for Qwen model/API readiness...")
+        deadline = time.time() + 90
+        while time.time() < deadline:
+            if self.local_ready(log_result=False):
+                self.log("Model loaded and local API is ready.")
+                return
+            if not self.backend_running():
+                self.log("Qwen backend stopped before becoming ready.")
+                return
+            time.sleep(2)
+        self.log("Qwen backend started, but model readiness timed out.")
 
     def start_api(self):
-        backend.start_server(self.state)
+        self.start_backend(load_model=False)
 
     def stop_api(self):
-        backend.stop_server(self.state)
+        if self.backend_running():
+            self.log("Stopping Qwen backend...")
+            self.backend_process.terminate()
+            try:
+                self.backend_process.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                self.backend_process.kill()
+            self.backend_process = None
+        else:
+            self.log("Qwen backend is not running.")
 
     def start_tunnel(self):
         if self.tunnel_running():
@@ -114,7 +180,7 @@ class ControlPanel:
         if not mobile.CLOUDFLARED.exists():
             self.log(f"Missing cloudflared: {mobile.CLOUDFLARED}")
             return
-        if not self.state.server:
+        if not self.local_ready(log_result=False):
             self.log("Start local API before starting Cloudflare tunnel.")
             return
 
@@ -183,7 +249,7 @@ class ControlPanel:
         return self.mobile_ready
 
     def start_mobile(self):
-        if not self.state.engine.ready:
+        if not self.local_ready(log_result=False):
             self.load_model()
         self.start_api()
         self.start_tunnel()
@@ -263,11 +329,103 @@ class ControlPanel:
         except (URLError, TimeoutError) as error:
             return 0, {"error": str(error)}
 
+    def relay_admin_secret(self):
+        data = json.loads(RELAY_CONFIG.read_text(encoding="utf-8-sig"))
+        secret = str(data.get("update_secret") or "").strip()
+        if not secret:
+            raise RuntimeError(f"Missing update_secret in {RELAY_CONFIG}")
+        return secret
+
+    def request_relay_admin(self, path, timeout=30):
+        request = Request(
+            f"{mobile.STABLE_RELAY}{path}",
+            method="GET",
+            headers={
+                "Content-Type": "application/json",
+                "User-Agent": "DigitalCPU-Globe-ControlPanel/1.0",
+                "X-Admin-Secret": self.relay_admin_secret(),
+            },
+        )
+        try:
+            with urlopen(request, timeout=timeout) as response:
+                return response.status, json.loads(response.read().decode("utf-8"))
+        except HTTPError as error:
+            try:
+                data = json.loads(error.read().decode("utf-8"))
+            except (json.JSONDecodeError, UnicodeDecodeError):
+                data = {"error": str(error)}
+            return error.code, data
+        except (URLError, TimeoutError) as error:
+            return 0, {"error": str(error)}
+
+    def cloud_users(self):
+        status, data = self.request_relay_admin("/api/admin/users")
+        if status != 200:
+            self.log(f"Cloud users failed: status={status} {data}")
+            return
+        users = data.get("users", [])
+        print(f"Cloud users: {len(users)}")
+        for user in users:
+            print(
+                f"{user.get('user_key')}  "
+                f"chats={user.get('conversations')}  "
+                f"first={user.get('first_seen')}  "
+                f"last={user.get('last_seen')}"
+            )
+
+    def cloud_chats(self):
+        status, data = self.request_relay_admin("/api/admin/conversations")
+        if status != 200:
+            self.log(f"Cloud chats failed: status={status} {data}")
+            return
+        conversations = data.get("conversations", [])
+        print(f"Cloud conversations: {len(conversations)}")
+        for chat in conversations:
+            print(
+                f"{chat.get('id')}  "
+                f"{chat.get('updated_at')}  "
+                f"{chat.get('user_key')}  "
+                f"{chat.get('title')}"
+            )
+
+    def cloud_chat(self, chat_id):
+        status, data = self.request_relay_admin(f"/api/admin/conversations/{chat_id}", timeout=60)
+        if status != 200:
+            self.log(f"Cloud chat failed: status={status} {data}")
+            return
+        conversation = data.get("conversation", {})
+        print(json.dumps(conversation, indent=2))
+        for message in data.get("messages", []):
+            role = message.get("role", "?")
+            created_at = message.get("created_at", "")
+            content = str(message.get("content", ""))
+            print(f"\n[{role}] {created_at}\n{content}")
+
+    def cloud_files(self):
+        status, data = self.request_relay_admin("/api/admin/files")
+        if status != 200:
+            self.log(f"Cloud files failed: status={status} {data}")
+            return
+        files = data.get("files", [])
+        print(f"Cloud files: {len(files)}")
+        for item in files:
+            print(
+                f"{item.get('id')}  "
+                f"{item.get('created_at')}  "
+                f"{item.get('user_key')}  "
+                f"{item.get('size')} bytes  "
+                f"{item.get('name')}"
+            )
+
     def check_local(self):
+        return self.local_ready(log_result=True)
+
+    def local_ready(self, log_result=True):
         url = f"http://127.0.0.1:{self.config.port}/api/status"
         status, data = self.request_json(url, timeout=8)
         ready = status == 200 and bool(data.get("ready"))
-        self.log(f"Local API {'ready' if ready else 'not ready'}: status={status} {data}")
+        if log_result:
+            self.log(f"Local API {'ready' if ready else 'not ready'}: status={status} {data}")
         return ready
 
     def check_relay(self):
@@ -305,7 +463,7 @@ class ControlPanel:
     def set_llm_value(self, key, value):
         if key not in LLM_SETTING_KEYS:
             raise KeyError(f"Unknown LLM setting: {key}")
-        if self.state.engine.ready:
+        if self.backend_running() or self.local_ready(log_result=False):
             self.log("Model is already loaded. Stop/restart later for this setting to take effect.")
         backend.set_config_value(self.config, key, value)
         self.save()
@@ -377,9 +535,9 @@ Commands:
   set-tokens <count>            Set max response tokens
   set-context <count>           Set context size
   set-gpu-layers <-1|0|count>   Set GPU offload layers (-1 auto/all, 0 CPU)
-  load-model                   Load Qwen into this control panel process
-  start-api                    Start local API in this control panel process
-  stop-api                     Stop local API in this control panel process
+  load-model                   Start Qwen backend with model loaded
+  start-api                    Start local API backend
+  stop-api                     Stop local API backend started by this panel
   start-tunnel                 Start Cloudflare tunnel from this panel
   publish-relay                Publish detected tunnel to stable Cloudflare relay
   quick-launch                 Apply standard settings and start mobile access
@@ -392,6 +550,10 @@ Commands:
   check-relay                  Check stable Cloudflare relay
   check-chat                   Send a test prompt through the relay
   check-mobile                 Run all readiness checks
+  cloud-users                  Admin: list Cloudflare D1 cloud users
+  cloud-chats                  Admin: list all Cloudflare D1 conversations
+  cloud-chat <id>              Admin: print one cloud conversation
+  cloud-files                  Admin: list Cloudflare D1 text uploads
   open-site                    Open Netlify site
   set <key> <value>            Advanced: set any backend setting
   quit                         Exit control panel
@@ -491,6 +653,17 @@ def main():
                 panel.check_chat()
             elif command == "check-mobile":
                 panel.check_mobile()
+            elif command == "cloud-users":
+                panel.cloud_users()
+            elif command == "cloud-chats":
+                panel.cloud_chats()
+            elif command == "cloud-chat":
+                if len(args) != 1:
+                    print("Usage: cloud-chat <id>")
+                    continue
+                panel.cloud_chat(args[0])
+            elif command == "cloud-files":
+                panel.cloud_files()
             elif command == "open-site":
                 panel.open_site()
             elif command == "set":
