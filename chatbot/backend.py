@@ -20,6 +20,8 @@ def app_root():
 
 ROOT = app_root()
 CONFIG_PATH = ROOT / "backend_config.json"
+DATA_DIR = ROOT / "data"
+GEO_EVENTS_PATH = DATA_DIR / "geo_events.jsonl"
 DEFAULT_MODEL_PATH = r"C:\Users\inter\Desktop\votronix\models\llm\qwen3-4b-instruct-2507-q5_k_m.gguf"
 
 
@@ -173,6 +175,34 @@ def read_json(handler):
     return json.loads(body)
 
 
+def client_ip(handler):
+    forwarded = handler.headers.get("CF-Connecting-IP") or handler.headers.get("X-Forwarded-For") or ""
+    return forwarded.split(",", 1)[0].strip() or handler.client_address[0]
+
+
+def save_geo_event(handler, payload):
+    lat = float(payload.get("lat"))
+    lon = float(payload.get("lon"))
+    if lat < -90 or lat > 90 or lon < -180 or lon > 180:
+        raise ValueError("lat/lon out of range.")
+
+    accuracy = payload.get("accuracy")
+    event = {
+        "captured_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "lat": round(lat, 6),
+        "lon": round(lon, 6),
+        "accuracy": float(accuracy) if accuracy is not None else None,
+        "source": str(payload.get("source") or "globe"),
+        "user_key": str(payload.get("user_key") or "")[:120],
+        "user_agent": handler.headers.get("User-Agent", "")[:500],
+        "ip": client_ip(handler),
+    }
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    with GEO_EVENTS_PATH.open("a", encoding="utf-8") as file:
+        file.write(json.dumps(event, separators=(",", ":")) + "\n")
+    return event
+
+
 def static_path(url_path):
     requested = unquote(urlparse(url_path).path)
     if requested == "/":
@@ -223,6 +253,14 @@ class ChatHandler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_POST(self):
+        if self.path.startswith("/api/geo"):
+            try:
+                event = save_geo_event(self, read_json(self))
+                send_json(self, 200, {"ok": True, "event": event})
+            except Exception as exc:
+                send_json(self, 400, {"error": str(exc)})
+            return
+
         if not self.path.startswith("/api/chat") and not self.path.startswith("/v1/chat/completions"):
             send_json(self, 404, {"error": "Unknown endpoint."})
             return

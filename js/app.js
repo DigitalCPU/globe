@@ -37,6 +37,8 @@
     const weatherTemp = document.getElementById('weatherTemp');
     const weatherMeta = document.getElementById('weatherMeta');
     const hoverLabel = document.getElementById('hoverLabel');
+    const geoCollectEndpoint = 'https://globe-qwen-relay.digitalcomputermail.workers.dev/api/geo';
+    const geoUserStorageKey = 'digitalcpu:globe-geo-user:v1';
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x020406);
 
@@ -934,6 +936,43 @@ const distanceLines = new THREE.Group();
       updateWeatherWidget(location.lat, location.lon);
     }
 
+    function getGeoUserKey() {
+      let key = localStorage.getItem(geoUserStorageKey) || '';
+      if (!/^[a-zA-Z0-9_-]{24,96}$/.test(key)) {
+        const values = new Uint8Array(24);
+        crypto.getRandomValues(values);
+        key = `geo_${btoa(String.fromCharCode(...values)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '')}`;
+        localStorage.setItem(geoUserStorageKey, key);
+      }
+      return key;
+    }
+
+    async function collectGeoPoint(event) {
+      const detail = event.detail || {};
+      const lat = Number(detail.lat);
+      const lon = Number(detail.lon);
+      if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+
+      try {
+        const response = await fetch(geoCollectEndpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            lat,
+            lon,
+            accuracy: Number.isFinite(Number(detail.accuracy)) ? Number(detail.accuracy) : null,
+            source: 'globe-user-location',
+            user_key: getGeoUserKey()
+          })
+        });
+        if (!response.ok) throw new Error(`geo ${response.status}`);
+        locationStatus.title = 'location saved to geo database';
+      } catch (error) {
+        console.warn('Could not save geo point.', error);
+        locationStatus.title = 'location set; geo save failed';
+      }
+    }
+
     function resetSimulationClock(nextScale = simulation.timeScale) {
       simulation.startDate = new Date();
       simulation.startPerformance = performance.now();
@@ -1017,6 +1056,7 @@ const distanceLines = new THREE.Group();
     loadWeatherButton.addEventListener('click', loadWeatherForCurrentLocation);
 
     window.addEventListener('globe:user-location', loadWeatherForCurrentLocation);
+    window.addEventListener('globe:user-location', collectGeoPoint);
 
     updateTimeScaleLabel();
     distanceLines.visible = distanceLinesInput.checked;

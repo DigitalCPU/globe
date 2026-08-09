@@ -95,8 +95,8 @@
       earthquakeLayer.visible = visible;
     }
 
-    function setUserLocation(lat, lon) {
-      userLocation = { lat, lon };
+    function setUserLocation(lat, lon, accuracy = null) {
+      userLocation = { lat, lon, accuracy };
       userLayer.clear();
 
       const position = latLonToVector(THREE, radius, lat, lon, radius * 1.07);
@@ -117,7 +117,7 @@
 
       locationStatus.textContent = `location ${lat.toFixed(2)}, ${lon.toFixed(2)}`;
       window.dispatchEvent(new CustomEvent('globe:user-location', {
-        detail: { lat, lon }
+        detail: { lat, lon, accuracy }
       }));
     }
 
@@ -130,7 +130,11 @@
       locationStatus.textContent = 'location requesting...';
       navigator.geolocation.getCurrentPosition(
         (position) => {
-          setUserLocation(position.coords.latitude, position.coords.longitude);
+          setUserLocation(
+            position.coords.latitude,
+            position.coords.longitude,
+            position.coords.accuracy
+          );
         },
         (error) => {
           locationStatus.textContent = 'location blocked';
