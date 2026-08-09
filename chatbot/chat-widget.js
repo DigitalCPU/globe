@@ -1,7 +1,10 @@
 (async function () {
   const storageKey = 'digitalcpu:qwen-chat-widget:v2';
   const conversationStorageKey = 'digitalcpu:qwen-chat-widget:conversation:v1';
+  const cloudUserStorageKey = 'digitalcpu:qwen-chat-widget:cloud-user:v1';
+  const cloudConversationStorageKey = 'digitalcpu:qwen-chat-widget:cloud-conversation:v1';
   const stableRelayEndpoint = 'https://globe-qwen-relay.digitalcomputermail.workers.dev/api/chat';
+  const cloudApiBase = stableRelayEndpoint.replace('/api/chat', '/api/cloud');
   const systemMessage = {
     role: 'system',
     content: 'You are a helpful assistant embedded in the DigitalCPU globe project.'
@@ -43,7 +46,10 @@
   const apiKey = document.getElementById('apiKey');
   const chatOpacity = document.getElementById('chatOpacity');
   const chatOpacityValue = document.getElementById('chatOpacityValue');
+  const cloudUserLabel = document.getElementById('cloudUserLabel');
   const resetSettings = document.getElementById('resetSettings');
+  const cloudSaveChat = document.getElementById('cloudSaveChat');
+  const cloudLoadChat = document.getElementById('cloudLoadChat');
   const exportChat = document.getElementById('exportChat');
   const importChat = document.getElementById('importChat');
   const importChatFile = document.getElementById('importChatFile');
@@ -57,6 +63,8 @@
   const status = document.getElementById('chatStatus');
 
   let settings = loadSettings();
+  let cloudUserKey = loadCloudUserKey();
+  let cloudConversationId = localStorage.getItem(cloudConversationStorageKey) || '';
   let messages = loadConversation();
 
   function loadSettings() {
@@ -116,6 +124,44 @@
     localStorage.setItem(conversationStorageKey, JSON.stringify(messages));
   }
 
+  function randomBase64Url(bytes = 24) {
+    const values = new Uint8Array(bytes);
+    crypto.getRandomValues(values);
+    return btoa(String.fromCharCode(...values))
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/g, '');
+  }
+
+  function loadCloudUserKey() {
+    let key = localStorage.getItem(cloudUserStorageKey) || '';
+    if (!/^[a-zA-Z0-9_-]{24,96}$/.test(key)) {
+      key = `user_${randomBase64Url(24)}`;
+      localStorage.setItem(cloudUserStorageKey, key);
+    }
+    return key;
+  }
+
+  function cloudHeaders() {
+    return {
+      'Content-Type': 'application/json',
+      'X-Globe-User': cloudUserKey
+    };
+  }
+
+  async function cloudRequest(path, options = {}) {
+    const response = await fetch(`${cloudApiBase}${path}`, {
+      ...options,
+      headers: {
+        ...cloudHeaders(),
+        ...(options.headers || {})
+      }
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || `Cloud request failed: ${response.status}`);
+    return data;
+  }
+
   function renderConversation() {
     chatLog.textContent = '';
     const visibleMessages = messages.filter((message) => message.role !== 'system');
@@ -133,6 +179,7 @@
     apiKey.value = settings.apiKey;
     chatOpacity.value = String(settings.opacity);
     applyOpacity(settings.opacity);
+    cloudUserLabel.textContent = cloudUserKey.slice(0, 10);
   }
 
   function applyOpacity(value) {
@@ -216,6 +263,54 @@
     };
   }
 
+  async function saveConversationToCloud() {
+    const title = messages.find((message) => message.role === 'user')?.content
+      ?.replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 70) || 'New chat';
+    const data = await cloudRequest('/conversations', {
+      method: 'POST',
+      body: JSON.stringify({
+        id: cloudConversationId || undefined,
+        title,
+        messages
+      })
+    });
+    cloudConversationId = data.conversation?.id || cloudConversationId;
+    if (cloudConversationId) localStorage.setItem(cloudConversationStorageKey, cloudConversationId);
+    status.textContent = 'cloud saved';
+  }
+
+  async function loadConversationFromCloud() {
+    const data = await cloudRequest('/conversations');
+    const conversations = data.conversations || [];
+    if (!conversations.length) {
+      status.textContent = 'no cloud chats';
+      addMessage('system', 'No cloud conversations saved for this Cloud ID yet.');
+      return;
+    }
+
+    const menu = conversations
+      .slice(0, 10)
+      .map((conversation, index) => `${index + 1}. ${conversation.title}`)
+      .join('\n');
+    const choice = window.prompt(`Choose a cloud chat:\n${menu}`, '1');
+    const selected = conversations[Number(choice) - 1];
+    if (!selected) return;
+
+    const loaded = await cloudRequest(`/conversations/${encodeURIComponent(selected.id)}`);
+    cloudConversationId = selected.id;
+    localStorage.setItem(cloudConversationStorageKey, cloudConversationId);
+    messages = (loaded.messages || []).map((message) => ({
+      role: message.role,
+      content: String(message.content || '')
+    }));
+    if (!messages.some((message) => message.role === 'system')) messages.unshift({ ...systemMessage });
+    saveConversation();
+    renderConversation();
+    status.textContent = 'cloud loaded';
+  }
+
   async function exportConversation() {
     const stamp = new Date().toISOString().replace(/[:.]/g, '-');
     const fileName = `digitalcpu-qwen-chat-${stamp}.json`;
@@ -272,6 +367,19 @@
       '',
       text.slice(0, 60000)
     ].join('\n');
+    cloudRequest('/files', {
+      method: 'POST',
+      body: JSON.stringify({
+        conversation_id: cloudConversationId || null,
+        name: file.name,
+        type: file.type || 'text/plain',
+        content: text
+      })
+    }).then(() => {
+      status.textContent = 'file cloud saved';
+    }).catch((error) => {
+      addMessage('system', `Cloud file save failed: ${error.message}`);
+    });
     pushMessage('user', prompt);
     status.textContent = 'file added';
   }
@@ -307,6 +415,20 @@
 
   resetSettings.addEventListener('click', () => {
     saveSettings(defaultSettings);
+  });
+
+  cloudSaveChat.addEventListener('click', () => {
+    saveConversationToCloud().catch((error) => {
+      status.textContent = 'cloud save failed';
+      addMessage('system', `Cloud save failed: ${error.message}`);
+    });
+  });
+
+  cloudLoadChat.addEventListener('click', () => {
+    loadConversationFromCloud().catch((error) => {
+      status.textContent = 'cloud load failed';
+      addMessage('system', `Cloud load failed: ${error.message}`);
+    });
   });
 
   exportChat.addEventListener('click', () => {
