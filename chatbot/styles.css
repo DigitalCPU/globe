@@ -340,8 +340,12 @@ body {
   bottom: 18px;
   z-index: 19;
   display: none;
-  min-height: 40px;
-  padding: 0 14px;
+  width: 114px;
+  height: 36px;
+  min-height: 36px;
+  padding: 0 12px;
+  box-sizing: border-box;
+  text-align: center;
   box-shadow: 0 0 22px rgba(42, 205, 255, 0.16);
 }
 
@@ -432,6 +436,8 @@ body {
   .chat-launcher {
     right: 10px;
     bottom: 10px;
-    min-height: 38px;
+    width: 114px;
+    height: 36px;
+    min-height: 36px;
   }
 }

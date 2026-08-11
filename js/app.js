@@ -14,6 +14,8 @@
     const showCalendarInput = document.getElementById('showCalendar');
     const showWeatherInput = document.getElementById('showWeather');
     const spaceBackgroundInput = document.getElementById('spaceBackground');
+    const controlsOpacityInput = document.getElementById('controlsOpacity');
+    const controlsOpacityValue = document.getElementById('controlsOpacityValue');
     const satelliteSourceInput = document.getElementById('satelliteSource');
     const slowTimeButton = document.getElementById('slowTime');
     const earthFocusButton = document.getElementById('earthFocus');
@@ -41,6 +43,7 @@
     const geoCollectEndpoint = 'https://globe-qwen-relay.digitalcomputermail.workers.dev/api/geo';
     const geoUserStorageKey = 'digitalcpu:globe-geo-user:v1';
     const backgroundStorageKey = 'digitalcpu:globe-background:v1';
+    const controlsOpacityStorageKey = 'digitalcpu:controls-opacity:v1';
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x020406);
 
@@ -58,6 +61,14 @@
       document.body.classList.toggle('space-bg-black', !useWhite);
       if (spaceBackgroundInput) spaceBackgroundInput.value = useWhite ? 'white' : 'black';
       localStorage.setItem(backgroundStorageKey, useWhite ? 'white' : 'black');
+    }
+
+    function setControlsOpacity(value) {
+      const numeric = Math.min(95, Math.max(35, Number(value) || 74));
+      panel.style.setProperty('--controls-opacity', (numeric / 100).toFixed(2));
+      if (controlsOpacityInput) controlsOpacityInput.value = String(numeric);
+      if (controlsOpacityValue) controlsOpacityValue.textContent = `${numeric}%`;
+      localStorage.setItem(controlsOpacityStorageKey, String(numeric));
     }
 
     const camera = new THREE.PerspectiveCamera(42, container.clientWidth / container.clientHeight, 0.1, 100000);
@@ -1118,6 +1129,12 @@ const distanceLines = new THREE.Group();
       });
     }
 
+    if (controlsOpacityInput) {
+      controlsOpacityInput.addEventListener('input', () => {
+        setControlsOpacity(controlsOpacityInput.value);
+      });
+    }
+
     satelliteSourceInput.addEventListener('change', () => {
       focusEarth();
       hideHoverLabel();
@@ -1144,6 +1161,7 @@ const distanceLines = new THREE.Group();
     setWidgetVisible(calendarWidget, showCalendarInput.checked);
     setWidgetVisible(weatherWidget, showWeatherInput.checked);
     setSpaceBackground(localStorage.getItem(backgroundStorageKey) || 'black');
+    setControlsOpacity(localStorage.getItem(controlsOpacityStorageKey) || (controlsOpacityInput && controlsOpacityInput.value) || 74);
 
     function formatClock(date) {
       if (countrySelector) return countrySelector.formatClock(date);
