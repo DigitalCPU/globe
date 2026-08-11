@@ -308,6 +308,7 @@ export default {
     }
 
     if (url.pathname === '/api/status' && request.method === 'GET') return proxyToTunnel(request, env, '/api/status');
+    if (url.pathname === '/api/news' && request.method === 'GET') return proxyToTunnel(request, env, `/api/news${url.search}`);
     if (url.pathname === '/api/geo' && request.method === 'POST') return proxyToTunnel(request, env, '/api/geo');
     if ((url.pathname === '/api/chat' || url.pathname === '/v1/chat/completions') && request.method === 'POST') {
       return proxyToTunnel(request, env, url.pathname);

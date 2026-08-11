@@ -1,4 +1,5 @@
 import argparse
+import html
 import json
 import os
 import queue
@@ -9,7 +10,9 @@ import time
 from dataclasses import asdict, dataclass
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import unquote, urlparse
+from urllib.parse import parse_qs, quote_plus, unquote, urlparse
+from urllib.request import Request, urlopen
+import xml.etree.ElementTree as ET
 
 
 def app_root():
@@ -23,6 +26,7 @@ CONFIG_PATH = ROOT / "backend_config.json"
 DATA_DIR = ROOT / "data"
 GEO_EVENTS_PATH = DATA_DIR / "geo_events.jsonl"
 DEFAULT_MODEL_PATH = r"C:\Users\inter\Desktop\votronix\models\llm\qwen3-4b-instruct-2507-q5_k_m.gguf"
+NEWS_TIMEOUT_SECONDS = 10
 
 
 @dataclass
@@ -203,6 +207,107 @@ def save_geo_event(handler, payload):
     return event
 
 
+def fetch_json_url(url):
+    request = Request(url, headers={
+        "User-Agent": "DigitalCPU Globe/0.1 local timeline"
+    })
+    with urlopen(request, timeout=NEWS_TIMEOUT_SECONDS) as response:
+        return json.loads(response.read().decode("utf-8", errors="replace"))
+
+
+def fetch_text_url(url):
+    request = Request(url, headers={
+        "User-Agent": "DigitalCPU Globe/0.1 local timeline"
+    })
+    with urlopen(request, timeout=NEWS_TIMEOUT_SECONDS) as response:
+        return response.read().decode("utf-8", errors="replace")
+
+
+def reverse_geocode(lat, lon):
+    url = (
+        "https://nominatim.openstreetmap.org/reverse"
+        f"?format=jsonv2&lat={lat:.6f}&lon={lon:.6f}&zoom=10&addressdetails=1"
+    )
+    data = fetch_json_url(url)
+    address = data.get("address") or {}
+    city = address.get("city") or address.get("town") or address.get("village") or address.get("hamlet")
+    county = address.get("county")
+    state = address.get("state")
+    country = address.get("country")
+    place = ", ".join(item for item in [city or county, state or country] if item)
+    query_place = city or county or state or country or data.get("display_name") or f"{lat:.2f}, {lon:.2f}"
+    return {
+        "place": place or query_place,
+        "query_place": query_place,
+        "city": city,
+        "county": county,
+        "state": state,
+        "country": country,
+    }
+
+
+def google_news_query(location, mode):
+    today = time.strftime("%B %-d") if os.name != "nt" else time.strftime("%B %#d")
+    place = location["query_place"]
+    state = location.get("state") or ""
+    if mode == "history":
+        return f'"{place}" "{today}" (history OR archive OR anniversary OR happened)'
+    if state and state not in place:
+        return f'"{place}" "{state}"'
+    return f'"{place}"'
+
+
+def parse_google_news_rss(xml_text):
+    root = ET.fromstring(xml_text)
+    channel = root.find("channel")
+    if channel is None:
+        return []
+
+    items = []
+    seen = set()
+    for node in channel.findall("item"):
+        title = html.unescape((node.findtext("title") or "").strip())
+        link = (node.findtext("link") or "").strip()
+        published = (node.findtext("pubDate") or "").strip()
+        source_node = node.find("source")
+        source = html.unescape((source_node.text if source_node is not None and source_node.text else "").strip())
+        if not title or title in seen:
+            continue
+        seen.add(title)
+        items.append({
+            "title": title,
+            "link": link,
+            "published": published,
+            "source": source,
+        })
+        if len(items) >= 12:
+            break
+    return items
+
+
+def load_local_news(lat, lon, mode):
+    if lat < -90 or lat > 90 or lon < -180 or lon > 180:
+        raise ValueError("lat/lon out of range.")
+    if mode not in {"recent", "history"}:
+        mode = "recent"
+
+    location = reverse_geocode(lat, lon)
+    query = google_news_query(location, mode)
+    rss_url = (
+        "https://news.google.com/rss/search"
+        f"?q={quote_plus(query)}&hl=en-US&gl=US&ceid=US:en"
+    )
+    items = parse_google_news_rss(fetch_text_url(rss_url))
+    return {
+        "ok": True,
+        "mode": mode,
+        "place": location["place"],
+        "query": query,
+        "items": items,
+        "source": "Google News RSS",
+    }
+
+
 def static_path(url_path):
     requested = unquote(urlparse(url_path).path)
     if requested == "/":
@@ -232,6 +337,17 @@ class ChatHandler(BaseHTTPRequestHandler):
                 "host": state.config.host,
                 "port": state.config.port,
             })
+            return
+
+        if self.path.startswith("/api/news"):
+            try:
+                query = parse_qs(urlparse(self.path).query)
+                lat = float((query.get("lat") or [""])[0])
+                lon = float((query.get("lon") or [""])[0])
+                mode = (query.get("mode") or ["recent"])[0]
+                send_json(self, 200, load_local_news(lat, lon, mode))
+            except Exception as exc:
+                send_json(self, 500, {"error": str(exc)})
             return
 
         file_path = static_path(self.path)

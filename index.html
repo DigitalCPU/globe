@@ -100,6 +100,13 @@
       </div>
 
       <div class="control">
+        <label class="toggle" for="showTimeline">
+          <span>Local timeline</span>
+          <input id="showTimeline" type="checkbox" checked>
+        </label>
+      </div>
+
+      <div class="control">
         <label for="spaceBackground">
           <span>Space background</span>
         </label>
@@ -161,6 +168,24 @@
       </div>
     </section>
     <div class="clock" id="clock">--/--/--/--/--/--</div>
+    <section class="timeline-widget" id="timelineWidget" aria-label="Local timeline">
+      <div class="timeline-header">
+        <div>
+          <h2>Local Timeline</h2>
+          <span id="timelinePlace">set location</span>
+        </div>
+        <button id="timelineRefresh" type="button">Refresh</button>
+      </div>
+      <div class="timeline-modes" role="group" aria-label="Timeline mode">
+        <button class="is-active" id="timelineRecent" type="button">Recent</button>
+        <button id="timelineHistory" type="button">This Day</button>
+        <button id="timelineSummarize" type="button">Qwen</button>
+      </div>
+      <div class="timeline-summary" id="timelineSummary" hidden></div>
+      <ol class="timeline-list" id="timelineList">
+        <li>Use location to load local headlines.</li>
+      </ol>
+    </section>
     <div class="hover-label" id="hoverLabel"></div>
     <div class="credits">DigitalCPU / globe</div>
   </div>
@@ -173,6 +198,7 @@
   <script src='js/earth-events.js'></script>
   <script src='js/space-weather.js'></script>
   <script src='js/app.js?v=background1'></script>
+  <script src="js/local-timeline.js?v=timeline1"></script>
   <script src="chatbot/chat-widget.js?v=fullscreen-chat1"></script>
 
 </body>
