@@ -3,6 +3,7 @@
   const CHAT_ENDPOINT = 'https://globe-qwen-relay.digitalcomputermail.workers.dev/api/chat';
   const visibilityKey = 'digitalcpu:local-timeline-visible:v1';
   const collapsedKey = 'digitalcpu:local-timeline-collapsed:v1';
+  const opacityKey = 'digitalcpu:local-timeline-opacity:v1';
 
   function $(id) {
     return document.getElementById(id);
@@ -104,13 +105,15 @@
     const placeLabel = $('timelinePlace');
     const refreshButton = $('timelineRefresh');
     const toggleButton = $('timelineToggle');
+    const opacityInput = $('timelineOpacity');
+    const opacityValue = $('timelineOpacityValue');
     const recentButton = $('timelineRecent');
     const historyButton = $('timelineHistory');
     const summarizeButton = $('timelineSummarize');
     const summary = $('timelineSummary');
     const showInput = $('showTimeline');
 
-    if (!widget || !list || !placeLabel || !refreshButton || !toggleButton || !recentButton || !historyButton || !summarizeButton) return;
+    if (!widget || !list || !placeLabel || !refreshButton || !toggleButton || !opacityInput || !opacityValue || !recentButton || !historyButton || !summarizeButton) return;
 
     const state = {
       location: null,
@@ -131,6 +134,15 @@
       toggleButton.setAttribute('aria-expanded', String(!collapsed));
       toggleButton.setAttribute('aria-label', collapsed ? 'Expand news feed' : 'Minimize news feed');
       localStorage.setItem(collapsedKey, collapsed ? '1' : '0');
+    }
+
+    function setOpacity(value) {
+      const numeric = Math.min(95, Math.max(35, Number(value) || 70));
+      const opacity = numeric / 100;
+      widget.style.setProperty('--timeline-opacity', opacity.toFixed(2));
+      opacityInput.value = String(numeric);
+      opacityValue.textContent = `${numeric}%`;
+      localStorage.setItem(opacityKey, String(numeric));
     }
 
     function setMode(mode) {
@@ -169,6 +181,7 @@
     toggleButton.addEventListener('click', () => {
       setCollapsed(!widget.classList.contains('is-collapsed'));
     });
+    opacityInput.addEventListener('input', () => setOpacity(opacityInput.value));
     recentButton.addEventListener('click', () => setMode('recent'));
     historyButton.addEventListener('click', () => setMode('history'));
     summarizeButton.addEventListener('click', async () => {
@@ -201,6 +214,7 @@
 
     setVisible(localStorage.getItem(visibilityKey) !== '0');
     setCollapsed(localStorage.getItem(collapsedKey) === '1');
+    setOpacity(localStorage.getItem(opacityKey) || opacityInput.value);
   }
 
   if (document.readyState === 'loading') {

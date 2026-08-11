@@ -184,6 +184,11 @@
         <button id="timelineHistory" type="button">This Day</button>
         <button id="timelineSummarize" type="button">Qwen</button>
       </div>
+      <label class="timeline-opacity" for="timelineOpacity">
+        <span>Opacity</span>
+        <input id="timelineOpacity" type="range" min="35" max="95" step="5" value="70">
+        <span id="timelineOpacityValue">70%</span>
+      </label>
       <div class="timeline-summary" id="timelineSummary" hidden></div>
       <ol class="timeline-list" id="timelineList">
         <li>Use location to load local headlines.</li>
@@ -202,7 +207,7 @@
   <script src='js/space-weather.js'></script>
   <script src="js/country-selector.js?v=country1"></script>
   <script src='js/app.js?v=country1'></script>
-  <script src="js/local-timeline.js?v=timeline2"></script>
+  <script src="js/local-timeline.js?v=timeline3"></script>
   <script src="chatbot/chat-widget.js?v=fullscreen-chat1"></script>
 
 </body>
