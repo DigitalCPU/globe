@@ -83,10 +83,13 @@
 
     .mini-widget {
       display: flex;
-      align-items: baseline;
-      gap: 8px;
-      min-height: 28px;
-      padding: 5px 9px;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      width: 114px;
+      height: 36px;
+      box-sizing: border-box;
+      padding: 4px 6px;
       border: 1px solid rgba(84, 218, 255, 0.22);
       border-radius: 7px;
       background: rgba(2, 8, 12, 0.58);
@@ -97,6 +100,7 @@
       text-shadow: 0 0 10px rgba(63, 213, 255, 0.35);
       backdrop-filter: blur(5px);
       white-space: nowrap;
+      overflow: hidden;
     }
 
     .mini-widget span:last-child {
@@ -277,13 +281,16 @@
 
     .timeline-widget.is-collapsed {
       grid-template-rows: auto;
-      width: min(250px, calc(100% - 28px));
-      height: auto;
+      width: 114px;
+      height: 36px;
+      max-width: calc(100% - 28px);
       max-height: none;
     }
 
     .timeline-widget.is-collapsed .timeline-header {
-      padding-bottom: 10px;
+      height: 36px;
+      box-sizing: border-box;
+      padding: 3px 5px;
     }
 
     .timeline-widget.is-collapsed .timeline-modes,
@@ -291,6 +298,15 @@
     .timeline-widget.is-collapsed .timeline-summary,
     .timeline-widget.is-collapsed .timeline-list {
       display: none;
+    }
+
+    .timeline-widget.is-collapsed .timeline-header span,
+    .timeline-widget.is-collapsed #timelineRefresh {
+      display: none;
+    }
+
+    .timeline-widget.is-collapsed .timeline-header h2 {
+      font-size: 11px;
     }
 
     .timeline-header,
@@ -317,6 +333,17 @@
       line-height: 1.2;
     }
 
+    .timeline-header > div:first-child {
+      min-width: 0;
+    }
+
+    .timeline-header h2,
+    .timeline-header span {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
     .timeline-header span,
     .timeline-summary,
     .timeline-list cite {
@@ -327,7 +354,8 @@
     }
 
     .timeline-widget button {
-      min-height: 28px;
+      height: 30px;
+      min-height: 30px;
       border: 1px solid rgba(84, 218, 255, 0.32);
       border-radius: 6px;
       background: rgba(18, 70, 84, 0.52);
@@ -342,12 +370,15 @@
     }
 
     .timeline-header button {
-      width: 74px;
+      width: auto;
+      min-width: 30px;
+      padding: 0 8px;
     }
 
     .timeline-header #timelineToggle {
       width: 30px;
       min-width: 30px;
+      padding: 0;
       font-weight: 700;
       font-size: 15px;
       line-height: 1;
@@ -518,8 +549,9 @@
       }
 
       .mini-widget {
-        gap: 5px;
-        padding: 5px 7px;
+        width: 114px;
+        height: 36px;
+        padding: 4px 6px;
         font-size: 10px;
       }
 
@@ -549,7 +581,9 @@
       }
 
       .timeline-widget.is-collapsed {
-        width: min(220px, calc(100% - 20px));
+        width: 114px;
+        height: 36px;
+        max-width: calc(100% - 20px);
       }
 
       .timeline-header,
