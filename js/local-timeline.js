@@ -139,7 +139,7 @@
     function setOpacity(value) {
       const numeric = Math.min(95, Math.max(35, Number(value) || 70));
       const opacity = numeric / 100;
-      widget.style.setProperty('--timeline-opacity', opacity.toFixed(2));
+      widget.style.opacity = opacity.toFixed(2);
       opacityInput.value = String(numeric);
       opacityValue.textContent = `${numeric}%`;
       localStorage.setItem(opacityKey, String(numeric));
