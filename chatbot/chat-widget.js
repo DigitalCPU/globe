@@ -25,7 +25,8 @@
       const widgetUrl = new URL('widget.html?v=module1', script ? script.src : window.location.href);
       const response = await fetch(widgetUrl);
       if (!response.ok) throw new Error(`Widget markup failed: ${response.status}`);
-      document.body.insertAdjacentHTML('beforeend', await response.text());
+      const host = document.getElementById('container') || document.body;
+      host.insertAdjacentHTML('beforeend', await response.text());
       return true;
     } catch (error) {
       console.error(error);
