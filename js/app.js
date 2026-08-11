@@ -468,6 +468,8 @@
 
     const coastlines = new THREE.Group();
     earth.add(coastlines);
+    let countryFeatures = [];
+    let countrySelector = null;
 
     function addFallbackCoastlines() {
       fallbackLandShapes.forEach((shape) => {
@@ -494,13 +496,37 @@
       }
     }
 
+    async function loadCountryNames() {
+      try {
+        const response = await fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.tsv');
+        if (!response.ok) return {};
+        const text = await response.text();
+        return Object.fromEntries(text.trim().split(/\r?\n/).slice(1).map((line) => {
+          const [id, name] = line.split('\t');
+          return [id, name];
+        }).filter(([id, name]) => id && name));
+      } catch (error) {
+        console.warn('Country names failed to load.', error);
+        return {};
+      }
+    }
+
     async function loadAccurateCoastlines() {
       try {
-        const response = await fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json');
+        const [response, countryNames] = await Promise.all([
+          fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json'),
+          loadCountryNames()
+        ]);
         if (!response.ok) throw new Error(`World map request failed: ${response.status}`);
 
         const world = await response.json();
         const countries = topojson.feature(world, world.objects.countries);
+        countries.features.forEach((feature) => {
+          if (!feature.properties) feature.properties = {};
+          feature.properties.name = countryNames[feature.id] || feature.properties.name;
+        });
+        countryFeatures = countries.features;
+        if (countrySelector) countrySelector.setCountries(countryFeatures);
         countries.features.forEach((feature) => drawCountryGeometry(feature.geometry));
       } catch (error) {
         console.warn('Using fallback continent outlines because world-atlas failed to load.', error);
@@ -610,6 +636,20 @@ const distanceLines = new THREE.Group();
     const raycaster = new THREE.Raycaster();
     raycaster.params.Points.threshold = 0.075;
     const mouse = new THREE.Vector2();
+    countrySelector = window.createCountrySelectorManager({
+      THREE,
+      earth,
+      shell,
+      radius,
+      renderer,
+      camera,
+      container,
+      raycaster,
+      mouse,
+      latLonToVector,
+      getEarthEvents: () => earthEvents
+    });
+    countrySelector.setCountries(countryFeatures);
     const cameraFocus = {
       mode: 'earth',
       object: null,
@@ -733,15 +773,24 @@ const distanceLines = new THREE.Group();
       moved: false
     };
 
-    renderer.domElement.addEventListener('contextmenu', (event) => event.preventDefault());
+    renderer.domElement.addEventListener('contextmenu', (event) => {
+      event.preventDefault();
+      countrySelector.selectAtEvent(event);
+    });
 
     renderer.domElement.addEventListener('pointerdown', (event) => {
+      if (event.button === 2) {
+        countrySelector.selectAtEvent(event);
+        return;
+      }
       if (event.button > 1) return;
 
       const hit = getSatelliteHit(event);
       if (hit) {
         focusSatellite(hit);
       }
+
+      if (event.pointerType === 'touch') countrySelector.beginLongPress(event);
 
       pointer.active = true;
       pointer.id = event.pointerId;
@@ -765,6 +814,7 @@ const distanceLines = new THREE.Group();
       pointer.x = event.clientX;
       pointer.y = event.clientY;
       pointer.moved = pointer.moved || Math.hypot(totalDx, totalDy) > 4;
+      countrySelector.moveLongPress(event);
 
       if (!pointer.moved && cameraFocus.mode === 'satellite') return;
 
@@ -779,12 +829,19 @@ const distanceLines = new THREE.Group();
       pointer.active = false;
       pointer.id = null;
       container.classList.remove('dragging');
+      countrySelector.cancelLongPress();
       renderer.domElement.releasePointerCapture(event.pointerId);
     }
 
     renderer.domElement.addEventListener('pointerup', stopDrag);
-    renderer.domElement.addEventListener('pointercancel', stopDrag);
-    renderer.domElement.addEventListener('pointerleave', hideHoverLabel);
+    renderer.domElement.addEventListener('pointercancel', (event) => {
+      countrySelector.cancelLongPress();
+      stopDrag(event);
+    });
+    renderer.domElement.addEventListener('pointerleave', () => {
+      countrySelector.cancelLongPress();
+      hideHoverLabel();
+    });
 
     renderer.domElement.addEventListener('wheel', (event) => {
       event.preventDefault();
@@ -1089,6 +1146,7 @@ const distanceLines = new THREE.Group();
     setSpaceBackground(localStorage.getItem(backgroundStorageKey) || 'black');
 
     function formatClock(date) {
+      if (countrySelector) return countrySelector.formatClock(date);
       const two = (value) => String(value).padStart(2, '0');
       return [
         two(date.getMonth() + 1),

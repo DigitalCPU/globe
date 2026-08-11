@@ -353,13 +353,86 @@
       text-decoration: underline;
     }
 
+    .country-panel {
+      position: absolute;
+      right: 14px;
+      bottom: 40px;
+      z-index: 3;
+      width: min(330px, calc(100% - 28px));
+      padding: 10px;
+      border: 1px solid rgba(84, 218, 255, 0.24);
+      border-radius: 8px;
+      background: rgba(2, 8, 12, 0.72);
+      box-shadow: 0 0 22px rgba(42, 205, 255, 0.1);
+      color: rgba(216, 247, 255, 0.9);
+      font-size: 12px;
+      pointer-events: auto;
+      backdrop-filter: blur(7px);
+    }
+
+    .country-panel[hidden] {
+      display: none;
+    }
+
+    .country-panel h2 {
+      margin: 0 0 3px;
+      font-size: 13px;
+      line-height: 1.2;
+    }
+
+    .country-panel p {
+      margin: 0 0 10px;
+      color: rgba(137, 239, 255, 0.76);
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 11px;
+      line-height: 1.35;
+    }
+
+    .country-panel label {
+      display: grid;
+      gap: 5px;
+      margin-top: 8px;
+    }
+
+    .country-panel select,
+    .country-panel input,
+    .country-panel button {
+      min-height: 30px;
+      border: 1px solid rgba(84, 218, 255, 0.32);
+      border-radius: 6px;
+      background: rgba(2, 18, 24, 0.92);
+      color: rgba(230, 252, 255, 0.95);
+      font: inherit;
+    }
+
+    .country-panel button {
+      margin-top: 8px;
+      background: rgba(18, 70, 84, 0.52);
+      cursor: pointer;
+    }
+
+    .country-panel button:hover {
+      background: rgba(30, 102, 122, 0.64);
+    }
+
+    .zip-row {
+      display: grid;
+      grid-template-columns: 1fr 84px;
+      gap: 8px;
+    }
+
     body.space-bg-white .timeline-widget {
       background: rgba(246, 251, 255, 0.78);
       color: rgba(8, 30, 38, 0.95);
     }
 
-    body.space-bg-white .timeline-list a {
+    body.space-bg-white .timeline-list a,
+    body.space-bg-white .country-panel {
       color: rgba(5, 40, 52, 0.98);
+    }
+
+    body.space-bg-white .country-panel {
+      background: rgba(246, 251, 255, 0.78);
     }
 
     canvas {
@@ -422,6 +495,13 @@
       .timeline-modes {
         padding-left: 8px;
         padding-right: 8px;
+      }
+
+      .country-panel {
+        right: 10px;
+        bottom: 54px;
+        width: min(260px, calc(100% - 20px));
+        font-size: 11px;
       }
     }
 
