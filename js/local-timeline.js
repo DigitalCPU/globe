@@ -2,6 +2,7 @@
   const NEWS_ENDPOINT = 'https://globe-qwen-relay.digitalcomputermail.workers.dev/api/news';
   const CHAT_ENDPOINT = 'https://globe-qwen-relay.digitalcomputermail.workers.dev/api/chat';
   const visibilityKey = 'digitalcpu:local-timeline-visible:v1';
+  const collapsedKey = 'digitalcpu:local-timeline-collapsed:v1';
 
   function $(id) {
     return document.getElementById(id);
@@ -102,13 +103,14 @@
     const list = $('timelineList');
     const placeLabel = $('timelinePlace');
     const refreshButton = $('timelineRefresh');
+    const toggleButton = $('timelineToggle');
     const recentButton = $('timelineRecent');
     const historyButton = $('timelineHistory');
     const summarizeButton = $('timelineSummarize');
     const summary = $('timelineSummary');
     const showInput = $('showTimeline');
 
-    if (!widget || !list || !placeLabel || !refreshButton || !recentButton || !historyButton || !summarizeButton) return;
+    if (!widget || !list || !placeLabel || !refreshButton || !toggleButton || !recentButton || !historyButton || !summarizeButton) return;
 
     const state = {
       location: null,
@@ -121,6 +123,14 @@
       widget.classList.toggle('is-hidden', !visible);
       if (showInput) showInput.checked = visible;
       localStorage.setItem(visibilityKey, visible ? '1' : '0');
+    }
+
+    function setCollapsed(collapsed) {
+      widget.classList.toggle('is-collapsed', collapsed);
+      toggleButton.textContent = collapsed ? '+' : '-';
+      toggleButton.setAttribute('aria-expanded', String(!collapsed));
+      toggleButton.setAttribute('aria-label', collapsed ? 'Expand news feed' : 'Minimize news feed');
+      localStorage.setItem(collapsedKey, collapsed ? '1' : '0');
     }
 
     function setMode(mode) {
@@ -156,6 +166,9 @@
     }
 
     refreshButton.addEventListener('click', loadTimeline);
+    toggleButton.addEventListener('click', () => {
+      setCollapsed(!widget.classList.contains('is-collapsed'));
+    });
     recentButton.addEventListener('click', () => setMode('recent'));
     historyButton.addEventListener('click', () => setMode('history'));
     summarizeButton.addEventListener('click', async () => {
@@ -187,6 +200,7 @@
     });
 
     setVisible(localStorage.getItem(visibilityKey) !== '0');
+    setCollapsed(localStorage.getItem(collapsedKey) === '1');
   }
 
   if (document.readyState === 'loading') {

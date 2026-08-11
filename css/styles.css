@@ -273,6 +273,18 @@
       display: none;
     }
 
+    .timeline-widget.is-collapsed {
+      grid-template-rows: auto;
+      width: min(250px, calc(100% - 28px));
+      max-height: none;
+    }
+
+    .timeline-widget.is-collapsed .timeline-modes,
+    .timeline-widget.is-collapsed .timeline-summary,
+    .timeline-widget.is-collapsed .timeline-list {
+      display: none;
+    }
+
     .timeline-header,
     .timeline-modes {
       display: flex;
@@ -283,6 +295,12 @@
 
     .timeline-header {
       justify-content: space-between;
+    }
+
+    .timeline-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
     }
 
     .timeline-header h2 {
@@ -317,6 +335,14 @@
 
     .timeline-header button {
       width: 74px;
+    }
+
+    .timeline-header #timelineToggle {
+      width: 30px;
+      min-width: 30px;
+      font-weight: 700;
+      font-size: 15px;
+      line-height: 1;
     }
 
     .timeline-modes button {
@@ -489,6 +515,10 @@
         width: min(260px, calc(100% - 20px));
         max-height: 38vh;
         font-size: 11px;
+      }
+
+      .timeline-widget.is-collapsed {
+        width: min(220px, calc(100% - 20px));
       }
 
       .timeline-header,

@@ -174,7 +174,10 @@
           <h2>Local Timeline</h2>
           <span id="timelinePlace">set location</span>
         </div>
-        <button id="timelineRefresh" type="button">Refresh</button>
+        <div class="timeline-actions">
+          <button id="timelineRefresh" type="button">Refresh</button>
+          <button id="timelineToggle" type="button" aria-expanded="true" aria-label="Minimize news feed">-</button>
+        </div>
       </div>
       <div class="timeline-modes" role="group" aria-label="Timeline mode">
         <button class="is-active" id="timelineRecent" type="button">Recent</button>
@@ -199,7 +202,7 @@
   <script src='js/space-weather.js'></script>
   <script src="js/country-selector.js?v=country1"></script>
   <script src='js/app.js?v=country1'></script>
-  <script src="js/local-timeline.js?v=timeline1"></script>
+  <script src="js/local-timeline.js?v=timeline2"></script>
   <script src="chatbot/chat-widget.js?v=fullscreen-chat1"></script>
 
 </body>
