@@ -13,6 +13,7 @@
     const spaceWeatherInput = document.getElementById('spaceWeather');
     const showCalendarInput = document.getElementById('showCalendar');
     const showWeatherInput = document.getElementById('showWeather');
+    const spaceBackgroundInput = document.getElementById('spaceBackground');
     const satelliteSourceInput = document.getElementById('satelliteSource');
     const slowTimeButton = document.getElementById('slowTime');
     const earthFocusButton = document.getElementById('earthFocus');
@@ -39,6 +40,7 @@
     const hoverLabel = document.getElementById('hoverLabel');
     const geoCollectEndpoint = 'https://globe-qwen-relay.digitalcomputermail.workers.dev/api/geo';
     const geoUserStorageKey = 'digitalcpu:globe-geo-user:v1';
+    const backgroundStorageKey = 'digitalcpu:globe-background:v1';
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x020406);
 
@@ -46,6 +48,17 @@
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     renderer.setSize(container.clientWidth, container.clientHeight);
     container.appendChild(renderer.domElement);
+
+    function setSpaceBackground(mode) {
+      const useWhite = mode === 'white';
+      const color = useWhite ? 0xf6fbff : 0x020406;
+      scene.background = new THREE.Color(color);
+      renderer.setClearColor(color, 1);
+      document.body.classList.toggle('space-bg-white', useWhite);
+      document.body.classList.toggle('space-bg-black', !useWhite);
+      if (spaceBackgroundInput) spaceBackgroundInput.value = useWhite ? 'white' : 'black';
+      localStorage.setItem(backgroundStorageKey, useWhite ? 'white' : 'black');
+    }
 
     const camera = new THREE.PerspectiveCamera(42, container.clientWidth / container.clientHeight, 0.1, 100000);
     camera.position.set(0, 0, 4.2);
@@ -1042,6 +1055,12 @@ const distanceLines = new THREE.Group();
       setWidgetVisible(weatherWidget, showWeatherInput.checked);
     });
 
+    if (spaceBackgroundInput) {
+      spaceBackgroundInput.addEventListener('change', () => {
+        setSpaceBackground(spaceBackgroundInput.value);
+      });
+    }
+
     satelliteSourceInput.addEventListener('change', () => {
       focusEarth();
       hideHoverLabel();
@@ -1067,6 +1086,7 @@ const distanceLines = new THREE.Group();
     spaceWeather.setVisible(spaceWeatherInput.checked);
     setWidgetVisible(calendarWidget, showCalendarInput.checked);
     setWidgetVisible(weatherWidget, showWeatherInput.checked);
+    setSpaceBackground(localStorage.getItem(backgroundStorageKey) || 'black');
 
     function formatClock(date) {
       const two = (value) => String(value).padStart(2, '0');

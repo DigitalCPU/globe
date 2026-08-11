@@ -8,11 +8,21 @@
       font-family: system-ui, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
     }
 
+    body.space-bg-white {
+      background: #f6fbff;
+      color: #09212b;
+    }
+
     #container {
       position: relative;
       width: 100%;
       height: 100%;
+      background: #020406;
       cursor: grab;
+    }
+
+    body.space-bg-white #container {
+      background: #f6fbff;
     }
 
     #container.dragging {
