@@ -891,7 +891,7 @@ const distanceLines = new THREE.Group();
       panel.classList.toggle('is-minimized', minimized);
       togglePanelButton.textContent = minimized ? '+' : '-';
       togglePanelButton.setAttribute('aria-expanded', String(!minimized));
-      togglePanelButton.setAttribute('aria-label', minimized ? 'Show controls' : 'Minimize controls');
+      togglePanelButton.setAttribute('aria-label', minimized ? 'Show settings' : 'Minimize settings');
     }
 
     togglePanelButton.addEventListener('click', () => {
