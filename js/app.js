@@ -45,6 +45,14 @@
     const zoomStick = document.getElementById('zoomStick');
     const directionHalo = document.getElementById('directionHalo');
     const directionStick = document.getElementById('directionStick');
+    const lockScreen = document.getElementById('lockScreen');
+    const lockForm = document.getElementById('lockForm');
+    const lockUsername = document.getElementById('lockUsername');
+    const lockTime = document.getElementById('lockTime');
+    const lockMeridiem = document.getElementById('lockMeridiem');
+    const lockSubtime = document.getElementById('lockSubtime');
+    const lockMonth = document.getElementById('lockMonth');
+    const lockCalendarGrid = document.getElementById('lockCalendarGrid');
     const hoverLabel = document.getElementById('hoverLabel');
     const geoCollectEndpoint = 'https://globe-qwen-relay.digitalcomputermail.workers.dev/api/geo';
     const geoUserStorageKey = 'digitalcpu:globe-geo-user:v1';
@@ -1114,6 +1122,57 @@ const distanceLines = new THREE.Group();
       ].join(':');
     }
 
+    function updateLockCalendar(date) {
+      if (!lockCalendarGrid || !lockMonth) return;
+      const monthFormatter = new Intl.DateTimeFormat(undefined, { month: 'long', year: 'numeric' });
+      lockMonth.textContent = monthFormatter.format(date);
+      lockCalendarGrid.textContent = '';
+      ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'].forEach((dayName) => {
+        const cell = document.createElement('span');
+        cell.className = 'lock-day-name';
+        cell.textContent = dayName;
+        lockCalendarGrid.appendChild(cell);
+      });
+
+      const year = date.getFullYear();
+      const month = date.getMonth();
+      const firstDay = new Date(year, month, 1).getDay();
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+      for (let index = 0; index < firstDay; index += 1) {
+        lockCalendarGrid.appendChild(document.createElement('span'));
+      }
+      for (let day = 1; day <= daysInMonth; day += 1) {
+        const cell = document.createElement('span');
+        cell.textContent = String(day);
+        if (day === date.getDate()) cell.classList.add('is-today');
+        lockCalendarGrid.appendChild(cell);
+      }
+    }
+
+    function updateLockScreenTime(date) {
+      if (!lockTime || !lockMeridiem || !lockSubtime) return;
+      const two = (value) => String(value).padStart(2, '0');
+      const hours = date.getHours();
+      const displayHour = hours % 12 || 12;
+      lockTime.textContent = `${two(displayHour)}:${two(date.getMinutes())}:${two(date.getSeconds())}`;
+      lockMeridiem.textContent = hours >= 12 ? 'PM' : 'AM';
+      lockSubtime.textContent = `${two(date.getMonth() + 1)}:${two(date.getDate())}:${two(date.getFullYear() % 100)}`;
+    }
+
+    function openLockScreen() {
+      lockScreen?.classList.add('is-active');
+      lockScreen?.setAttribute('aria-hidden', 'false');
+      updateLockCalendar(new Date());
+      updateLockScreenTime(new Date());
+      setTimeout(() => lockUsername?.focus(), 0);
+    }
+
+    function closeLockScreen() {
+      lockScreen?.classList.remove('is-active');
+      lockScreen?.setAttribute('aria-hidden', 'true');
+      if (lockForm) lockForm.reset();
+    }
+
     function weatherCodeLabel(code) {
       if (code === 0) return 'clear';
       if ([1, 2, 3].includes(code)) return 'clouds';
@@ -1270,6 +1329,17 @@ const distanceLines = new THREE.Group();
       setWidgetVisible(calendarWidget, showCalendarInput.checked);
     });
 
+    if (calendarWidget) {
+      calendarWidget.addEventListener('click', openLockScreen);
+    }
+
+    if (lockForm) {
+      lockForm.addEventListener('submit', (event) => {
+        event.preventDefault();
+        closeLockScreen();
+      });
+    }
+
     showWeatherInput.addEventListener('change', () => {
       setWidgetVisible(weatherWidget, showWeatherInput.checked);
     });
@@ -1352,6 +1422,7 @@ const distanceLines = new THREE.Group();
       sun.rotation.y += 0.00035;
       clock.textContent = formatClock(simulatedDate);
       updateCalendarWidget(simulatedDate);
+      if (lockScreen?.classList.contains('is-active')) updateLockScreenTime(currentDate);
       sunDirection.textContent = `subsolar ${solarPosition.subsolarLongitude.toFixed(1)} lon / ${solarPosition.declination.toFixed(1)} lat`;
       sunDistance.textContent = `distance ${(earthSunDistance / radius).toLocaleString(undefined, { maximumFractionDigits: 0 })} Earth radii`;
 

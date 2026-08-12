@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Wire Mesh Earth</title>
-  <link rel='stylesheet' href='css/styles.css?v=controller1'>
+  <link rel='stylesheet' href='css/styles.css?v=lockscreen1'>
   <link rel="stylesheet" href="chatbot/styles.css?v=startdefaults1">
 
 </head>
@@ -12,10 +12,10 @@
   <div id="container">
     <div class="info">Left-click and drag to rotate the solar model - wheel to zoom</div>
     <div class="top-widgets" aria-label="Calendar and weather">
-      <div class="mini-widget" id="calendarWidget">
+      <button class="mini-widget" id="calendarWidget" type="button" aria-haspopup="dialog">
         <span id="calendarDate">--/--/--</span>
         <span id="calendarTime">--:--:--</span>
-      </div>
+      </button>
       <div class="mini-widget" id="weatherWidget">
         <span id="weatherTemp">Weather --</span>
         <span id="weatherMeta">set location</span>
@@ -219,6 +219,25 @@
     <div class="credits">DigitalCPU / globe</div>
   </div>
 
+  <section class="lock-screen" id="lockScreen" aria-label="Calendar lock screen" aria-hidden="true">
+    <div class="lock-time">
+      <span id="lockTime">--:--:--</span>
+      <span class="lock-meridiem" id="lockMeridiem">--</span>
+      <span class="lock-subtime" id="lockSubtime">--:--:--</span>
+    </div>
+    <h2>Screen is locked</h2>
+    <form class="lock-form" id="lockForm">
+      <input id="lockUsername" type="text" autocomplete="username" placeholder="user name">
+      <input id="lockPassword" type="password" autocomplete="current-password" placeholder="password">
+      <button type="submit">unlock</button>
+    </form>
+    <div class="lock-calendar">
+      <h3 id="lockMonth">MONTH YEAR</h3>
+      <div class="lock-calendar-rule"></div>
+      <div class="lock-grid" id="lockCalendarGrid" aria-label="Monthly calendar"></div>
+    </div>
+  </section>
+
   <script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/satellite.js@5/dist/satellite.min.js"></script>
@@ -227,7 +246,7 @@
   <script src='js/earth-events.js'></script>
   <script src='js/space-weather.js'></script>
   <script src="js/country-selector.js?v=country1"></script>
-  <script src='js/app.js?v=controller1'></script>
+  <script src='js/app.js?v=lockscreen1'></script>
   <script src="js/local-timeline.js?v=timeline4"></script>
   <script src="chatbot/chat-widget.js?v=fullscreen-chat1"></script>
 

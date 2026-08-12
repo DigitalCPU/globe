@@ -82,6 +82,7 @@
     }
 
     .mini-widget {
+      border: 1px solid rgba(84, 218, 255, 0.22);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -91,7 +92,6 @@
       height: 36px;
       box-sizing: border-box;
       padding: 4px 10px;
-      border: 1px solid rgba(84, 218, 255, 0.22);
       border-radius: 7px;
       background: rgba(2, 8, 12, 0.58);
       color: rgba(222, 251, 255, 0.9);
@@ -102,6 +102,15 @@
       backdrop-filter: blur(5px);
       white-space: nowrap;
       overflow: hidden;
+    }
+
+    button.mini-widget {
+      pointer-events: auto;
+      cursor: pointer;
+    }
+
+    button.mini-widget:hover {
+      background: rgba(30, 102, 122, 0.64);
     }
 
     .mini-widget span:last-child {
@@ -569,6 +578,158 @@
       height: 1px;
     }
 
+    .lock-screen {
+      position: fixed;
+      inset: 0;
+      z-index: 500;
+      display: none;
+      overflow: hidden;
+      background: #000;
+      color: #fff;
+      font-family: Consolas, "Courier New", monospace;
+      text-align: center;
+      text-shadow: 0 0 8px rgba(255, 255, 255, 0.95), 0 0 16px rgba(255, 255, 255, 0.62);
+    }
+
+    .lock-screen.is-active {
+      display: block;
+    }
+
+    .lock-time {
+      position: absolute;
+      left: 50%;
+      top: 16px;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      gap: 8px;
+      transform: translateX(-50%);
+      white-space: nowrap;
+    }
+
+    .lock-time > span:first-child {
+      font-size: clamp(52px, 10vw, 108px);
+      line-height: 0.86;
+      letter-spacing: 2px;
+    }
+
+    .lock-meridiem {
+      margin-top: 13px;
+      font-size: clamp(22px, 3vw, 36px);
+      line-height: 1;
+    }
+
+    .lock-subtime {
+      position: absolute;
+      right: 0;
+      top: clamp(34px, 6.6vw, 72px);
+      font-size: clamp(13px, 2vw, 24px);
+      line-height: 1;
+    }
+
+    .lock-screen h2 {
+      position: absolute;
+      left: 50%;
+      top: clamp(94px, 15vw, 148px);
+      margin: 0;
+      transform: translateX(-50%);
+      font-size: clamp(28px, 5vw, 58px);
+      font-weight: 500;
+      white-space: nowrap;
+    }
+
+    .lock-form {
+      position: absolute;
+      left: 50%;
+      top: clamp(154px, 24vw, 222px);
+      display: grid;
+      width: min(292px, calc(100% - 40px));
+      gap: 8px;
+      transform: translateX(-50%);
+    }
+
+    .lock-form input,
+    .lock-form button {
+      height: 41px;
+      box-sizing: border-box;
+      border: 3px solid rgba(255, 255, 255, 0.95);
+      border-radius: 0;
+      background: #000;
+      color: #fff;
+      font: 700 13px Consolas, "Courier New", monospace;
+      outline: none;
+      box-shadow: 0 0 8px rgba(255, 255, 255, 0.38);
+    }
+
+    .lock-form input {
+      padding: 0 10px;
+      text-align: left;
+    }
+
+    .lock-form input::placeholder {
+      color: #fff;
+      font-style: italic;
+      opacity: 0.95;
+    }
+
+    .lock-form button {
+      display: none;
+    }
+
+    .lock-calendar {
+      position: absolute;
+      left: max(8px, 3vw);
+      bottom: max(16px, 6vh);
+      width: min(338px, calc(100% - 18px));
+      color: #5b78ff;
+      text-align: left;
+      text-shadow: 0 0 7px rgba(86, 116, 255, 0.95), 0 0 15px rgba(86, 116, 255, 0.58);
+    }
+
+    .lock-calendar h3 {
+      margin: 0 0 10px;
+      font-size: clamp(34px, 4vw, 44px);
+      font-weight: 500;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+
+    .lock-calendar-rule {
+      height: 1px;
+      margin-bottom: 15px;
+      background: rgba(86, 116, 255, 0.82);
+      box-shadow: 0 0 8px rgba(86, 116, 255, 0.7);
+    }
+
+    .lock-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      border-top: 1px solid rgba(86, 116, 255, 0.82);
+      border-left: 1px solid rgba(86, 116, 255, 0.82);
+      font-size: 28px;
+      line-height: 1;
+    }
+
+    .lock-grid span {
+      display: grid;
+      min-height: 46px;
+      place-items: center;
+      border-right: 1px solid rgba(86, 116, 255, 0.82);
+      border-bottom: 1px solid rgba(86, 116, 255, 0.82);
+      box-sizing: border-box;
+    }
+
+    .lock-grid .lock-day-name {
+      min-height: 22px;
+      font-size: 10px;
+      text-transform: uppercase;
+    }
+
+    .lock-grid .is-today {
+      color: #fff;
+      text-shadow: 0 0 8px rgba(255, 255, 255, 0.9), 0 0 14px rgba(86, 116, 255, 0.9);
+    }
+
     .country-panel {
       position: absolute;
       right: 14px;
@@ -649,6 +810,11 @@
 
     body.space-bg-white .country-panel {
       background: rgba(246, 251, 255, 0.78);
+    }
+
+    body.space-bg-white .lock-screen {
+      background: #000;
+      color: #fff;
     }
 
     canvas {
@@ -843,6 +1009,55 @@
         bottom: 54px;
         width: min(260px, calc(100% - 20px));
         font-size: 11px;
+      }
+
+      .lock-time {
+        top: 22px;
+      }
+
+      .lock-time > span:first-child {
+        font-size: 46px;
+      }
+
+      .lock-meridiem {
+        margin-top: 8px;
+        font-size: 16px;
+      }
+
+      .lock-subtime {
+        top: 42px;
+        font-size: 11px;
+      }
+
+      .lock-screen h2 {
+        top: 92px;
+        font-size: 25px;
+      }
+
+      .lock-form {
+        top: 138px;
+        width: min(292px, calc(100% - 44px));
+      }
+
+      .lock-form input {
+        height: 38px;
+      }
+
+      .lock-calendar {
+        bottom: 12px;
+        width: calc(100% - 16px);
+      }
+
+      .lock-calendar h3 {
+        font-size: 30px;
+      }
+
+      .lock-grid {
+        font-size: 21px;
+      }
+
+      .lock-grid span {
+        min-height: 34px;
       }
     }
 
