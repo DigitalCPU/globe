@@ -555,10 +555,87 @@
       display: block;
     }
 
+    @media (max-width: 900px) {
+      .top-widgets {
+        max-width: calc(100% - 168px);
+      }
+
+      .mini-widget {
+        min-width: 104px;
+        padding-left: 8px;
+        padding-right: 8px;
+        font-size: 10px;
+      }
+
+      .timeline-widget {
+        top: 58px;
+        width: min(390px, calc(100% - 28px));
+      }
+
+      .timeline-widget.is-collapsed {
+        top: 12px;
+      }
+    }
+
+    @media (max-width: 700px) {
+      .top-widgets {
+        left: 68px;
+        right: 10px;
+        top: 44px;
+        justify-content: center;
+        gap: 5px;
+        max-width: none;
+        transform: none;
+      }
+
+      .mini-widget {
+        flex: 1 1 0;
+        min-width: 0;
+        max-width: 148px;
+        padding-left: 6px;
+        padding-right: 6px;
+      }
+
+      .account-button {
+        left: 10px;
+        top: 10px;
+        width: 48px;
+        height: 30px;
+        font-size: 11px;
+      }
+
+      .info {
+        left: 10px;
+        top: 84px;
+        max-width: calc(100% - 20px);
+        font-size: 11px;
+      }
+
+      .panel {
+        left: 10px;
+        top: 86px;
+        width: min(224px, calc(100% - 20px));
+      }
+
+      .timeline-widget {
+        right: 10px;
+        top: 92px;
+        width: min(340px, calc(100% - 20px));
+        height: min(315px, calc(100dvh - 110px));
+        max-height: 42dvh;
+      }
+
+      .timeline-widget.is-collapsed {
+        right: 10px;
+        top: 10px;
+        min-width: 114px;
+      }
+    }
+
     @media (max-width: 520px) {
       .info {
         left: 12px;
-        top: 76px;
+        top: 86px;
         font-size: 11px;
       }
 
@@ -573,15 +650,19 @@
       }
 
       .top-widgets {
-        top: 34px;
+        left: 66px;
+        right: 10px;
+        top: 44px;
         gap: 5px;
+        transform: none;
       }
 
       .mini-widget {
-        min-width: 114px;
+        min-width: 0;
+        max-width: none;
         width: auto;
         height: 36px;
-        padding: 4px 8px;
+        padding: 4px 6px;
         font-size: 10px;
       }
 
@@ -595,7 +676,7 @@
 
       .panel {
         left: 10px;
-        top: 42px;
+        top: 86px;
         width: min(210px, calc(100% - 20px));
         padding: 10px;
         font-size: 11px;
@@ -611,14 +692,15 @@
 
       .timeline-widget {
         right: 10px;
-        top: 70px;
+        top: 92px;
         width: min(260px, calc(100% - 20px));
-        height: min(315px, calc(100dvh - 86px));
+        height: min(315px, calc(100dvh - 110px));
         max-height: 30vh;
         font-size: 11px;
       }
 
       .timeline-widget.is-collapsed {
+        top: 10px;
         min-width: 114px;
         width: auto;
         height: 36px;

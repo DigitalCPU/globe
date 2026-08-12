@@ -127,6 +127,21 @@
 
     applyCameraDistance();
 
+    function updateDeviceFormatClasses() {
+      const width = window.innerWidth || document.documentElement.clientWidth || 0;
+      const height = window.innerHeight || document.documentElement.clientHeight || 0;
+      const isCoarsePointer = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+      const nextFormat = width <= 700 ? 'phone' : width <= 1024 ? 'tablet' : 'desktop';
+      document.body.classList.toggle('format-phone', nextFormat === 'phone');
+      document.body.classList.toggle('format-tablet', nextFormat === 'tablet');
+      document.body.classList.toggle('format-desktop', nextFormat === 'desktop');
+      document.body.classList.toggle('format-landscape', width > height);
+      document.body.classList.toggle('format-portrait', width <= height);
+      document.body.classList.toggle('format-touch', Boolean(isCoarsePointer));
+    }
+
+    updateDeviceFormatClasses();
+
     const sun = new THREE.Group();
     solarSystem.add(sun);
 
@@ -865,6 +880,7 @@ const distanceLines = new THREE.Group();
     }, { passive: false });
 
     window.addEventListener('resize', () => {
+      updateDeviceFormatClasses();
       camera.aspect = container.clientWidth / container.clientHeight;
       camera.updateProjectionMatrix();
       renderer.setSize(container.clientWidth, container.clientHeight);
