@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Wire Mesh Earth</title>
-  <link rel='stylesheet' href='css/styles.css?v=locktheme1'>
+  <link rel='stylesheet' href='css/styles.css?v=locktheme2'>
   <link rel="stylesheet" href="chatbot/styles.css?v=startdefaults1">
 
 </head>
@@ -226,9 +226,9 @@
       <span class="lock-subtime" id="lockSubtime">--:--:--</span>
     </div>
     <h2>Globe access locked</h2>
-    <form class="lock-form" id="lockForm">
-      <input id="lockUsername" type="text" autocomplete="username" placeholder="user name">
-      <input id="lockPassword" type="password" autocomplete="current-password" placeholder="password">
+    <form class="lock-form" id="lockForm" autocomplete="off">
+      <input id="lockUsername" name="globe-lock-user" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="user name">
+      <input id="lockPassword" name="globe-lock-pass" type="password" autocomplete="new-password" placeholder="password">
       <button type="submit">unlock</button>
     </form>
     <div class="lock-calendar">
@@ -246,7 +246,7 @@
   <script src='js/earth-events.js'></script>
   <script src='js/space-weather.js'></script>
   <script src="js/country-selector.js?v=country1"></script>
-  <script src='js/app.js?v=locktheme1'></script>
+  <script src='js/app.js?v=locktheme2'></script>
   <script src="js/local-timeline.js?v=timeline4"></script>
   <script src="chatbot/chat-widget.js?v=fullscreen-chat1"></script>
 

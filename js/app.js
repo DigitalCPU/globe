@@ -48,6 +48,7 @@
     const lockScreen = document.getElementById('lockScreen');
     const lockForm = document.getElementById('lockForm');
     const lockUsername = document.getElementById('lockUsername');
+    const lockPassword = document.getElementById('lockPassword');
     const lockTime = document.getElementById('lockTime');
     const lockMeridiem = document.getElementById('lockMeridiem');
     const lockSubtime = document.getElementById('lockSubtime');
@@ -1160,6 +1161,9 @@ const distanceLines = new THREE.Group();
     }
 
     function openLockScreen() {
+      if (lockForm) lockForm.reset();
+      if (lockUsername) lockUsername.value = '';
+      if (lockPassword) lockPassword.value = '';
       lockScreen?.classList.add('is-active');
       lockScreen?.setAttribute('aria-hidden', 'false');
       updateLockCalendar(new Date());
@@ -1171,6 +1175,8 @@ const distanceLines = new THREE.Group();
       lockScreen?.classList.remove('is-active');
       lockScreen?.setAttribute('aria-hidden', 'true');
       if (lockForm) lockForm.reset();
+      if (lockUsername) lockUsername.value = '';
+      if (lockPassword) lockPassword.value = '';
     }
 
     function weatherCodeLabel(code) {
