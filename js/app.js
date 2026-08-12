@@ -39,6 +39,12 @@
     const weatherWidget = document.getElementById('weatherWidget');
     const weatherTemp = document.getElementById('weatherTemp');
     const weatherMeta = document.getElementById('weatherMeta');
+    const controllerButton = document.getElementById('controllerButton');
+    const controllerOverlay = document.getElementById('controllerOverlay');
+    const zoomHalo = document.getElementById('zoomHalo');
+    const zoomStick = document.getElementById('zoomStick');
+    const directionHalo = document.getElementById('directionHalo');
+    const directionStick = document.getElementById('directionStick');
     const hoverLabel = document.getElementById('hoverLabel');
     const geoCollectEndpoint = 'https://globe-qwen-relay.digitalcomputermail.workers.dev/api/geo';
     const geoUserStorageKey = 'digitalcpu:globe-geo-user:v1';
@@ -112,6 +118,14 @@
     const moonViewOrbitOffset = 4.05;
     const sphereGeometry = new THREE.SphereGeometry(radius, 48, 32);
     let zoomOffset = 2.1;
+    const virtualController = {
+      enabled: false,
+      zoomPointerId: null,
+      directionPointerId: null,
+      zoom: 0,
+      rotateX: 0,
+      rotateY: 0
+    };
 
     function getDefaultCameraZ() {
       const verticalFov = THREE.MathUtils.degToRad(camera.fov);
@@ -126,6 +140,68 @@
     }
 
     applyCameraDistance();
+
+    function setControllerStickPosition(stick, x, y) {
+      if (!stick) return;
+      stick.style.transform = `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))`;
+    }
+
+    function resetControllerInputs() {
+      virtualController.zoomPointerId = null;
+      virtualController.directionPointerId = null;
+      virtualController.zoom = 0;
+      virtualController.rotateX = 0;
+      virtualController.rotateY = 0;
+      setControllerStickPosition(zoomStick, 0, 0);
+      setControllerStickPosition(directionStick, 0, 0);
+    }
+
+    function setControllerEnabled(enabled) {
+      virtualController.enabled = enabled;
+      controllerOverlay?.classList.toggle('is-active', enabled);
+      controllerOverlay?.setAttribute('aria-hidden', String(!enabled));
+      controllerButton?.classList.toggle('is-active', enabled);
+      controllerButton?.setAttribute('aria-pressed', String(enabled));
+      if (!enabled) resetControllerInputs();
+    }
+
+    function updateZoomHalo(event) {
+      if (!zoomHalo) return;
+      const rect = zoomHalo.getBoundingClientRect();
+      const centerY = rect.top + rect.height / 2;
+      const limit = rect.height * 0.34;
+      const y = THREE.MathUtils.clamp(event.clientY - centerY, -limit, limit);
+      virtualController.zoom = y / limit;
+      setControllerStickPosition(zoomStick, 0, y);
+    }
+
+    function updateDirectionHalo(event) {
+      if (!directionHalo) return;
+      const rect = directionHalo.getBoundingClientRect();
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+      const limit = rect.width * 0.34;
+      const x = THREE.MathUtils.clamp(event.clientX - centerX, -limit, limit);
+      const y = THREE.MathUtils.clamp(event.clientY - centerY, -limit, limit);
+      virtualController.rotateY = x / limit;
+      virtualController.rotateX = y / limit;
+      setControllerStickPosition(directionStick, x, y);
+    }
+
+    function applyVirtualControllerInput() {
+      if (!virtualController.enabled) return;
+      if (virtualController.directionPointerId !== null) {
+        solarSystem.rotation.y += virtualController.rotateY * 0.035;
+        solarSystem.rotation.x += virtualController.rotateX * 0.026;
+        solarSystem.rotation.x = THREE.MathUtils.clamp(solarSystem.rotation.x, -Math.PI * 0.48, Math.PI * 0.48);
+      }
+      if (virtualController.zoomPointerId !== null) {
+        if (cameraFocus.mode === 'satellite') focusEarth();
+        zoomOffset += virtualController.zoom * 0.08;
+        zoomOffset = THREE.MathUtils.clamp(zoomOffset, -4.2, 12);
+        applyCameraDistance();
+      }
+    }
 
     function updateDeviceFormatClasses() {
       const width = window.innerWidth || document.documentElement.clientWidth || 0;
@@ -916,6 +992,65 @@ const distanceLines = new THREE.Group();
 
     setPanelMinimized(true);
 
+    if (controllerButton) {
+      controllerButton.addEventListener('click', () => {
+        setControllerEnabled(!virtualController.enabled);
+      });
+    }
+
+    if (zoomHalo) {
+      zoomHalo.addEventListener('pointerdown', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        virtualController.zoomPointerId = event.pointerId;
+        zoomHalo.setPointerCapture(event.pointerId);
+        updateZoomHalo(event);
+      });
+
+      zoomHalo.addEventListener('pointermove', (event) => {
+        if (virtualController.zoomPointerId !== event.pointerId) return;
+        event.preventDefault();
+        updateZoomHalo(event);
+      });
+
+      const stopZoomControl = (event) => {
+        if (virtualController.zoomPointerId !== event.pointerId) return;
+        virtualController.zoomPointerId = null;
+        virtualController.zoom = 0;
+        setControllerStickPosition(zoomStick, 0, 0);
+      };
+
+      zoomHalo.addEventListener('pointerup', stopZoomControl);
+      zoomHalo.addEventListener('pointercancel', stopZoomControl);
+    }
+
+    if (directionHalo) {
+      directionHalo.addEventListener('pointerdown', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        virtualController.directionPointerId = event.pointerId;
+        directionHalo.setPointerCapture(event.pointerId);
+        updateDirectionHalo(event);
+      });
+
+      directionHalo.addEventListener('pointermove', (event) => {
+        if (virtualController.directionPointerId !== event.pointerId) return;
+        event.preventDefault();
+        updateDirectionHalo(event);
+      });
+
+      const stopDirectionControl = (event) => {
+        if (virtualController.directionPointerId !== event.pointerId) return;
+        virtualController.directionPointerId = null;
+        virtualController.rotateX = 0;
+        virtualController.rotateY = 0;
+        setControllerStickPosition(directionStick, 0, 0);
+      };
+
+      directionHalo.addEventListener('pointerup', stopDirectionControl);
+      directionHalo.addEventListener('pointercancel', stopDirectionControl);
+    }
+
     function isFullscreen() {
       return Boolean(
         document.fullscreenElement
@@ -1239,6 +1374,7 @@ const distanceLines = new THREE.Group();
       visibleSatellites.textContent = visibleCount === null
         ? 'visible sats set location'
         : `visible sats ${visibleCount.toLocaleString()}`;
+      applyVirtualControllerInput();
       updateCameraFocus();
       renderer.render(scene, camera);
       requestAnimationFrame(animate);
