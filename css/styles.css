@@ -584,11 +584,14 @@
       z-index: 500;
       display: none;
       overflow: hidden;
-      background: #000;
-      color: #fff;
+      background:
+        radial-gradient(circle at 50% 32%, rgba(75, 214, 255, 0.12), transparent 30%),
+        linear-gradient(180deg, rgba(2, 8, 12, 0.95), rgba(0, 3, 5, 0.98));
+      color: rgba(222, 251, 255, 0.95);
       font-family: Consolas, "Courier New", monospace;
       text-align: center;
-      text-shadow: 0 0 8px rgba(255, 255, 255, 0.95), 0 0 16px rgba(255, 255, 255, 0.62);
+      text-shadow: 0 0 10px rgba(63, 213, 255, 0.55);
+      backdrop-filter: blur(10px);
     }
 
     .lock-screen.is-active {
@@ -608,21 +611,28 @@
     }
 
     .lock-time > span:first-child {
+      color: rgba(232, 253, 255, 0.98);
+      font-family: "Seven Segment", "DSEG7 Classic", "DSEG7Classic-Regular", "Digital-7", "DS-Digital", "LCD", Consolas, "Courier New", monospace;
       font-size: clamp(52px, 10vw, 108px);
+      font-weight: 400;
       line-height: 0.86;
       letter-spacing: 2px;
+      text-shadow: 0 0 8px rgba(180, 248, 255, 0.92), 0 0 24px rgba(75, 214, 255, 0.42);
     }
 
     .lock-meridiem {
       margin-top: 13px;
+      color: rgba(137, 239, 255, 0.9);
       font-size: clamp(22px, 3vw, 36px);
       line-height: 1;
+      text-shadow: 0 0 10px rgba(75, 214, 255, 0.62);
     }
 
     .lock-subtime {
       position: absolute;
       right: 0;
       top: clamp(34px, 6.6vw, 72px);
+      color: rgba(137, 239, 255, 0.76);
       font-size: clamp(13px, 2vw, 24px);
       line-height: 1;
     }
@@ -633,9 +643,11 @@
       top: clamp(94px, 15vw, 148px);
       margin: 0;
       transform: translateX(-50%);
-      font-size: clamp(28px, 5vw, 58px);
-      font-weight: 500;
+      color: rgba(216, 247, 255, 0.86);
+      font-size: clamp(22px, 4vw, 42px);
+      font-weight: 650;
       white-space: nowrap;
+      text-shadow: 0 0 14px rgba(75, 214, 255, 0.42);
     }
 
     .lock-form {
@@ -650,15 +662,16 @@
 
     .lock-form input,
     .lock-form button {
-      height: 41px;
+      height: 38px;
       box-sizing: border-box;
-      border: 3px solid rgba(255, 255, 255, 0.95);
-      border-radius: 0;
-      background: #000;
-      color: #fff;
-      font: 700 13px Consolas, "Courier New", monospace;
+      border: 1px solid rgba(84, 218, 255, 0.42);
+      border-radius: 6px;
+      background: rgba(2, 18, 24, 0.74);
+      color: rgba(230, 252, 255, 0.96);
+      font: 700 12px Consolas, "Courier New", monospace;
       outline: none;
-      box-shadow: 0 0 8px rgba(255, 255, 255, 0.38);
+      box-shadow: 0 0 18px rgba(42, 205, 255, 0.12);
+      backdrop-filter: blur(6px);
     }
 
     .lock-form input {
@@ -667,7 +680,7 @@
     }
 
     .lock-form input::placeholder {
-      color: #fff;
+      color: rgba(137, 239, 255, 0.8);
       font-style: italic;
       opacity: 0.95;
     }
@@ -681,9 +694,9 @@
       left: max(8px, 3vw);
       bottom: max(16px, 6vh);
       width: min(338px, calc(100% - 18px));
-      color: #5b78ff;
+      color: rgba(137, 239, 255, 0.92);
       text-align: left;
-      text-shadow: 0 0 7px rgba(86, 116, 255, 0.95), 0 0 15px rgba(86, 116, 255, 0.58);
+      text-shadow: 0 0 10px rgba(63, 213, 255, 0.48);
     }
 
     .lock-calendar h3 {
@@ -697,25 +710,28 @@
     .lock-calendar-rule {
       height: 1px;
       margin-bottom: 15px;
-      background: rgba(86, 116, 255, 0.82);
-      box-shadow: 0 0 8px rgba(86, 116, 255, 0.7);
+      background: rgba(84, 218, 255, 0.36);
+      box-shadow: 0 0 10px rgba(42, 205, 255, 0.38);
     }
 
     .lock-grid {
       display: grid;
       grid-template-columns: repeat(7, 1fr);
-      border-top: 1px solid rgba(86, 116, 255, 0.82);
-      border-left: 1px solid rgba(86, 116, 255, 0.82);
+      border-top: 1px solid rgba(84, 218, 255, 0.3);
+      border-left: 1px solid rgba(84, 218, 255, 0.3);
       font-size: 28px;
       line-height: 1;
+      background: rgba(2, 8, 12, 0.28);
+      box-shadow: 0 0 22px rgba(42, 205, 255, 0.1);
+      backdrop-filter: blur(5px);
     }
 
     .lock-grid span {
       display: grid;
       min-height: 46px;
       place-items: center;
-      border-right: 1px solid rgba(86, 116, 255, 0.82);
-      border-bottom: 1px solid rgba(86, 116, 255, 0.82);
+      border-right: 1px solid rgba(84, 218, 255, 0.3);
+      border-bottom: 1px solid rgba(84, 218, 255, 0.3);
       box-sizing: border-box;
     }
 
@@ -726,8 +742,9 @@
     }
 
     .lock-grid .is-today {
-      color: #fff;
-      text-shadow: 0 0 8px rgba(255, 255, 255, 0.9), 0 0 14px rgba(86, 116, 255, 0.9);
+      color: rgba(232, 253, 255, 0.98);
+      background: rgba(75, 214, 255, 0.14);
+      text-shadow: 0 0 8px rgba(180, 248, 255, 0.9), 0 0 14px rgba(75, 214, 255, 0.72);
     }
 
     .country-panel {
@@ -813,8 +830,10 @@
     }
 
     body.space-bg-white .lock-screen {
-      background: #000;
-      color: #fff;
+      background:
+        radial-gradient(circle at 50% 32%, rgba(75, 214, 255, 0.16), transparent 30%),
+        linear-gradient(180deg, rgba(246, 251, 255, 0.96), rgba(220, 241, 248, 0.96));
+      color: rgba(5, 40, 52, 0.98);
     }
 
     canvas {
