@@ -597,4 +597,6 @@
   renderSettings();
   renderConversation();
   renderCloudConversations([]);
+  widget.classList.add('is-minimized');
+  launcher.classList.add('is-visible');
 }());

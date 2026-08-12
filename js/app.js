@@ -64,8 +64,8 @@
     }
 
     function setControlsOpacity(value) {
-      const numeric = Math.min(95, Math.max(35, Number(value) || 74));
-      panel.style.setProperty('--controls-opacity', (numeric / 100).toFixed(2));
+      const numeric = Math.min(100, Math.max(35, Number(value) || 82));
+      panel.style.setProperty('--settings-opacity', (numeric / 100).toFixed(2));
       if (controlsOpacityInput) controlsOpacityInput.value = String(numeric);
       if (controlsOpacityValue) controlsOpacityValue.textContent = `${numeric}%`;
       localStorage.setItem(controlsOpacityStorageKey, String(numeric));
@@ -891,7 +891,7 @@ const distanceLines = new THREE.Group();
       startDate: new Date(),
       startPerformance: performance.now(),
       timeScale: 3600,
-      matchActualTime: false,
+      matchActualTime: true,
       earthSiderealDaySeconds: 86164.0905,
       moonSiderealOrbitSeconds: 27.321661 * 86400,
       earthSiderealYearSeconds: 365.256363004 * 86400,
@@ -1177,7 +1177,7 @@ const distanceLines = new THREE.Group();
     setWidgetVisible(calendarWidget, showCalendarInput.checked);
     setWidgetVisible(weatherWidget, showWeatherInput.checked);
     setSpaceBackground(localStorage.getItem(backgroundStorageKey) || 'black');
-    setControlsOpacity(localStorage.getItem(controlsOpacityStorageKey) || (controlsOpacityInput && controlsOpacityInput.value) || 74);
+    setControlsOpacity(localStorage.getItem(controlsOpacityStorageKey) || (controlsOpacityInput && controlsOpacityInput.value) || 82);
 
     function formatClock(date) {
       if (countrySelector) return countrySelector.formatClock(date);

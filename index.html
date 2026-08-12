@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Wire Mesh Earth</title>
-  <link rel='stylesheet' href='css/styles.css?v=unifiedhud1'>
-  <link rel="stylesheet" href="chatbot/styles.css?v=unifiedhud1">
+  <link rel='stylesheet' href='css/styles.css?v=startdefaults1'>
+  <link rel="stylesheet" href="chatbot/styles.css?v=startdefaults1">
 
 </head>
 <body>
@@ -32,9 +32,9 @@
       <div class="control">
         <label for="controlsOpacity">
           <span>Settings opacity</span>
-          <span class="control-value" id="controlsOpacityValue">74%</span>
+          <span class="control-value" id="controlsOpacityValue">82%</span>
         </label>
-        <input id="controlsOpacity" type="range" min="35" max="95" step="5" value="74">
+        <input id="controlsOpacity" type="range" min="35" max="100" step="5" value="82">
       </div>
 
       <div class="control">
@@ -48,7 +48,7 @@
       <div class="control">
         <label class="toggle" for="actualTime">
           <span>Match actual time</span>
-          <input id="actualTime" type="checkbox">
+          <input id="actualTime" type="checkbox" checked>
         </label>
       </div>
 
@@ -132,7 +132,7 @@
         <select id="satelliteSource">
           <option value="local-starlink">Local Starlink TLE</option>
           <option value="iss-live">ISS live TLE</option>
-          <option value="fallback">Visual fallback</option>
+          <option value="fallback" selected>Visual fallback</option>
           <option value="active-live">CelesTrak active TLE</option>
           <option value="starlink-live">Live Starlink / local backup</option>
         </select>
