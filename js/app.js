@@ -1105,6 +1105,40 @@ const distanceLines = new THREE.Group();
       updateFullscreenButton();
     }
 
+    let lockScreenRequestedFullscreen = false;
+
+    function enterLockImmersion() {
+      const activeFullscreenElement = document.fullscreenElement
+        || document.webkitFullscreenElement
+        || document.msFullscreenElement;
+      if (!lockScreen || activeFullscreenElement === lockScreen) return;
+      const requestFullscreen = lockScreen.requestFullscreen
+        || lockScreen.webkitRequestFullscreen
+        || lockScreen.msRequestFullscreen;
+      if (!requestFullscreen) return;
+
+      lockScreenRequestedFullscreen = true;
+      const request = requestFullscreen.call(lockScreen);
+      if (request?.catch) {
+        request.catch((error) => {
+          lockScreenRequestedFullscreen = false;
+          console.warn('Lock screen fullscreen request failed.', error);
+        });
+      }
+    }
+
+    function exitLockImmersion() {
+      if (!lockScreenRequestedFullscreen || !isFullscreen()) return;
+      lockScreenRequestedFullscreen = false;
+      const exitFullscreen = document.exitFullscreen
+        || document.webkitExitFullscreen
+        || document.msExitFullscreen;
+      if (!exitFullscreen) return;
+
+      const exit = exitFullscreen.call(document);
+      if (exit?.catch) exit.catch(() => {});
+    }
+
     function setWidgetVisible(widget, visible) {
       widget.style.display = visible ? 'flex' : 'none';
     }
@@ -1168,10 +1202,12 @@ const distanceLines = new THREE.Group();
       lockScreen?.setAttribute('aria-hidden', 'false');
       updateLockCalendar(new Date());
       updateLockScreenTime(new Date());
+      enterLockImmersion();
       setTimeout(() => lockUsername?.focus(), 0);
     }
 
     function closeLockScreen() {
+      exitLockImmersion();
       lockScreen?.classList.remove('is-active');
       lockScreen?.setAttribute('aria-hidden', 'true');
       if (lockForm) lockForm.reset();
