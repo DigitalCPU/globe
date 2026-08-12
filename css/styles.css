@@ -110,7 +110,7 @@
 
     .account-button {
       position: absolute;
-      right: 14px;
+      left: 14px;
       top: 12px;
       z-index: 81;
       width: 114px;
@@ -283,7 +283,7 @@
 
     .timeline-widget {
       position: absolute;
-      right: 142px;
+      right: 14px;
       top: 12px;
       z-index: 3;
       width: 390px;
@@ -586,7 +586,7 @@
       }
 
       .account-button {
-        right: 10px;
+        left: 10px;
         top: 10px;
         width: 48px;
         height: 30px;
