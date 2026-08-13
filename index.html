@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Wire Mesh Earth</title>
-  <link rel='stylesheet' href='css/styles.css?v=nolock1'>
+  <link rel='stylesheet' href='css/styles.css?v=calendarlock1'>
   <link rel="stylesheet" href="chatbot/styles.css?v=startdefaults1">
 
 </head>
@@ -219,6 +219,84 @@
     <div class="credits">DigitalCPU / globe</div>
   </div>
 
+  <section class="calendar-lock-screen" id="calendarLockScreen" aria-label="Calendar lock screen" aria-hidden="true">
+    <svg class="calendar-lock-border" viewBox="0 0 1400 1120" preserveAspectRatio="none" aria-hidden="true">
+      <path d="
+        M 28 28
+        L 360 28
+        L 410 76
+        L 545 76
+        L 590 38
+        L 810 38
+        L 855 76
+        L 990 76
+        L 1040 28
+        L 1372 28
+        L 1372 145
+        L 1325 192
+        L 1325 925
+        L 1372 972
+        L 1372 1092
+        L 1034 1092
+        L 986 1048
+        L 878 1048
+        L 838 1084
+        L 562 1084
+        L 522 1048
+        L 414 1048
+        L 366 1092
+        L 28 1092
+        L 28 972
+        L 75 925
+        L 75 192
+        L 28 145
+        Z
+      " />
+    </svg>
+    <div class="calendar-lock-grid-bg"></div>
+    <div class="calendar-lock-glow calendar-lock-glow-left"></div>
+    <div class="calendar-lock-glow calendar-lock-glow-right"></div>
+    <div class="calendar-lock-state">USER SESSION LOCKED</div>
+
+    <section class="calendar-lock-core">
+      <div class="calendar-lock-clock">
+        <span id="calendarLockTime">--:--:--</span>
+        <span class="calendar-lock-side">
+          <span id="calendarLockPeriod">--</span>
+          <span id="calendarLockSubseconds">000</span>
+        </span>
+      </div>
+
+      <h2>SCREEN IS LOCKED</h2>
+
+      <form class="calendar-lock-form" id="calendarLockForm" autocomplete="off">
+        <input id="calendarLockUser" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="USER NAME">
+        <input id="calendarLockPass" type="password" autocomplete="new-password" placeholder="PASSWORD">
+        <button type="submit">unlock</button>
+      </form>
+    </section>
+
+    <section class="calendar-lock-calendar" aria-label="Monthly calendar">
+      <div class="calendar-lock-month-row">
+        <span></span>
+        <h2 id="calendarLockMonth">MONTH YEAR</h2>
+        <span></span>
+      </div>
+      <div class="calendar-lock-calendar-grid" id="calendarLockGrid"></div>
+    </section>
+
+    <footer class="calendar-lock-bottom-left">
+      <strong>SECURE LINK</strong>
+      <span>ENCRYPTED</span>
+      <i></i>
+    </footer>
+
+    <footer class="calendar-lock-bottom-center">
+      <span id="calendarLockStamp">--/--/--/--/--/--</span>
+      <span>DIGITALCPU / GLOBE</span>
+    </footer>
+  </section>
+
   <script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/satellite.js@5/dist/satellite.min.js"></script>
@@ -227,7 +305,7 @@
   <script src='js/earth-events.js'></script>
   <script src='js/space-weather.js'></script>
   <script src="js/country-selector.js?v=country1"></script>
-  <script src='js/app.js?v=nolock1'></script>
+  <script src='js/app.js?v=calendarlock1'></script>
   <script src="js/local-timeline.js?v=timeline4"></script>
   <script src="chatbot/chat-widget.js?v=fullscreen-chat1"></script>
 

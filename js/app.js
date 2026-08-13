@@ -36,6 +36,16 @@
     const calendarWidget = document.getElementById('calendarWidget');
     const calendarDate = document.getElementById('calendarDate');
     const calendarTime = document.getElementById('calendarTime');
+    const calendarLockScreen = document.getElementById('calendarLockScreen');
+    const calendarLockForm = document.getElementById('calendarLockForm');
+    const calendarLockUser = document.getElementById('calendarLockUser');
+    const calendarLockPass = document.getElementById('calendarLockPass');
+    const calendarLockTime = document.getElementById('calendarLockTime');
+    const calendarLockPeriod = document.getElementById('calendarLockPeriod');
+    const calendarLockSubseconds = document.getElementById('calendarLockSubseconds');
+    const calendarLockMonth = document.getElementById('calendarLockMonth');
+    const calendarLockGrid = document.getElementById('calendarLockGrid');
+    const calendarLockStamp = document.getElementById('calendarLockStamp');
     const weatherWidget = document.getElementById('weatherWidget');
     const weatherTemp = document.getElementById('weatherTemp');
     const weatherMeta = document.getElementById('weatherMeta');
@@ -1114,6 +1124,97 @@ const distanceLines = new THREE.Group();
       ].join(':');
     }
 
+    function updateCalendarLockCalendar(date) {
+      if (!calendarLockGrid || !calendarLockMonth) return;
+      calendarLockMonth.textContent = new Intl.DateTimeFormat(undefined, {
+        month: 'long',
+        year: 'numeric'
+      }).format(date).toUpperCase();
+
+      calendarLockGrid.textContent = '';
+      ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'].forEach((dayName) => {
+        const cell = document.createElement('span');
+        cell.className = 'day-name';
+        cell.textContent = dayName;
+        calendarLockGrid.appendChild(cell);
+      });
+
+      const year = date.getFullYear();
+      const month = date.getMonth();
+      const firstDay = new Date(year, month, 1).getDay();
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+      for (let index = 0; index < firstDay; index += 1) {
+        calendarLockGrid.appendChild(document.createElement('span'));
+      }
+      for (let day = 1; day <= daysInMonth; day += 1) {
+        const cell = document.createElement('span');
+        cell.textContent = String(day);
+        calendarLockGrid.appendChild(cell);
+      }
+    }
+
+    function updateCalendarLock(date) {
+      if (!calendarLockScreen?.classList.contains('is-active')) return;
+      const two = (value) => String(value).padStart(2, '0');
+      const hours = date.getHours();
+      const displayHour = hours % 12 || 12;
+      if (calendarLockTime) {
+        calendarLockTime.textContent = [
+          two(displayHour),
+          two(date.getMinutes()),
+          two(date.getSeconds())
+        ].join(':');
+      }
+      if (calendarLockPeriod) calendarLockPeriod.textContent = hours >= 12 ? 'PM' : 'AM';
+      if (calendarLockSubseconds) calendarLockSubseconds.textContent = String(date.getMilliseconds()).padStart(3, '0');
+      if (calendarLockStamp) {
+        calendarLockStamp.textContent = [
+          two(date.getMonth() + 1),
+          two(date.getDate()),
+          two(date.getFullYear() % 100),
+          two(date.getHours()),
+          two(date.getMinutes()),
+          two(date.getSeconds())
+        ].join('/');
+      }
+    }
+
+    function openCalendarLock() {
+      if (!calendarLockScreen) return;
+      calendarLockForm?.reset();
+      if (calendarLockUser) calendarLockUser.value = '';
+      if (calendarLockPass) calendarLockPass.value = '';
+      const now = new Date();
+      updateCalendarLockCalendar(now);
+      calendarLockScreen.classList.add('is-active');
+      calendarLockScreen.setAttribute('aria-hidden', 'false');
+      updateCalendarLock(now);
+
+      const requestFullscreen = calendarLockScreen.requestFullscreen
+        || calendarLockScreen.webkitRequestFullscreen
+        || calendarLockScreen.msRequestFullscreen;
+      if (requestFullscreen && !document.fullscreenElement && !document.webkitFullscreenElement) {
+        const request = requestFullscreen.call(calendarLockScreen);
+        if (request?.catch) request.catch(() => {});
+      }
+
+      setTimeout(() => calendarLockUser?.focus(), 0);
+    }
+
+    function closeCalendarLock() {
+      if (!calendarLockScreen) return;
+      calendarLockScreen.classList.remove('is-active');
+      calendarLockScreen.setAttribute('aria-hidden', 'true');
+      calendarLockForm?.reset();
+      if (calendarLockUser) calendarLockUser.value = '';
+      if (calendarLockPass) calendarLockPass.value = '';
+      if (document.fullscreenElement === calendarLockScreen && document.exitFullscreen) {
+        document.exitFullscreen().catch(() => {});
+      } else if (document.webkitFullscreenElement === calendarLockScreen && document.webkitExitFullscreen) {
+        document.webkitExitFullscreen();
+      }
+    }
+
     function weatherCodeLabel(code) {
       if (code === 0) return 'clear';
       if ([1, 2, 3].includes(code)) return 'clouds';
@@ -1270,6 +1371,23 @@ const distanceLines = new THREE.Group();
       setWidgetVisible(calendarWidget, showCalendarInput.checked);
     });
 
+    if (calendarWidget) {
+      calendarWidget.addEventListener('click', openCalendarLock);
+    }
+
+    if (calendarLockForm) {
+      calendarLockForm.addEventListener('submit', (event) => {
+        event.preventDefault();
+        closeCalendarLock();
+      });
+    }
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && calendarLockScreen?.classList.contains('is-active')) {
+        closeCalendarLock();
+      }
+    });
+
     showWeatherInput.addEventListener('change', () => {
       setWidgetVisible(weatherWidget, showWeatherInput.checked);
     });
@@ -1352,6 +1470,7 @@ const distanceLines = new THREE.Group();
       sun.rotation.y += 0.00035;
       clock.textContent = formatClock(simulatedDate);
       updateCalendarWidget(simulatedDate);
+      updateCalendarLock(currentDate);
       sunDirection.textContent = `subsolar ${solarPosition.subsolarLongitude.toFixed(1)} lon / ${solarPosition.declination.toFixed(1)} lat`;
       sunDistance.textContent = `distance ${(earthSunDistance / radius).toLocaleString(undefined, { maximumFractionDigits: 0 })} Earth radii`;
 
