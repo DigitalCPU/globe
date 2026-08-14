@@ -20,17 +20,58 @@
   async function loadWidgetMarkup() {
     if (document.getElementById('chatWidget')) return true;
 
+    const fallbackMarkup = `
+<section class="chat-widget is-open" id="chatWidget" aria-label="Qwen chat widget">
+  <header class="chat-header">
+    <div>
+      <strong>Qwen 34B</strong>
+      <span id="chatStatus">ready</span>
+    </div>
+    <div class="chat-actions">
+      <button id="chatSettingsToggle" type="button">Settings</button>
+      <button id="chatMinimize" type="button">-</button>
+    </div>
+  </header>
+
+  <form class="chat-settings" id="chatSettings">
+    <label><span>API mode</span><select id="apiMode"><option value="relay">Relay server</option><option value="direct">Direct endpoint</option></select></label>
+    <label><span>Endpoint</span><input id="apiEndpoint" type="url" autocomplete="off" spellcheck="false"></label>
+    <label><span>Model</span><input id="apiModel" type="text" autocomplete="off" spellcheck="false"></label>
+    <label><span>Access token / API key</span><input id="apiKey" type="password" autocomplete="off" spellcheck="false" placeholder="optional"></label>
+    <label><span>Opacity</span><span class="opacity-row"><input id="chatOpacity" type="range" min="35" max="100" step="5"><span id="chatOpacityValue">90%</span></span></label>
+    <div class="cloud-id">Cloud account <span id="cloudUserLabel">--</span></div>
+    <div class="settings-row"><button id="copyCloudKey" type="button">Copy key</button><button id="importCloudKey" type="button">Use key</button></div>
+    <div class="settings-row"><button id="saveSettings" type="submit">Save</button><button id="resetSettings" type="button">Reset</button></div>
+    <div class="settings-row"><button id="cloudSaveChat" type="button">Cloud save</button><button id="cloudLoadChat" type="button">Refresh cloud</button></div>
+    <div class="cloud-list" id="cloudConversationList" aria-live="polite"></div>
+    <div class="settings-row"><button id="exportChat" type="button">Save chat</button><button id="importChat" type="button">Load chat</button></div>
+    <div class="settings-row"><button id="attachFile" type="button">Upload file</button><button id="clearChat" type="button">Clear chat</button></div>
+    <input id="importChatFile" class="hidden-file" type="file" accept="application/json,.json">
+    <input id="attachFileInput" class="hidden-file" type="file" accept=".txt,.md,.json,.csv,.log,text/plain,application/json,text/csv">
+  </form>
+
+  <div class="chat-log" id="chatLog" aria-live="polite"></div>
+
+  <form class="chat-composer" id="chatForm">
+    <textarea id="chatInput" rows="2" placeholder="Ask Qwen..." required></textarea>
+    <button id="sendButton" type="submit">Send</button>
+  </form>
+</section>
+
+<button class="chat-launcher" id="chatLauncher" type="button" aria-label="Open chat">Chat</button>`;
+
     try {
       const script = document.currentScript;
       const widgetUrl = new URL('widget.html?v=module1', script ? script.src : window.location.href);
       const response = await fetch(widgetUrl);
       if (!response.ok) throw new Error(`Widget markup failed: ${response.status}`);
-      const host = document.getElementById('container') || document.body;
+      const host = document.body;
       host.insertAdjacentHTML('beforeend', await response.text());
       return true;
     } catch (error) {
-      console.error(error);
-      return false;
+      console.warn('Using embedded chat widget markup fallback.', error);
+      document.body.insertAdjacentHTML('beforeend', fallbackMarkup);
+      return true;
     }
   }
 

@@ -1392,6 +1392,14 @@ const distanceLines = new THREE.Group();
       setWidgetVisible(weatherWidget, showWeatherInput.checked);
     });
 
+    if (weatherWidget) {
+      weatherWidget.addEventListener('click', () => {
+        weatherTemp.textContent = 'Weather ...';
+        weatherMeta.textContent = 'requesting location';
+        earthEvents.requestUserLocation();
+      });
+    }
+
     if (spaceBackgroundInput) {
       spaceBackgroundInput.addEventListener('change', () => {
         setSpaceBackground(spaceBackgroundInput.value);

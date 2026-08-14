@@ -44,7 +44,7 @@ body {
   position: fixed;
   right: 18px;
   bottom: 18px;
-  z-index: 20;
+  z-index: 1500;
   display: grid;
   grid-template-rows: auto auto 1fr auto;
   width: min(390px, calc(100vw - 28px));
@@ -338,7 +338,7 @@ body {
   position: fixed;
   right: 18px;
   top: 18px;
-  z-index: 19;
+  z-index: 1499;
   display: none;
   width: 114px;
   height: 36px;
