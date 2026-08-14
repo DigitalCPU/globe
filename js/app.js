@@ -1,4 +1,5 @@
 ﻿const container = document.getElementById('container');
+    const connectionInfo = document.getElementById('connectionInfo');
     const panel = document.querySelector('.panel');
     const togglePanelButton = document.getElementById('togglePanel');
     const clock = document.getElementById('clock');
@@ -60,6 +61,17 @@
     const geoUserStorageKey = 'digitalcpu:globe-geo-user:v1';
     const backgroundStorageKey = 'digitalcpu:globe-background:v1';
     const controlsOpacityStorageKey = 'digitalcpu:controls-opacity:v1';
+
+    function updateConnectionInfo() {
+      if (!connectionInfo) return;
+      connectionInfo.textContent = navigator.onLine
+        ? 'Left-click and drag to rotate the solar model - wheel to zoom'
+        : 'Offline: undergoing maintenance and upgrades.';
+    }
+
+    updateConnectionInfo();
+    window.addEventListener('online', updateConnectionInfo);
+    window.addEventListener('offline', updateConnectionInfo);
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x020406);
 
