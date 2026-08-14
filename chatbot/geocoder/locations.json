@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "description": "Small local geocoder seed data. Expand this file or replace the LocalGeocoder backend for larger databases.",
+  "locations": [
+    { "name": "Worldwide", "type": "worldwide", "lat": 0.0, "lon": 0.0, "aliases": ["worldwide", "global", "world"] },
+    { "name": "United States", "type": "country", "lat": 39.8283, "lon": -98.5795, "country": "United States", "aliases": ["usa", "us", "america", "united states of america"] },
+    { "name": "California", "type": "state", "lat": 36.7783, "lon": -119.4179, "country": "United States", "state": "California", "aliases": ["ca"] },
+    { "name": "New York State", "type": "state", "lat": 43.0, "lon": -75.0, "country": "United States", "state": "New York", "aliases": ["ny", "new york"] },
+    { "name": "Texas", "type": "state", "lat": 31.0, "lon": -100.0, "country": "United States", "state": "Texas", "aliases": ["tx"] },
+    { "name": "Florida", "type": "state", "lat": 27.6648, "lon": -81.5158, "country": "United States", "state": "Florida", "aliases": ["fl"] },
+    { "name": "San Jose, California", "type": "city", "lat": 37.3382, "lon": -121.8863, "country": "United States", "state": "California", "aliases": ["san jose", "san jose ca", "san jose california", "silicon valley"] },
+    { "name": "Los Angeles, California", "type": "city", "lat": 34.0522, "lon": -118.2437, "country": "United States", "state": "California", "aliases": ["los angeles", "la", "los angeles ca"] },
+    { "name": "San Francisco, California", "type": "city", "lat": 37.7749, "lon": -122.4194, "country": "United States", "state": "California", "aliases": ["san francisco", "sf", "san francisco ca"] },
+    { "name": "Sacramento, California", "type": "city", "lat": 38.5816, "lon": -121.4944, "country": "United States", "state": "California", "aliases": ["sacramento", "sacramento ca"] },
+    { "name": "Beverly Hills, California", "type": "postal_code", "lat": 34.0901, "lon": -118.4065, "country": "United States", "state": "California", "postal_code": "90210", "aliases": ["90210", "beverly hills", "beverly hills ca"] },
+    { "name": "New York City, New York", "type": "city", "lat": 40.7128, "lon": -74.0060, "country": "United States", "state": "New York", "aliases": ["new york city", "nyc", "manhattan"] },
+    { "name": "Chicago, Illinois", "type": "city", "lat": 41.8781, "lon": -87.6298, "country": "United States", "state": "Illinois", "aliases": ["chicago", "chicago il"] },
+    { "name": "Houston, Texas", "type": "city", "lat": 29.7604, "lon": -95.3698, "country": "United States", "state": "Texas", "aliases": ["houston", "houston tx"] },
+    { "name": "Miami, Florida", "type": "city", "lat": 25.7617, "lon": -80.1918, "country": "United States", "state": "Florida", "aliases": ["miami", "miami fl"] },
+    { "name": "London, United Kingdom", "type": "city", "lat": 51.5072, "lon": -0.1276, "country": "United Kingdom", "aliases": ["london", "london uk", "england"] },
+    { "name": "Paris, France", "type": "city", "lat": 48.8566, "lon": 2.3522, "country": "France", "aliases": ["paris", "france"] },
+    { "name": "Tokyo, Japan", "type": "city", "lat": 35.6762, "lon": 139.6503, "country": "Japan", "aliases": ["tokyo", "japan"] },
+    { "name": "Mexico City, Mexico", "type": "city", "lat": 19.4326, "lon": -99.1332, "country": "Mexico", "aliases": ["mexico city", "cdmx", "mexico"] },
+    { "name": "Toronto, Canada", "type": "city", "lat": 43.6532, "lon": -79.3832, "country": "Canada", "aliases": ["toronto", "canada"] },
+    { "name": "Sydney, Australia", "type": "city", "lat": -33.8688, "lon": 151.2093, "country": "Australia", "aliases": ["sydney", "australia"] }
+  ]
+}

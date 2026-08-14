@@ -303,7 +303,7 @@
       max-height: none;
       overflow: hidden;
       display: grid;
-      grid-template-rows: auto auto auto auto 1fr;
+      grid-template-rows: auto auto auto auto auto 1fr;
       border: 1px solid rgba(84, 218, 255, 0.24);
       border-radius: 8px;
       background: rgba(2, 8, 12, 0.82);
@@ -338,6 +338,7 @@
     }
 
     .timeline-widget.is-collapsed .timeline-modes,
+    .timeline-widget.is-collapsed .timeline-location-search,
     .timeline-widget.is-collapsed .timeline-opacity,
     .timeline-widget.is-collapsed .timeline-summary,
     .timeline-widget.is-collapsed .timeline-list {
@@ -431,6 +432,45 @@
 
     .timeline-modes button {
       flex: 1;
+    }
+
+    .timeline-location-search {
+      display: grid;
+      gap: 6px;
+      padding: 8px 10px 0;
+      color: rgba(137, 239, 255, 0.78);
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 11px;
+    }
+
+    .timeline-location-search > div {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 78px;
+      gap: 6px;
+    }
+
+    .timeline-location-search input {
+      width: 100%;
+      min-width: 0;
+      height: 30px;
+      border: 1px solid rgba(84, 218, 255, 0.28);
+      border-radius: 6px;
+      background: rgba(0, 18, 26, 0.72);
+      color: rgba(230, 252, 255, 0.95);
+      font: inherit;
+      outline: none;
+      padding: 0 8px;
+    }
+
+    .timeline-location-search input:focus {
+      border-color: rgba(122, 234, 255, 0.72);
+      box-shadow: 0 0 10px rgba(42, 205, 255, 0.14);
+    }
+
+    .timeline-location-search span {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     .timeline-opacity {

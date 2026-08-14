@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Wire Mesh Earth</title>
-  <link rel='stylesheet' href='css/styles.css?v=calendarlock1'>
+  <link rel='stylesheet' href='css/styles.css?v=timeline-search1'>
   <link rel="stylesheet" href="chatbot/styles.css?v=chatvisible1">
 
 </head>
@@ -205,6 +205,14 @@
         <button id="timelineHistory" type="button">This Day</button>
         <button id="timelineSummarize" type="button">Qwen</button>
       </div>
+      <form class="timeline-location-search" id="timelineLocationSearch">
+        <label for="timelineLocationInput">Location search</label>
+        <div>
+          <input id="timelineLocationInput" type="search" autocomplete="off" placeholder="city, state, zip, country, worldwide">
+          <button id="timelineLocationButton" type="submit">Search</button>
+        </div>
+        <span id="timelineLocationEcho">Nothing sent yet.</span>
+      </form>
       <label class="timeline-opacity" for="timelineOpacity">
         <span>Opacity</span>
         <input id="timelineOpacity" type="range" min="35" max="95" step="5" value="70">
@@ -306,7 +314,7 @@
   <script src='js/space-weather.js'></script>
   <script src="js/country-selector.js?v=country1"></script>
   <script src='js/app.js?v=calendarlock1'></script>
-  <script src="js/local-timeline.js?v=timeline4"></script>
+  <script src="js/local-timeline.js?v=timeline-search1"></script>
   <script src="chatbot/chat-widget.js?v=chatvisible1"></script>
 
 </body>

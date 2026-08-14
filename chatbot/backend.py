@@ -13,6 +13,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, quote_plus, unquote, urlparse
 from urllib.request import Request, urlopen
 import xml.etree.ElementTree as ET
+from geocoder import LocalGeocoder
 
 
 def app_root():
@@ -24,9 +25,11 @@ def app_root():
 ROOT = app_root()
 CONFIG_PATH = ROOT / "backend_config.json"
 DATA_DIR = ROOT / "data"
+GEOCODER_DATA_PATH = ROOT / "geocoder" / "locations.json"
 GEO_EVENTS_PATH = DATA_DIR / "geo_events.jsonl"
 DEFAULT_MODEL_PATH = r"C:\Users\inter\Desktop\votronix\models\llm\qwen3-4b-instruct-2507-q5_k_m.gguf"
 NEWS_TIMEOUT_SECONDS = 10
+LOCAL_GEOCODER = LocalGeocoder(GEOCODER_DATA_PATH)
 
 
 @dataclass
@@ -247,6 +250,10 @@ def reverse_geocode(lat, lon):
 
 
 def google_news_query(location, mode):
+    if location.get("worldwide"):
+        today = time.strftime("%B %-d") if os.name != "nt" else time.strftime("%B %#d")
+        return f'"{today}" news' if mode == "history" else "world news"
+
     today = time.strftime("%B %-d") if os.name != "nt" else time.strftime("%B %#d")
     place = location["query_place"]
     state = location.get("state") or ""
@@ -285,13 +292,25 @@ def parse_google_news_rss(xml_text):
     return items
 
 
-def load_local_news(lat, lon, mode):
-    if lat < -90 or lat > 90 or lon < -180 or lon > 180:
-        raise ValueError("lat/lon out of range.")
+def local_geocode(query, limit=8):
+    matches = LOCAL_GEOCODER.search(query, limit=limit)
+    return {
+        "ok": True,
+        "query": query,
+        "items": matches,
+        "source": "LocalGeocoder",
+    }
+
+
+def load_local_news(lat, lon, mode, location=None):
+    if location is None:
+        if lat < -90 or lat > 90 or lon < -180 or lon > 180:
+            raise ValueError("lat/lon out of range.")
+        location = reverse_geocode(lat, lon)
+
     if mode not in {"recent", "history"}:
         mode = "recent"
 
-    location = reverse_geocode(lat, lon)
     query = google_news_query(location, mode)
     rss_url = (
         "https://news.google.com/rss/search"
@@ -342,12 +361,37 @@ class ChatHandler(BaseHTTPRequestHandler):
         if self.path.startswith("/api/news"):
             try:
                 query = parse_qs(urlparse(self.path).query)
-                lat = float((query.get("lat") or [""])[0])
-                lon = float((query.get("lon") or [""])[0])
                 mode = (query.get("mode") or ["recent"])[0]
-                send_json(self, 200, load_local_news(lat, lon, mode))
+                place_query = (query.get("q") or [""])[0].strip()
+                if place_query:
+                    matches = LOCAL_GEOCODER.search(place_query, limit=1)
+                    if not matches:
+                        raise ValueError(f"Location not found: {place_query}")
+                    match = matches[0]
+                    location = {
+                        "place": match["name"],
+                        "query_place": match["name"],
+                        "state": match.get("state") or "",
+                        "country": match.get("country") or "",
+                        "worldwide": match.get("type") == "worldwide",
+                    }
+                    send_json(self, 200, load_local_news(match["lat"], match["lon"], mode, location=location))
+                else:
+                    lat = float((query.get("lat") or [""])[0])
+                    lon = float((query.get("lon") or [""])[0])
+                    send_json(self, 200, load_local_news(lat, lon, mode))
             except Exception as exc:
                 send_json(self, 500, {"error": str(exc)})
+            return
+
+        if self.path.startswith("/api/geocode"):
+            try:
+                query = parse_qs(urlparse(self.path).query)
+                text = (query.get("q") or [""])[0].strip()
+                limit = int((query.get("limit") or ["8"])[0])
+                send_json(self, 200, local_geocode(text, limit=max(1, min(limit, 20))))
+            except Exception as exc:
+                send_json(self, 400, {"error": str(exc)})
             return
 
         file_path = static_path(self.path)

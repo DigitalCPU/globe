@@ -1,6 +1,9 @@
 (function () {
-  const NEWS_ENDPOINT = 'https://globe-qwen-relay.digitalcomputermail.workers.dev/api/news';
-  const CHAT_ENDPOINT = 'https://globe-qwen-relay.digitalcomputermail.workers.dev/api/chat';
+  const RELAY_BASE = 'https://globe-qwen-relay.digitalcomputermail.workers.dev';
+  const API_BASE = ['127.0.0.1', 'localhost'].includes(window.location.hostname) ? '' : RELAY_BASE;
+  const NEWS_ENDPOINT = `${API_BASE}/api/news`;
+  const GEOCODE_ENDPOINT = `${API_BASE}/api/geocode`;
+  const CHAT_ENDPOINT = `${API_BASE}/api/chat`;
   const visibilityKey = 'digitalcpu:local-timeline-visible:v1';
   const collapsedKey = 'digitalcpu:local-timeline-collapsed:v1';
   const opacityKey = 'digitalcpu:local-timeline-opacity:v1';
@@ -61,15 +64,28 @@
   }
 
   async function fetchNews(location, mode) {
-    const params = new URLSearchParams({
-      lat: String(location.lat),
-      lon: String(location.lon),
-      mode
-    });
+    const params = new URLSearchParams({ mode });
+    if (location.query) {
+      params.set('q', location.query);
+    } else {
+      params.set('lat', String(location.lat));
+      params.set('lon', String(location.lon));
+    }
     const response = await fetch(`${NEWS_ENDPOINT}?${params.toString()}`);
     const body = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(body.error || `News request failed: ${response.status}`);
     return body;
+  }
+
+  async function geocodeLocation(query) {
+    const params = new URLSearchParams({
+      q: query,
+      limit: '5'
+    });
+    const response = await fetch(`${GEOCODE_ENDPOINT}?${params.toString()}`);
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(body.error || `Location search failed: ${response.status}`);
+    return Array.isArray(body.items) ? body.items : [];
   }
 
   async function summarizeItems(items, place, mode) {
@@ -110,6 +126,9 @@
     const recentButton = $('timelineRecent');
     const historyButton = $('timelineHistory');
     const summarizeButton = $('timelineSummarize');
+    const locationForm = $('timelineLocationSearch');
+    const locationInput = $('timelineLocationInput');
+    const locationEcho = $('timelineLocationEcho');
     const summary = $('timelineSummary');
     const showInput = $('showTimeline');
 
@@ -121,6 +140,12 @@
       place: '',
       items: []
     };
+
+    function describeLocation(match) {
+      if (!match) return '';
+      const bits = [match.name, match.state, match.country].filter(Boolean);
+      return bits.join(', ');
+    }
 
     function setVisible(visible) {
       widget.classList.toggle('is-hidden', !visible);
@@ -164,7 +189,9 @@
       setLoading(list, state.mode === 'history' ? 'Searching this day in local news...' : 'Loading local headlines...');
       try {
         const data = await fetchNews(state.location, state.mode);
-        state.place = data.place || `${state.location.lat.toFixed(2)}, ${state.location.lon.toFixed(2)}`;
+        state.place = data.place
+          || state.location.name
+          || `${state.location.lat.toFixed(2)}, ${state.location.lon.toFixed(2)}`;
         state.items = Array.isArray(data.items) ? data.items : [];
         placeLabel.textContent = state.mode === 'history'
           ? `${state.place} / this day`
@@ -184,6 +211,38 @@
     opacityInput.addEventListener('input', () => setOpacity(opacityInput.value));
     recentButton.addEventListener('click', () => setMode('recent'));
     historyButton.addEventListener('click', () => setMode('history'));
+    if (locationForm && locationInput && locationEcho) {
+      locationForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const query = locationInput.value.trim();
+        if (!query) {
+          locationEcho.textContent = 'Type a location first.';
+          return;
+        }
+
+        locationEcho.textContent = `Sending: ${query}`;
+        setLoading(list, `Searching location: ${query}`);
+        try {
+          const matches = await geocodeLocation(query);
+          if (!matches.length) throw new Error(`Location not found: ${query}`);
+          const match = matches[0];
+          state.location = {
+            lat: Number(match.lat),
+            lon: Number(match.lon),
+            query,
+            name: describeLocation(match)
+          };
+          state.place = state.location.name || query;
+          placeLabel.textContent = state.place;
+          locationEcho.textContent = `Using: ${state.place}`;
+          loadTimeline();
+        } catch (error) {
+          placeLabel.textContent = 'location unavailable';
+          locationEcho.textContent = error.message || 'Location search failed.';
+          setLoading(list, error.message || 'Location search failed.');
+        }
+      });
+    }
     summarizeButton.addEventListener('click', async () => {
       if (!state.items.length) {
         summary.hidden = false;
@@ -209,6 +268,7 @@
       const lon = Number(detail.lon);
       if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
       state.location = { lat, lon };
+      if (locationEcho) locationEcho.textContent = 'Using browser location.';
       loadTimeline();
     });
 
