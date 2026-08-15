@@ -7,6 +7,7 @@
   const visibilityKey = 'digitalcpu:local-timeline-visible:v1';
   const collapsedKey = 'digitalcpu:local-timeline-collapsed:v1';
   const opacityKey = 'digitalcpu:local-timeline-opacity:v1';
+  const linksKey = 'digitalcpu:local-timeline-links:v1';
 
   function $(id) {
     return document.getElementById(id);
@@ -34,7 +35,11 @@
     list.appendChild(item);
   }
 
-  function renderItems(list, items) {
+  function newsMeta(entry) {
+    return [formatDate(entry.published), entry.source].filter(Boolean).join(' / ');
+  }
+
+  function renderItems(list, items, allowLinks, onSelect) {
     list.innerHTML = '';
     if (!items.length) {
       const empty = document.createElement('li');
@@ -43,19 +48,29 @@
       return;
     }
 
-    items.forEach((entry) => {
+    items.forEach((entry, index) => {
       const item = document.createElement('li');
-      const link = document.createElement('a');
-      link.href = entry.link || '#';
-      link.target = '_blank';
-      link.rel = 'noopener noreferrer';
-      link.textContent = cleanTitle(entry.title);
-      item.appendChild(link);
+      const title = cleanTitle(entry.title);
+      if (allowLinks && entry.link) {
+        const link = document.createElement('a');
+        link.href = entry.link;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        link.textContent = title;
+        item.appendChild(link);
+      } else {
+        const button = document.createElement('button');
+        button.className = 'timeline-news-button';
+        button.type = 'button';
+        button.textContent = title;
+        button.addEventListener('click', () => onSelect(entry, index));
+        item.appendChild(button);
+      }
 
       const meta = document.createElement('cite');
-      const bits = [formatDate(entry.published), entry.source].filter(Boolean);
-      if (bits.length) {
-        meta.textContent = ` ${bits.join(' / ')}`;
+      const metaText = newsMeta(entry);
+      if (metaText) {
+        meta.textContent = ` ${metaText}`;
         item.appendChild(document.createElement('br'));
         item.appendChild(meta);
       }
@@ -115,6 +130,32 @@
     return body.reply || (body.choices && body.choices[0] && body.choices[0].message.content) || '';
   }
 
+  async function summarizeNewsItem(entry, place, mode) {
+    const prompt = [
+      `Give a brief in-app summary for this ${mode === 'history' ? 'same-date historical/local' : 'recent local'} news item near ${place || 'the selected location'}.`,
+      'Use only the fields below. Do not invent extra facts. If the headline is all we have, say that the summary is based on the headline.',
+      'Keep it to 2 short sentences.',
+      `Title: ${cleanTitle(entry.title)}`,
+      `Source: ${entry.source || 'unknown source'}`,
+      `Date: ${formatDate(entry.published) || 'unknown date'}`,
+      entry.description ? `Source snippet: ${entry.description}` : ''
+    ].filter(Boolean).join('\n');
+
+    const response = await fetch(CHAT_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'qwen3-4b-instruct-2507-q5_k_m',
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: 120,
+        temperature: 0.15
+      })
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(body.error || `News brief failed: ${response.status}`);
+    return body.reply || (body.choices && body.choices[0] && body.choices[0].message.content) || '';
+  }
+
   function initTimeline() {
     const widget = $('timelineWidget');
     const list = $('timelineList');
@@ -126,6 +167,7 @@
     const recentButton = $('timelineRecent');
     const historyButton = $('timelineHistory');
     const summarizeButton = $('timelineSummarize');
+    const linksInput = $('timelineLinks');
     const locationForm = $('timelineLocationSearch');
     const locationInput = $('timelineLocationInput');
     const locationEcho = $('timelineLocationEcho');
@@ -138,7 +180,8 @@
       location: null,
       mode: 'recent',
       place: '',
-      items: []
+      items: [],
+      allowLinks: false
     };
 
     function describeLocation(match) {
@@ -170,6 +213,15 @@
       localStorage.setItem(opacityKey, String(numeric));
     }
 
+    function setLinksEnabled(enabled) {
+      state.allowLinks = Boolean(enabled);
+      if (linksInput) linksInput.checked = state.allowLinks;
+      localStorage.setItem(linksKey, state.allowLinks ? '1' : '0');
+      if (state.location || state.items.length) {
+        renderItems(list, state.items, state.allowLinks, showItemBrief);
+      }
+    }
+
     function setMode(mode) {
       state.mode = mode;
       recentButton.classList.toggle('is-active', mode === 'recent');
@@ -196,11 +248,27 @@
         placeLabel.textContent = state.mode === 'history'
           ? `${state.place} / this day`
           : state.place;
-        renderItems(list, state.items);
+        renderItems(list, state.items, state.allowLinks, showItemBrief);
       } catch (error) {
         console.warn('Could not load local timeline.', error);
         placeLabel.textContent = 'news unavailable';
         setLoading(list, error.message || 'News unavailable.');
+      }
+    }
+
+    async function showItemBrief(entry) {
+      summary.hidden = false;
+      summary.textContent = 'Qwen preparing brief...';
+      try {
+        const text = await summarizeNewsItem(entry, state.place, state.mode);
+        summary.textContent = text || 'No brief available for this item.';
+      } catch (error) {
+        const fallback = newsMeta(entry);
+        summary.textContent = [
+          cleanTitle(entry.title),
+          fallback ? `Source: ${fallback}` : '',
+          'Qwen brief unavailable.'
+        ].filter(Boolean).join('\n');
       }
     }
 
@@ -209,6 +277,7 @@
       setCollapsed(!widget.classList.contains('is-collapsed'));
     });
     opacityInput.addEventListener('input', () => setOpacity(opacityInput.value));
+    if (linksInput) linksInput.addEventListener('change', () => setLinksEnabled(linksInput.checked));
     recentButton.addEventListener('click', () => setMode('recent'));
     historyButton.addEventListener('click', () => setMode('history'));
     if (locationForm && locationInput && locationEcho) {
@@ -275,6 +344,7 @@
     setVisible(localStorage.getItem(visibilityKey) !== '0');
     setCollapsed(localStorage.getItem(collapsedKey) === '1');
     setOpacity(localStorage.getItem(opacityKey) || opacityInput.value);
+    setLinksEnabled(localStorage.getItem(linksKey) === '1');
   }
 
   if (document.readyState === 'loading') {

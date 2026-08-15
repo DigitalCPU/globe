@@ -3,6 +3,7 @@ import html
 import json
 import os
 import queue
+import re
 import shlex
 import sys
 import threading
@@ -30,6 +31,7 @@ GEO_EVENTS_PATH = DATA_DIR / "geo_events.jsonl"
 DEFAULT_MODEL_PATH = r"C:\Users\inter\Desktop\votronix\models\llm\qwen3-4b-instruct-2507-q5_k_m.gguf"
 NEWS_TIMEOUT_SECONDS = 10
 LOCAL_GEOCODER = LocalGeocoder(GEOCODER_DATA_PATH)
+TAG_RE = re.compile(r"<[^>]+>")
 
 
 @dataclass
@@ -276,6 +278,8 @@ def parse_google_news_rss(xml_text):
         title = html.unescape((node.findtext("title") or "").strip())
         link = (node.findtext("link") or "").strip()
         published = (node.findtext("pubDate") or "").strip()
+        description = html.unescape((node.findtext("description") or "").strip())
+        description = " ".join(TAG_RE.sub(" ", description).split())[:500]
         source_node = node.find("source")
         source = html.unescape((source_node.text if source_node is not None and source_node.text else "").strip())
         if not title or title in seen:
@@ -286,6 +290,7 @@ def parse_google_news_rss(xml_text):
             "link": link,
             "published": published,
             "source": source,
+            "description": description,
         })
         if len(items) >= 12:
             break
