@@ -26,6 +26,8 @@ MOBILE_LAUNCHER = ROOT / "start_cloudflare_quick_tunnel.bat"
 BACKEND_SCRIPT = ROOT / "backend.py"
 VENV_PYTHON = ROOT / ".venv" / "Scripts" / "python.exe"
 RELAY_CONFIG = ROOT / "relay_config.json"
+DEFAULT_VOTRONIX_ROOT = Path(r"C:\Users\inter\Desktop\votronix")
+DEFAULT_VOTRONIX_PYTHON = Path(r"C:\Users\inter\AppData\Local\Programs\Python\Python312\python.exe")
 
 LLM_SETTING_KEYS = {
     "model_path",
@@ -45,6 +47,7 @@ class ControlPanel:
         self.backend_process = None
         self.mobile_process = None
         self.tunnel_process = None
+        self.votronix_process = None
         self.tunnel_thread = None
         self.tunnel_url = ""
         self.mobile_ready = False
@@ -76,6 +79,9 @@ class ControlPanel:
         print(f"backend_python: {self.backend_python()}")
         print(f"backend_process: {'running' if self.backend_running() else 'stopped'}")
         print(f"local_api: {'ready' if self.local_ready(log_result=False) else 'not ready'}")
+        print(f"voice_api: {'ready' if self.voice_ready(log_result=False) else 'not ready'}")
+        print(f"votronix_process: {'running' if self.votronix_running() else 'stopped'}")
+        print(f"votronix_url: {self.config.votronix_url}")
         print(f"cloudflare_tunnel: {'running' if self.tunnel_running() else 'stopped'}")
         print(f"mobile_ready: {self.mobile_ready}")
         print(f"current_tunnel: {self.tunnel_url or '-'}")
@@ -104,6 +110,85 @@ class ControlPanel:
 
     def tunnel_running(self):
         return bool(self.tunnel_process and self.tunnel_process.poll() is None)
+
+    def votronix_running(self):
+        return bool(self.votronix_process and self.votronix_process.poll() is None)
+
+    def votronix_root(self):
+        root = Path(getattr(self.config, "votronix_url", "") or "")
+        return DEFAULT_VOTRONIX_ROOT
+
+    def votronix_python(self):
+        if DEFAULT_VOTRONIX_PYTHON.exists():
+            return DEFAULT_VOTRONIX_PYTHON
+        return self.backend_python()
+
+    def start_votronix(self):
+        if self.votronix_ready(log_result=False):
+            self.log("Votronix voice API is already ready.")
+            return True
+        if self.votronix_running():
+            self.log("Votronix process is already running; waiting for voice API...")
+            return self.wait_for_voice()
+
+        root = self.votronix_root()
+        script = root / "web_server.py"
+        if not script.exists():
+            self.log(f"Missing Votronix web server: {script}")
+            return False
+
+        url = self.config.votronix_url.rstrip("/") or "http://127.0.0.1:8765"
+        port = url.rsplit(":", 1)[-1]
+        if "/" in port:
+            port = port.split("/", 1)[0]
+        if not port.isdigit():
+            port = "8765"
+
+        python_path = self.votronix_python()
+        self.log(f"Starting Votronix voice server on 127.0.0.1:{port}...")
+        self.votronix_process = subprocess.Popen(
+            [str(python_path), str(script), "--host", "127.0.0.1", "--port", port],
+            cwd=str(root),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1,
+        )
+        threading.Thread(target=self.watch_votronix_output, daemon=True).start()
+        return self.wait_for_voice()
+
+    def watch_votronix_output(self):
+        while self.votronix_running():
+            if self.votronix_process.stdout is None:
+                return
+            line = self.votronix_process.stdout.readline()
+            if line:
+                print(line.rstrip())
+
+    def wait_for_voice(self):
+        deadline = time.time() + 45
+        while time.time() < deadline:
+            if self.votronix_ready(log_result=False):
+                self.log("Votronix voice API is ready.")
+                return True
+            if self.votronix_process and self.votronix_process.poll() is not None:
+                self.log("Votronix stopped before becoming ready.")
+                return False
+            time.sleep(1)
+        self.log("Votronix voice API readiness timed out.")
+        return False
+
+    def stop_votronix(self):
+        if self.votronix_running():
+            self.log("Stopping Votronix voice server...")
+            self.votronix_process.terminate()
+            try:
+                self.votronix_process.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                self.votronix_process.kill()
+            self.votronix_process = None
+        else:
+            self.log("Votronix voice server is not running from this panel.")
 
     def start_backend(self, load_model=False):
         if self.backend_running():
@@ -249,6 +334,7 @@ class ControlPanel:
         return self.mobile_ready
 
     def start_mobile(self):
+        self.start_votronix()
         if not self.local_ready(log_result=False):
             self.load_model()
         self.start_api()
@@ -280,6 +366,9 @@ class ControlPanel:
         self.config.max_tokens = 768
         self.config.n_ctx = 8192
         self.config.n_gpu_layers = 12
+        self.config.voice_enabled = True
+        self.config.voice_provider = self.config.voice_provider or "system"
+        self.config.votronix_url = self.config.votronix_url or "http://127.0.0.1:8765"
         self.save()
         self.log("Starting mobile access with standard model operation settings...")
         self.start_mobile()
@@ -300,6 +389,7 @@ class ControlPanel:
                 self.tunnel_process.kill()
         self.mobile_ready = False
         self.stop_api()
+        self.stop_votronix()
         self.log("Mobile access stopped.")
 
     def open_site(self):
@@ -428,6 +518,22 @@ class ControlPanel:
             self.log(f"Local API {'ready' if ready else 'not ready'}: status={status} {data}")
         return ready
 
+    def voice_ready(self, log_result=True):
+        url = f"http://127.0.0.1:{self.config.port}/api/voice/status"
+        status, data = self.request_json(url, timeout=8)
+        ready = status == 200 and bool(data.get("votronix_running"))
+        if log_result:
+            self.log(f"Voice API {'ready' if ready else 'not ready'}: status={status} {data}")
+        return ready
+
+    def votronix_ready(self, log_result=True):
+        url = f"{self.config.votronix_url.rstrip('/')}/api/status"
+        status, data = self.request_json(url, timeout=8)
+        ready = status == 200 and bool(data.get("ok", True))
+        if log_result:
+            self.log(f"Votronix direct API {'ready' if ready else 'not ready'}: status={status} {data}")
+        return ready
+
     def check_relay(self):
         url = f"{mobile.STABLE_RELAY}/api/status"
         status, data = self.request_json(url, timeout=20)
@@ -536,6 +642,8 @@ Commands:
   set-context <count>           Set context size
   set-gpu-layers <-1|0|count>   Set GPU offload layers (-1 auto/all, 0 CPU)
   load-model                   Start Qwen backend with model loaded
+  start-votronix               Start local Votronix voice server
+  stop-votronix                Stop Votronix voice server started by this panel
   start-api                    Start local API backend
   stop-api                     Stop local API backend started by this panel
   start-tunnel                 Start Cloudflare tunnel from this panel
@@ -547,6 +655,7 @@ Commands:
   restart-all                  Stop then start the full mobile sequence
   stop-all                     Stop tunnel/API started by this panel
   check-local                  Check local Qwen API
+  check-voice                  Check local Live Satellite -> Votronix voice bridge
   check-relay                  Check stable Cloudflare relay
   check-chat                   Send a test prompt through the relay
   check-mobile                 Run all readiness checks
@@ -559,7 +668,8 @@ Commands:
   quit                         Exit control panel
 
 Useful keys:
-  model_path, model_name, n_ctx, n_gpu_layers, temperature, max_tokens, system_prompt
+  model_path, model_name, n_ctx, n_gpu_layers, temperature, max_tokens, system_prompt,
+  votronix_url, voice_enabled, voice_provider, voice_id, voice_autoplay
 """.strip()
     )
 
@@ -625,6 +735,10 @@ def main():
                 panel.set_gpu_layers(args[0])
             elif command == "load-model":
                 panel.load_model()
+            elif command == "start-votronix":
+                panel.start_votronix()
+            elif command == "stop-votronix":
+                panel.stop_votronix()
             elif command == "start-api":
                 panel.start_api()
             elif command == "stop-api":
@@ -647,6 +761,8 @@ def main():
                 panel.stop_all()
             elif command == "check-local":
                 panel.check_local()
+            elif command == "check-voice":
+                panel.voice_ready(log_result=True)
             elif command == "check-relay":
                 panel.check_relay()
             elif command == "check-chat":
@@ -673,6 +789,7 @@ def main():
                 panel.set_value(args[0], " ".join(args[1:]))
             elif command in ("quit", "exit"):
                 panel.stop_api()
+                panel.stop_votronix()
                 break
             else:
                 print(f"Unknown command: {command}")

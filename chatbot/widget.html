@@ -37,6 +37,26 @@
         <span id="chatOpacityValue">90%</span>
       </span>
     </label>
+    <div class="voice-settings">
+      <label>
+        <span>Voice</span>
+        <select id="voiceEnabled">
+          <option value="true">Enabled</option>
+          <option value="false">Off</option>
+        </select>
+      </label>
+      <label>
+        <span>Speak replies</span>
+        <select id="voiceAutoplay">
+          <option value="false">Manual</option>
+          <option value="true">Auto</option>
+        </select>
+      </label>
+    </div>
+    <div class="voice-status-row">
+      <span id="voiceStatus">voice unknown</span>
+      <button id="voiceRefresh" type="button">Check voice</button>
+    </div>
     <div class="cloud-id">Cloud account <span id="cloudUserLabel">--</span></div>
     <div class="settings-row">
       <button id="copyCloudKey" type="button">Copy key</button>

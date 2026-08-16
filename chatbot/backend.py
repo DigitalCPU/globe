@@ -11,6 +11,7 @@ import time
 from dataclasses import asdict, dataclass
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from urllib.error import HTTPError, URLError
 from urllib.parse import parse_qs, quote_plus, unquote, urlparse
 from urllib.request import Request, urlopen
 import xml.etree.ElementTree as ET
@@ -30,6 +31,8 @@ GEOCODER_DATA_PATH = ROOT / "geocoder" / "locations.json"
 GEO_EVENTS_PATH = DATA_DIR / "geo_events.jsonl"
 DEFAULT_MODEL_PATH = r"C:\Users\inter\Desktop\votronix\models\llm\qwen3-4b-instruct-2507-q5_k_m.gguf"
 NEWS_TIMEOUT_SECONDS = 10
+VOICE_STATUS_TIMEOUT_SECONDS = 3
+VOICE_TTS_TIMEOUT_SECONDS = 120
 LOCAL_GEOCODER = LocalGeocoder(GEOCODER_DATA_PATH)
 TAG_RE = re.compile(r"<[^>]+>")
 
@@ -47,6 +50,12 @@ class BackendConfig:
     temperature: float = 0.7
     max_tokens: int = 768
     system_prompt: str = "You are Qwen, a helpful assistant inside the DigitalCPU globe project."
+    votronix_url: str = "http://127.0.0.1:8765"
+    voice_enabled: bool = True
+    voice_provider: str = "system"
+    voice_id: str = ""
+    voice_autoplay: bool = False
+    voice_timeout_seconds: int = VOICE_TTS_TIMEOUT_SECONDS
 
 
 class QwenEngine:
@@ -114,6 +123,9 @@ class AppState:
         self.server = None
         self.server_thread = None
         self.log = queue.Queue()
+        self.voice_audio = None
+        self.voice_audio_meta = {}
+        self.voice_lock = threading.Lock()
 
     def log_line(self, text):
         stamp = time.strftime("%H:%M:%S")
@@ -226,6 +238,168 @@ def fetch_text_url(url):
     })
     with urlopen(request, timeout=NEWS_TIMEOUT_SECONDS) as response:
         return response.read().decode("utf-8", errors="replace")
+
+
+def votronix_url(config: BackendConfig, path: str):
+    base = config.votronix_url.rstrip("/")
+    return f"{base}/{path.lstrip('/')}"
+
+
+def fetch_votronix_json(config: BackendConfig, path: str, payload=None, timeout=None):
+    data = None
+    headers = {"User-Agent": "DigitalCPU Globe/0.1 voice bridge"}
+    if payload is not None:
+        data = json.dumps(payload).encode("utf-8")
+        headers["Content-Type"] = "application/json"
+    request = Request(votronix_url(config, path), data=data, headers=headers)
+    with urlopen(request, timeout=timeout or VOICE_STATUS_TIMEOUT_SECONDS) as response:
+        return json.loads(response.read().decode("utf-8", errors="replace"))
+
+
+def fetch_votronix_bytes(config: BackendConfig, path: str, timeout=None):
+    request = Request(
+        votronix_url(config, path),
+        headers={"User-Agent": "DigitalCPU Globe/0.1 voice bridge"},
+    )
+    with urlopen(request, timeout=timeout or VOICE_STATUS_TIMEOUT_SECONDS) as response:
+        return response.read(), response.headers.get("Content-Type", "application/octet-stream")
+
+
+def voice_error_message(exc):
+    if isinstance(exc, HTTPError):
+        try:
+            body = exc.read().decode("utf-8", errors="replace")
+        except Exception:
+            body = ""
+        return f"Votronix HTTP {exc.code}: {body or exc.reason}"
+    if isinstance(exc, URLError):
+        return f"Votronix is not reachable: {exc.reason}"
+    return str(exc)
+
+
+def voice_status(state: AppState):
+    config = state.config
+    payload = {
+        "ok": True,
+        "voice_enabled": config.voice_enabled,
+        "votronix_running": False,
+        "votronix_url": config.votronix_url,
+        "tts_ready": False,
+        "stt_ready": False,
+        "default_tts_provider": config.voice_provider,
+        "default_voice_id": config.voice_id,
+        "voice_autoplay": config.voice_autoplay,
+        "error": "",
+    }
+    if not config.voice_enabled:
+        payload["error"] = "Voice bridge is disabled."
+        return payload
+    try:
+        status = fetch_votronix_json(config, "/api/status", timeout=VOICE_STATUS_TIMEOUT_SECONDS)
+        payload.update({
+            "votronix_running": bool(status.get("ok", True)),
+            "tts_ready": True,
+            "stt_ready": True,
+            "votronix_status": status,
+        })
+    except Exception as exc:
+        payload["error"] = voice_error_message(exc)
+    return payload
+
+
+def voice_providers(config: BackendConfig):
+    providers = fetch_votronix_json(config, "/api/providers", timeout=VOICE_STATUS_TIMEOUT_SECONDS)
+    return {
+        "ok": bool(providers.get("ok", True)),
+        "tts": providers.get("tts", []),
+        "stt": providers.get("stt", []),
+        "ai": providers.get("ai", []),
+    }
+
+
+def normalize_voice(voice):
+    voice_id = str(voice.get("voice_id") or voice.get("id") or "")
+    return {
+        "id": voice_id,
+        "voice_id": voice_id,
+        "name": str(voice.get("name") or voice_id or "Unnamed voice"),
+        "language": voice.get("language"),
+    }
+
+
+def voice_list(config: BackendConfig, provider_id: str):
+    response = fetch_votronix_json(
+        config,
+        f"/api/tts/voices?provider_id={quote_plus(provider_id)}",
+        timeout=VOICE_STATUS_TIMEOUT_SECONDS,
+    )
+    voices = [normalize_voice(voice) for voice in response.get("voices", []) if isinstance(voice, dict)]
+    return {
+        "ok": bool(response.get("ok", True)),
+        "provider_id": response.get("provider_id") or provider_id,
+        "voices": voices,
+    }
+
+
+def synthesize_voice(state: AppState, payload):
+    config = state.config
+    if not config.voice_enabled:
+        raise RuntimeError("Voice bridge is disabled.")
+
+    text = str(payload.get("text") or "").strip()
+    if not text:
+        raise ValueError("text is required.")
+    if len(text) > 8000:
+        raise ValueError("text is too long.")
+
+    provider_id = str(payload.get("provider_id") or config.voice_provider or "system")
+    voice_id = str(payload.get("voice_id") or config.voice_id or "")
+    request_payload = {
+        "text": text,
+        "provider_id": provider_id,
+        "voice_id": voice_id or None,
+        "language": str(payload.get("language") or "en"),
+    }
+    request_payload = {key: value for key, value in request_payload.items() if value is not None}
+    timeout = max(1, int(payload.get("timeout_seconds") or config.voice_timeout_seconds or VOICE_TTS_TIMEOUT_SECONDS))
+
+    synth = fetch_votronix_json(config, "/api/tts/synthesize", payload=request_payload, timeout=timeout)
+    audio, content_type = fetch_votronix_bytes(config, "/api/audio/processed.wav", timeout=VOICE_STATUS_TIMEOUT_SECONDS)
+    with state.voice_lock:
+        state.voice_audio = audio
+        state.voice_audio_meta = {
+            "provider_id": synth.get("provider_id") or provider_id,
+            "voice_id": synth.get("voice_id") or voice_id,
+            "content_type": content_type or "audio/wav",
+            "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "text_length": len(text),
+        }
+    return {
+        "ok": True,
+        "provider_id": state.voice_audio_meta["provider_id"],
+        "voice_id": state.voice_audio_meta["voice_id"],
+        "audio_url": "/api/voice/last.wav",
+        "duration_seconds": None,
+        "votronix": synth,
+    }
+
+
+def send_voice_audio(handler):
+    state = handler.server.app_state
+    with state.voice_lock:
+        audio = state.voice_audio
+        meta = dict(state.voice_audio_meta)
+    if not audio:
+        send_json(handler, 404, {"ok": False, "error": "No voice audio has been generated yet."})
+        return
+
+    handler.send_response(200)
+    for key, value in response_headers(handler, meta.get("content_type") or "audio/wav").items():
+        handler.send_header(key, value)
+    handler.send_header("Cache-Control", "no-store")
+    handler.send_header("Content-Length", str(len(audio)))
+    handler.end_headers()
+    handler.wfile.write(audio)
 
 
 def reverse_geocode(lat, lon):
@@ -363,6 +537,30 @@ class ChatHandler(BaseHTTPRequestHandler):
             })
             return
 
+        if self.path.startswith("/api/voice/status"):
+            send_json(self, 200, voice_status(self.server.app_state))
+            return
+
+        if self.path.startswith("/api/voice/providers"):
+            try:
+                send_json(self, 200, voice_providers(self.server.app_state.config))
+            except Exception as exc:
+                send_json(self, 503, {"ok": False, "error": voice_error_message(exc)})
+            return
+
+        if self.path.startswith("/api/voice/voices"):
+            try:
+                query = parse_qs(urlparse(self.path).query)
+                provider_id = (query.get("provider_id") or [self.server.app_state.config.voice_provider])[0]
+                send_json(self, 200, voice_list(self.server.app_state.config, provider_id))
+            except Exception as exc:
+                send_json(self, 503, {"ok": False, "error": voice_error_message(exc)})
+            return
+
+        if self.path.startswith("/api/voice/last.wav"):
+            send_voice_audio(self)
+            return
+
         if self.path.startswith("/api/news"):
             try:
                 query = parse_qs(urlparse(self.path).query)
@@ -424,6 +622,16 @@ class ChatHandler(BaseHTTPRequestHandler):
                 send_json(self, 200, {"ok": True, "event": event})
             except Exception as exc:
                 send_json(self, 400, {"error": str(exc)})
+            return
+
+        if self.path.startswith("/api/voice/tts"):
+            if not is_authorized(self):
+                send_json(self, 401, {"error": "Missing or invalid access token."})
+                return
+            try:
+                send_json(self, 200, synthesize_voice(self.server.app_state, read_json(self)))
+            except Exception as exc:
+                send_json(self, 500, {"ok": False, "error": voice_error_message(exc)})
             return
 
         if not self.path.startswith("/api/chat") and not self.path.startswith("/v1/chat/completions"):
@@ -518,7 +726,9 @@ Commands:
 
 Set keys:
   model_path, host, port, access_token, allowed_origins, model_name,
-  n_ctx, n_gpu_layers, temperature, max_tokens, system_prompt
+  n_ctx, n_gpu_layers, temperature, max_tokens, system_prompt,
+  votronix_url, voice_enabled, voice_provider, voice_id, voice_autoplay,
+  voice_timeout_seconds
 """.strip())
 
 
@@ -537,7 +747,9 @@ def set_config_value(config: BackendConfig, key: str, value: str):
         raise KeyError(f"Unknown setting: {key}")
 
     current = getattr(config, key)
-    if isinstance(current, int):
+    if isinstance(current, bool):
+        value = value.strip().lower() in ("1", "true", "yes", "on", "enabled")
+    elif isinstance(current, int):
         value = int(value)
     elif isinstance(current, float):
         value = float(value)

@@ -195,6 +195,27 @@ body {
   gap: 8px;
 }
 
+.voice-settings {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.voice-status-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  color: rgba(137, 239, 255, 0.78);
+  font: 11px Consolas, "Courier New", monospace;
+}
+
+.voice-status-row button {
+  min-height: 30px;
+  padding: 0 8px;
+  font-size: 11px;
+}
+
 .cloud-id {
   display: flex;
   justify-content: space-between;
@@ -294,6 +315,23 @@ body {
   border-radius: 8px;
   line-height: 1.42;
   white-space: pre-wrap;
+}
+
+.message-content {
+  min-width: 0;
+}
+
+.message-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.message-actions button {
+  min-height: 26px;
+  padding: 0 8px;
+  font-size: 11px;
 }
 
 .message.user {
@@ -412,8 +450,21 @@ body {
     gap: 6px;
   }
 
+  .voice-settings {
+    gap: 6px;
+  }
+
+  .voice-status-row {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
   .settings-row button {
     min-height: 32px;
+  }
+
+  .voice-status-row button {
+    width: 100%;
   }
 
   .chat-log {

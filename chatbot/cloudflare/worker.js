@@ -311,6 +311,11 @@ export default {
     if (url.pathname === '/api/news' && request.method === 'GET') return proxyToTunnel(request, env, `/api/news${url.search}`);
     if (url.pathname === '/api/geocode' && request.method === 'GET') return proxyToTunnel(request, env, `/api/geocode${url.search}`);
     if (url.pathname === '/api/geo' && request.method === 'POST') return proxyToTunnel(request, env, '/api/geo');
+    if (url.pathname === '/api/voice/status' && request.method === 'GET') return proxyToTunnel(request, env, '/api/voice/status');
+    if (url.pathname === '/api/voice/providers' && request.method === 'GET') return proxyToTunnel(request, env, '/api/voice/providers');
+    if (url.pathname === '/api/voice/voices' && request.method === 'GET') return proxyToTunnel(request, env, `/api/voice/voices${url.search}`);
+    if (url.pathname === '/api/voice/tts' && request.method === 'POST') return proxyToTunnel(request, env, '/api/voice/tts');
+    if (url.pathname === '/api/voice/last.wav' && request.method === 'GET') return proxyToTunnel(request, env, '/api/voice/last.wav');
     if ((url.pathname === '/api/chat' || url.pathname === '/v1/chat/completions') && request.method === 'POST') {
       return proxyToTunnel(request, env, url.pathname);
     }

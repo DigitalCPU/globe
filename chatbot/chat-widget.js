@@ -14,7 +14,9 @@
     endpoint: stableRelayEndpoint,
     model: 'qwen3-4b-instruct-2507-q5_k_m',
     apiKey: '',
-    opacity: 90
+    opacity: 90,
+    voiceEnabled: true,
+    voiceAutoplay: false
   };
 
   async function loadWidgetMarkup() {
@@ -39,6 +41,8 @@
     <label><span>Model</span><input id="apiModel" type="text" autocomplete="off" spellcheck="false"></label>
     <label><span>Access token / API key</span><input id="apiKey" type="password" autocomplete="off" spellcheck="false" placeholder="optional"></label>
     <label><span>Opacity</span><span class="opacity-row"><input id="chatOpacity" type="range" min="35" max="100" step="5"><span id="chatOpacityValue">90%</span></span></label>
+    <div class="voice-settings"><label><span>Voice</span><select id="voiceEnabled"><option value="true">Enabled</option><option value="false">Off</option></select></label><label><span>Speak replies</span><select id="voiceAutoplay"><option value="false">Manual</option><option value="true">Auto</option></select></label></div>
+    <div class="voice-status-row"><span id="voiceStatus">voice unknown</span><button id="voiceRefresh" type="button">Check voice</button></div>
     <div class="cloud-id">Cloud account <span id="cloudUserLabel">--</span></div>
     <div class="settings-row"><button id="copyCloudKey" type="button">Copy key</button><button id="importCloudKey" type="button">Use key</button></div>
     <div class="settings-row"><button id="saveSettings" type="submit">Save</button><button id="resetSettings" type="button">Reset</button></div>
@@ -62,7 +66,7 @@
 
     try {
       const script = document.currentScript;
-      const widgetUrl = new URL('widget.html?v=module1', script ? script.src : window.location.href);
+      const widgetUrl = new URL('widget.html?v=voice1', script ? script.src : window.location.href);
       const response = await fetch(widgetUrl);
       if (!response.ok) throw new Error(`Widget markup failed: ${response.status}`);
       const host = document.body;
@@ -88,6 +92,10 @@
   const apiKey = document.getElementById('apiKey');
   const chatOpacity = document.getElementById('chatOpacity');
   const chatOpacityValue = document.getElementById('chatOpacityValue');
+  const voiceEnabled = document.getElementById('voiceEnabled');
+  const voiceAutoplay = document.getElementById('voiceAutoplay');
+  const voiceStatus = document.getElementById('voiceStatus');
+  const voiceRefresh = document.getElementById('voiceRefresh');
   const cloudUserLabel = document.getElementById('cloudUserLabel');
   const copyCloudKey = document.getElementById('copyCloudKey');
   const importCloudKey = document.getElementById('importCloudKey');
@@ -131,6 +139,8 @@
   function normalizeSettings(nextSettings) {
     const normalized = { ...defaultSettings, ...nextSettings };
     normalized.endpoint = cleanEndpoint(normalized.endpoint);
+    normalized.voiceEnabled = normalized.voiceEnabled === true || normalized.voiceEnabled === 'true';
+    normalized.voiceAutoplay = normalized.voiceAutoplay === true || normalized.voiceAutoplay === 'true';
     if (
       !normalized.endpoint
       || normalized.endpoint.includes('127.0.0.1')
@@ -234,6 +244,8 @@
     apiModel.value = settings.model;
     apiKey.value = settings.apiKey;
     chatOpacity.value = String(settings.opacity);
+    if (voiceEnabled) voiceEnabled.value = String(settings.voiceEnabled);
+    if (voiceAutoplay) voiceAutoplay.value = String(settings.voiceAutoplay);
     applyOpacity(settings.opacity);
     cloudUserLabel.textContent = `${cloudUserKey.slice(0, 10)}...`;
   }
@@ -290,13 +302,95 @@
     chatOpacityValue.textContent = `${opacity}%`;
   }
 
+  function setMessageContent(message, content) {
+    const contentNode = message.querySelector('.message-content');
+    if (contentNode) {
+      contentNode.textContent = content;
+    } else {
+      message.textContent = content;
+    }
+  }
+
   function addMessage(role, content) {
     const message = document.createElement('div');
     message.className = `message ${role}`;
-    message.textContent = content;
+    const contentNode = document.createElement('div');
+    contentNode.className = 'message-content';
+    contentNode.textContent = content;
+    message.appendChild(contentNode);
+    if (role === 'assistant') {
+      const actions = document.createElement('div');
+      actions.className = 'message-actions';
+      const speak = document.createElement('button');
+      speak.type = 'button';
+      speak.textContent = 'Speak';
+      speak.addEventListener('click', () => speakText(contentNode.textContent, speak));
+      actions.appendChild(speak);
+      message.appendChild(actions);
+    }
     chatLog.appendChild(message);
     chatLog.scrollTop = chatLog.scrollHeight;
     return message;
+  }
+
+  function voiceApiUrl(path) {
+    const cleanPath = path.startsWith('/') ? path : `/${path}`;
+    return cleanEndpoint(settings.endpoint).replace(/\/api\/chat$/, cleanPath);
+  }
+
+  async function voiceRequest(path, options = {}) {
+    const headers = { ...(options.headers || {}) };
+    if (settings.apiKey) headers.Authorization = `Bearer ${settings.apiKey}`;
+    const response = await fetch(voiceApiUrl(path), { ...options, headers });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || `Voice request failed: ${response.status}`);
+    return data;
+  }
+
+  async function refreshVoiceStatus() {
+    if (!voiceStatus) return;
+    if (!settings.voiceEnabled) {
+      voiceStatus.textContent = 'voice off';
+      return;
+    }
+    try {
+      const data = await voiceRequest('/api/voice/status');
+      voiceStatus.textContent = data.votronix_running ? 'voice ready' : 'voice offline';
+    } catch (error) {
+      voiceStatus.textContent = 'voice offline';
+    }
+  }
+
+  async function speakText(text, button) {
+    const cleanText = String(text || '').trim();
+    if (!cleanText || !settings.voiceEnabled) return;
+    const previous = button ? button.textContent : '';
+    if (button) {
+      button.disabled = true;
+      button.textContent = 'Voice...';
+    }
+    status.textContent = 'voice';
+    try {
+      const data = await voiceRequest('/api/voice/tts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: cleanText })
+      });
+      const audioUrl = `${voiceApiUrl(data.audio_url || '/api/voice/last.wav')}?t=${Date.now()}`;
+      const audio = new Audio(audioUrl);
+      await audio.play();
+      status.textContent = 'ready';
+      if (voiceStatus) voiceStatus.textContent = 'voice ready';
+    } catch (error) {
+      status.textContent = 'voice failed';
+      if (voiceStatus) voiceStatus.textContent = 'voice failed';
+      addMessage('system', `Voice failed: ${error.message}`);
+    } finally {
+      if (button) {
+        button.disabled = false;
+        button.textContent = previous || 'Speak';
+      }
+    }
   }
 
   function pushMessage(role, content) {
@@ -343,11 +437,15 @@
       const reply = await requestCompletion();
       messages.push({ role: 'assistant', content: reply });
       saveConversation();
-      assistantNode.textContent = reply;
+      setMessageContent(assistantNode, reply);
       status.textContent = 'ready';
+      if (settings.voiceAutoplay) {
+        const speakButton = assistantNode.querySelector('.message-actions button');
+        speakText(reply, speakButton).catch(() => {});
+      }
       autoSaveConversationToCloud();
     } catch (error) {
-      assistantNode.textContent = `Connection failed: ${error.message}`;
+      setMessageContent(assistantNode, `Connection failed: ${error.message}`);
       status.textContent = 'offline';
     } finally {
       sendButton.disabled = false;
@@ -526,7 +624,9 @@
       endpoint: cleanEndpoint(apiEndpoint.value),
       model: apiModel.value.trim(),
       apiKey: apiKey.value.trim(),
-      opacity: Number(chatOpacity.value)
+      opacity: Number(chatOpacity.value),
+      voiceEnabled: voiceEnabled ? voiceEnabled.value === 'true' : settings.voiceEnabled,
+      voiceAutoplay: voiceAutoplay ? voiceAutoplay.value === 'true' : settings.voiceAutoplay
     });
     status.textContent = 'settings saved';
     setTimeout(() => {
@@ -619,6 +719,12 @@
     applyOpacity(chatOpacity.value);
   });
 
+  if (voiceRefresh) {
+    voiceRefresh.addEventListener('click', () => {
+      refreshVoiceStatus();
+    });
+  }
+
   chatForm.addEventListener('submit', (event) => {
     event.preventDefault();
     const userText = chatInput.value.trim();
@@ -638,6 +744,7 @@
   renderSettings();
   renderConversation();
   renderCloudConversations([]);
+  refreshVoiceStatus();
   widget.classList.add('is-minimized');
   launcher.classList.add('is-visible');
 }());
