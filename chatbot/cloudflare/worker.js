@@ -314,6 +314,7 @@ export default {
     if (url.pathname === '/api/voice/status' && request.method === 'GET') return proxyToTunnel(request, env, '/api/voice/status');
     if (url.pathname === '/api/voice/providers' && request.method === 'GET') return proxyToTunnel(request, env, '/api/voice/providers');
     if (url.pathname === '/api/voice/voices' && request.method === 'GET') return proxyToTunnel(request, env, `/api/voice/voices${url.search}`);
+    if (url.pathname === '/api/voice/active' && request.method === 'GET') return proxyToTunnel(request, env, '/api/voice/active');
     if (url.pathname === '/api/voice/tts' && request.method === 'POST') return proxyToTunnel(request, env, '/api/voice/tts');
     if (url.pathname === '/api/voice/last.wav' && request.method === 'GET') return proxyToTunnel(request, env, '/api/voice/last.wav');
     if ((url.pathname === '/api/chat' || url.pathname === '/v1/chat/completions') && request.method === 'POST') {

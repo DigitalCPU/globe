@@ -355,7 +355,16 @@
     }
     try {
       const data = await voiceRequest('/api/voice/status');
-      voiceStatus.textContent = data.votronix_running ? 'voice ready' : 'voice offline';
+      if (!data.votronix_running) {
+        voiceStatus.textContent = 'voice offline';
+        return;
+      }
+      try {
+        const active = await voiceRequest('/api/voice/active');
+        voiceStatus.textContent = active.active ? `voice: ${active.name || 'published'}` : 'voice ready';
+      } catch (error) {
+        voiceStatus.textContent = 'voice ready';
+      }
     } catch (error) {
       voiceStatus.textContent = 'voice offline';
     }

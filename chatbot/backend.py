@@ -341,6 +341,18 @@ def voice_list(config: BackendConfig, provider_id: str):
     }
 
 
+def active_voice(config: BackendConfig):
+    response = fetch_votronix_json(config, "/api/globe/active-voice", timeout=VOICE_STATUS_TIMEOUT_SECONDS)
+    return {
+        "ok": bool(response.get("ok", True)),
+        "active": bool(response.get("active")),
+        "provider_id": str(response.get("provider_id") or ""),
+        "voice_id": str(response.get("voice_id") or ""),
+        "name": str(response.get("name") or ""),
+        "updated_at": str(response.get("updated_at") or ""),
+    }
+
+
 def synthesize_voice(state: AppState, payload):
     config = state.config
     if not config.voice_enabled:
@@ -352,13 +364,15 @@ def synthesize_voice(state: AppState, payload):
     if len(text) > 8000:
         raise ValueError("text is too long.")
 
-    provider_id = str(payload.get("provider_id") or config.voice_provider or "system")
-    voice_id = str(payload.get("voice_id") or config.voice_id or "")
+    use_active_voice = bool(payload.get("use_active_voice", True))
+    provider_id = str(payload.get("provider_id") or ("" if use_active_voice else config.voice_provider) or "system")
+    voice_id = str(payload.get("voice_id") or ("" if use_active_voice else config.voice_id) or "")
     request_payload = {
         "text": text,
-        "provider_id": provider_id,
+        "provider_id": provider_id if payload.get("provider_id") or not use_active_voice else None,
         "voice_id": voice_id or None,
         "language": str(payload.get("language") or "en"),
+        "use_active_voice": use_active_voice,
     }
     request_payload = {key: value for key, value in request_payload.items() if value is not None}
     timeout = max(1, int(payload.get("timeout_seconds") or config.voice_timeout_seconds or VOICE_TTS_TIMEOUT_SECONDS))
@@ -553,6 +567,13 @@ class ChatHandler(BaseHTTPRequestHandler):
                 query = parse_qs(urlparse(self.path).query)
                 provider_id = (query.get("provider_id") or [self.server.app_state.config.voice_provider])[0]
                 send_json(self, 200, voice_list(self.server.app_state.config, provider_id))
+            except Exception as exc:
+                send_json(self, 503, {"ok": False, "error": voice_error_message(exc)})
+            return
+
+        if self.path.startswith("/api/voice/active"):
+            try:
+                send_json(self, 200, active_voice(self.server.app_state.config))
             except Exception as exc:
                 send_json(self, 503, {"ok": False, "error": voice_error_message(exc)})
             return
