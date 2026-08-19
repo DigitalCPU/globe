@@ -324,7 +324,13 @@
       const speak = document.createElement('button');
       speak.type = 'button';
       speak.textContent = 'Speak';
-      speak.addEventListener('click', () => speakText(contentNode.textContent, speak));
+      speak.addEventListener('click', () => {
+        if (speak.dataset.audioUrl) {
+          playVoiceAudio(speak.dataset.audioUrl, speak);
+          return;
+        }
+        speakText(contentNode.textContent, speak);
+      });
       actions.appendChild(speak);
       message.appendChild(actions);
     }
@@ -370,13 +376,47 @@
     }
   }
 
+  async function playVoiceAudio(audioUrl, button) {
+    if (!audioUrl) return;
+    if (button) {
+      button.disabled = false;
+      button.textContent = 'Playing';
+    }
+    status.textContent = 'playing';
+    try {
+      const audio = new Audio(audioUrl);
+      audio.preload = 'auto';
+      audio.addEventListener('ended', () => {
+        if (status.textContent === 'playing') status.textContent = 'ready';
+        if (button) button.textContent = 'Play';
+      }, { once: true });
+      await audio.play();
+      if (voiceStatus) voiceStatus.textContent = 'playing voice';
+    } catch (error) {
+      status.textContent = 'tap Play';
+      if (button) {
+        button.disabled = false;
+        button.textContent = 'Play';
+        button.title = 'Audio is ready. Tap Play to allow mobile playback.';
+      }
+      if (voiceStatus) voiceStatus.textContent = 'tap Play';
+      const blocked = error && (
+        error.name === 'NotAllowedError'
+        || /not allowed|user agent|platform/i.test(error.message || '')
+      );
+      if (!blocked) addMessage('system', `Voice playback failed: ${error.message}`);
+    }
+  }
+
   async function speakText(text, button) {
     const cleanText = String(text || '').trim();
     if (!cleanText || !settings.voiceEnabled) return;
     const previous = button ? button.textContent : '';
+    let renderedAudioUrl = '';
     if (button) {
       button.disabled = true;
       button.textContent = 'Voice...';
+      button.title = 'Rendering voice audio...';
     }
     status.textContent = 'voice';
     try {
@@ -386,18 +426,25 @@
         body: JSON.stringify({ text: cleanText })
       });
       const audioUrl = `${voiceApiUrl(data.audio_url || '/api/voice/last.wav')}?t=${Date.now()}`;
-      const audio = new Audio(audioUrl);
-      await audio.play();
-      status.textContent = 'ready';
-      if (voiceStatus) voiceStatus.textContent = 'voice ready';
+      renderedAudioUrl = audioUrl;
+      if (button) {
+        button.dataset.audioUrl = audioUrl;
+        button.disabled = false;
+        button.textContent = 'Play';
+        button.title = 'Audio is ready. Tap Play if mobile blocks autoplay.';
+      }
+      status.textContent = 'tap Play';
+      if (voiceStatus) voiceStatus.textContent = 'audio ready';
+      await playVoiceAudio(audioUrl, button);
     } catch (error) {
       status.textContent = 'voice failed';
       if (voiceStatus) voiceStatus.textContent = 'voice failed';
       addMessage('system', `Voice failed: ${error.message}`);
     } finally {
-      if (button) {
+      if (button && !renderedAudioUrl) {
         button.disabled = false;
         button.textContent = previous || 'Speak';
+        button.title = '';
       }
     }
   }
