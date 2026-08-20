@@ -5,6 +5,7 @@ import os
 import queue
 import re
 import shlex
+import subprocess
 import sys
 import threading
 import time
@@ -277,6 +278,51 @@ def voice_error_message(exc):
     return str(exc)
 
 
+def gpu_status():
+    try:
+        result = subprocess.run(
+            [
+                "nvidia-smi",
+                "--query-gpu=utilization.gpu,memory.used,memory.total,temperature.gpu",
+                "--format=csv,noheader,nounits",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=1.5,
+            check=False,
+        )
+    except Exception:
+        return {"ok": False, "label": "GPU --"}
+
+    line = (result.stdout or "").strip().splitlines()
+    if result.returncode != 0 or not line:
+        return {"ok": False, "label": "GPU --"}
+
+    parts = [part.strip() for part in line[0].split(",")]
+    if len(parts) < 3:
+        return {"ok": False, "label": "GPU --"}
+
+    try:
+        usage = int(float(parts[0]))
+        memory_used = int(float(parts[1]))
+        memory_total = int(float(parts[2]))
+        temperature = int(float(parts[3])) if len(parts) > 3 and parts[3] else None
+    except ValueError:
+        return {"ok": False, "label": "GPU --"}
+
+    label = f"GPU {usage}% {memory_used}/{memory_total} MB"
+    if temperature is not None:
+        label = f"{label} {temperature}C"
+    return {
+        "ok": True,
+        "usage_percent": usage,
+        "memory_used_mb": memory_used,
+        "memory_total_mb": memory_total,
+        "temperature_c": temperature,
+        "label": label,
+    }
+
+
 def voice_status(state: AppState):
     config = state.config
     payload = {
@@ -289,6 +335,7 @@ def voice_status(state: AppState):
         "default_tts_provider": config.voice_provider,
         "default_voice_id": config.voice_id,
         "voice_autoplay": config.voice_autoplay,
+        "gpu": gpu_status(),
         "error": "",
     }
     if not config.voice_enabled:

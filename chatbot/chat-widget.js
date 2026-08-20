@@ -42,7 +42,7 @@
     <label><span>Access token / API key</span><input id="apiKey" type="password" autocomplete="off" spellcheck="false" placeholder="optional"></label>
     <label><span>Opacity</span><span class="opacity-row"><input id="chatOpacity" type="range" min="35" max="100" step="5"><span id="chatOpacityValue">90%</span></span></label>
     <div class="voice-settings"><label><span>Voice</span><select id="voiceEnabled"><option value="true">Enabled</option><option value="false">Off</option></select></label><label><span>Speak replies</span><select id="voiceAutoplay"><option value="false">Manual</option><option value="true">Auto</option></select></label></div>
-    <div class="voice-status-row"><span id="voiceStatus">voice unknown</span><button id="voiceRefresh" type="button">Check voice</button></div>
+    <div class="voice-status-row"><span id="voiceStatus">voice unknown</span><span id="gpuStatus">GPU --</span><button id="voiceRefresh" type="button">Check voice</button></div>
     <div class="cloud-id">Cloud account <span id="cloudUserLabel">--</span></div>
     <div class="settings-row"><button id="copyCloudKey" type="button">Copy key</button><button id="importCloudKey" type="button">Use key</button></div>
     <div class="settings-row"><button id="saveSettings" type="submit">Save</button><button id="resetSettings" type="button">Reset</button></div>
@@ -66,7 +66,7 @@
 
     try {
       const script = document.currentScript;
-      const widgetUrl = new URL('widget.html?v=voice1', script ? script.src : window.location.href);
+      const widgetUrl = new URL('widget.html?v=voice3', script ? script.src : window.location.href);
       const response = await fetch(widgetUrl);
       if (!response.ok) throw new Error(`Widget markup failed: ${response.status}`);
       const host = document.body;
@@ -95,6 +95,7 @@
   const voiceEnabled = document.getElementById('voiceEnabled');
   const voiceAutoplay = document.getElementById('voiceAutoplay');
   const voiceStatus = document.getElementById('voiceStatus');
+  const gpuStatus = document.getElementById('gpuStatus');
   const voiceRefresh = document.getElementById('voiceRefresh');
   const cloudUserLabel = document.getElementById('cloudUserLabel');
   const copyCloudKey = document.getElementById('copyCloudKey');
@@ -325,8 +326,8 @@
       speak.type = 'button';
       speak.textContent = 'Speak';
       speak.addEventListener('click', () => {
-        if (speak.dataset.audioUrl) {
-          playVoiceAudio(speak.dataset.audioUrl, speak);
+        if (speak.dataset.audioUrls) {
+          playVoiceAudioSequence(JSON.parse(speak.dataset.audioUrls || '[]'), speak);
           return;
         }
         speakText(contentNode.textContent, speak);
@@ -353,6 +354,11 @@
     return data;
   }
 
+  function setGpuStatus(gpu) {
+    if (!gpuStatus) return;
+    gpuStatus.textContent = gpu && gpu.label ? gpu.label : 'GPU --';
+  }
+
   async function refreshVoiceStatus() {
     if (!voiceStatus) return;
     if (!settings.voiceEnabled) {
@@ -361,6 +367,7 @@
     }
     try {
       const data = await voiceRequest('/api/voice/status');
+      setGpuStatus(data.gpu);
       if (!data.votronix_running) {
         voiceStatus.textContent = 'voice offline';
         return;
@@ -372,25 +379,80 @@
         voiceStatus.textContent = 'voice ready';
       }
     } catch (error) {
+      setGpuStatus(null);
       voiceStatus.textContent = 'voice offline';
     }
   }
 
-  async function playVoiceAudio(audioUrl, button) {
-    if (!audioUrl) return;
+  function splitVoiceText(text) {
+    const cleanText = String(text || '').replace(/\s+/g, ' ').trim();
+    if (!cleanText) return [];
+    const maxLength = 220;
+    const sentences = cleanText.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [cleanText];
+    const chunks = [];
+    let current = '';
+    sentences.forEach((sentence) => {
+      const next = sentence.trim();
+      if (!next) return;
+      if ((current + ' ' + next).trim().length <= maxLength) {
+        current = (current + ' ' + next).trim();
+        return;
+      }
+      if (current) chunks.push(current);
+      if (next.length <= maxLength) {
+        current = next;
+        return;
+      }
+      const words = next.split(' ');
+      current = '';
+      words.forEach((word) => {
+        if ((current + ' ' + word).trim().length > maxLength && current) {
+          chunks.push(current);
+          current = word;
+        } else {
+          current = (current + ' ' + word).trim();
+        }
+      });
+    });
+    if (current) chunks.push(current);
+    return chunks.slice(0, 40);
+  }
+
+  async function fetchVoiceAudioBlob(audioPath) {
+    const audioUrl = `${voiceApiUrl(audioPath || '/api/voice/last.wav')}?t=${Date.now()}`;
+    const headers = {};
+    if (settings.apiKey) headers.Authorization = `Bearer ${settings.apiKey}`;
+    const response = await fetch(audioUrl, { headers });
+    if (!response.ok) throw new Error(`Voice audio failed: ${response.status}`);
+    return URL.createObjectURL(await response.blob());
+  }
+
+  async function playOneVoiceAudio(audioUrl, button) {
+    return new Promise((resolve, reject) => {
+      const audio = new Audio(audioUrl);
+      audio.preload = 'auto';
+      audio.addEventListener('ended', resolve, { once: true });
+      audio.addEventListener('error', () => reject(new Error('Audio playback failed.')), { once: true });
+      audio.play().catch(reject);
+    }).finally(() => {
+      if (button) button.textContent = 'Play';
+    });
+  }
+
+  async function playVoiceAudioSequence(audioUrls, button) {
+    if (!audioUrls || !audioUrls.length) return;
     if (button) {
       button.disabled = false;
       button.textContent = 'Playing';
     }
     status.textContent = 'playing';
     try {
-      const audio = new Audio(audioUrl);
-      audio.preload = 'auto';
-      audio.addEventListener('ended', () => {
-        if (status.textContent === 'playing') status.textContent = 'ready';
-        if (button) button.textContent = 'Play';
-      }, { once: true });
-      await audio.play();
+      for (let index = 0; index < audioUrls.length; index += 1) {
+        if (button) button.textContent = audioUrls.length > 1 ? `Playing ${index + 1}/${audioUrls.length}` : 'Playing';
+        await playOneVoiceAudio(audioUrls[index], button);
+      }
+      status.textContent = 'ready';
+      if (button) button.textContent = 'Replay';
       if (voiceStatus) voiceStatus.textContent = 'playing voice';
     } catch (error) {
       status.textContent = 'tap Play';
@@ -412,36 +474,44 @@
     const cleanText = String(text || '').trim();
     if (!cleanText || !settings.voiceEnabled) return;
     const previous = button ? button.textContent : '';
-    let renderedAudioUrl = '';
+    const chunks = splitVoiceText(cleanText);
+    const audioUrls = [];
     if (button) {
       button.disabled = true;
-      button.textContent = 'Voice...';
-      button.title = 'Rendering voice audio...';
+      button.classList.add('is-rendering');
+      button.textContent = chunks.length > 1 ? `Rendering 1/${chunks.length}` : 'Rendering';
+      button.title = 'Rendering voice audio in chunks...';
     }
     status.textContent = 'voice';
     try {
-      const data = await voiceRequest('/api/voice/tts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: cleanText })
-      });
-      const audioUrl = `${voiceApiUrl(data.audio_url || '/api/voice/last.wav')}?t=${Date.now()}`;
-      renderedAudioUrl = audioUrl;
+      for (let index = 0; index < chunks.length; index += 1) {
+        if (button) button.textContent = chunks.length > 1 ? `Rendering ${index + 1}/${chunks.length}` : 'Rendering';
+        if (voiceStatus) voiceStatus.textContent = chunks.length > 1 ? `rendering ${index + 1}/${chunks.length}` : 'rendering voice';
+        const data = await voiceRequest('/api/voice/tts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: chunks[index] })
+        });
+        audioUrls.push(await fetchVoiceAudioBlob(data.audio_url || '/api/voice/last.wav'));
+        refreshVoiceStatus().catch(() => {});
+      }
       if (button) {
-        button.dataset.audioUrl = audioUrl;
+        button.dataset.audioUrls = JSON.stringify(audioUrls);
         button.disabled = false;
         button.textContent = 'Play';
+        button.classList.remove('is-rendering');
         button.title = 'Audio is ready. Tap Play if mobile blocks autoplay.';
       }
       status.textContent = 'tap Play';
       if (voiceStatus) voiceStatus.textContent = 'audio ready';
-      await playVoiceAudio(audioUrl, button);
+      await playVoiceAudioSequence(audioUrls, button);
     } catch (error) {
       status.textContent = 'voice failed';
       if (voiceStatus) voiceStatus.textContent = 'voice failed';
       addMessage('system', `Voice failed: ${error.message}`);
     } finally {
-      if (button && !renderedAudioUrl) {
+      if (button) button.classList.remove('is-rendering');
+      if (button && !audioUrls.length) {
         button.disabled = false;
         button.textContent = previous || 'Speak';
         button.title = '';

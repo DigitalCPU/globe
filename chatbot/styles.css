@@ -203,11 +203,22 @@ body {
 
 .voice-status-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: center;
   gap: 8px;
   color: rgba(137, 239, 255, 0.78);
   font: 11px Consolas, "Courier New", monospace;
+}
+
+.voice-status-row span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#gpuStatus {
+  color: rgba(255, 215, 112, 0.82);
 }
 
 .voice-status-row button {
@@ -332,6 +343,20 @@ body {
   min-height: 26px;
   padding: 0 8px;
   font-size: 11px;
+}
+
+.message-actions button.is-rendering {
+  animation: voice-render-pulse 1.1s ease-in-out infinite;
+  box-shadow: 0 0 10px rgba(84, 218, 255, 0.28);
+}
+
+@keyframes voice-render-pulse {
+  0%, 100% {
+    background: rgba(18, 70, 84, 0.52);
+  }
+  50% {
+    background: rgba(84, 218, 255, 0.24);
+  }
 }
 
 .message.user {
