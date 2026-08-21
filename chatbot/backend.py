@@ -16,6 +16,7 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import parse_qs, quote_plus, unquote, urlparse
 from urllib.request import Request, urlopen
 import xml.etree.ElementTree as ET
+from account_store import AccountStore
 from geocoder import LocalGeocoder
 
 
@@ -31,6 +32,9 @@ CONFIG_PATH = ROOT / "backend_config.json"
 DATA_DIR = ROOT / "data"
 GEOCODER_DATA_PATH = ROOT / "geocoder" / "locations.json"
 GEO_EVENTS_PATH = DATA_DIR / "geo_events.jsonl"
+DEFAULT_USER_CLOUD_ROOT = ROOT / "user_cloud"
+DEFAULT_ACCOUNT_DB_PATH = DATA_DIR / "accounts.sqlite3"
+DEFAULT_ACCOUNT_SECRET_PATH = DATA_DIR / "account_password_secret.key"
 DEFAULT_MODEL_PATH = r"C:\Users\inter\Desktop\votronix\models\llm\qwen3-4b-instruct-2507-q5_k_m.gguf"
 NEWS_TIMEOUT_SECONDS = 10
 VOICE_STATUS_TIMEOUT_SECONDS = 3
@@ -58,6 +62,9 @@ class BackendConfig:
     voice_id: str = ""
     voice_autoplay: bool = False
     voice_timeout_seconds: int = VOICE_TTS_TIMEOUT_SECONDS
+    user_cloud_root: str = str(DEFAULT_USER_CLOUD_ROOT)
+    account_db_path: str = str(DEFAULT_ACCOUNT_DB_PATH)
+    account_password_secret_path: str = str(DEFAULT_ACCOUNT_SECRET_PATH)
 
 
 class QwenEngine:
@@ -128,6 +135,8 @@ class AppState:
         self.voice_audio = None
         self.voice_audio_meta = {}
         self.voice_lock = threading.Lock()
+        self.accounts = AccountStore.from_config(config)
+        self.accounts.initialize()
 
     def log_line(self, text):
         stamp = time.strftime("%H:%M:%S")
@@ -149,6 +158,20 @@ def load_config():
 
 def save_config(config: BackendConfig):
     CONFIG_PATH.write_text(json.dumps(asdict(config), indent=2), encoding="utf-8")
+
+
+def account_foundation_status(state: AppState):
+    accounts = state.accounts.list_accounts()
+    return {
+        "ok": True,
+        "account_db_path": str(state.accounts.db_path),
+        "account_db_exists": state.accounts.db_path.exists(),
+        "user_cloud_root": str(state.accounts.storage_root),
+        "user_cloud_exists": state.accounts.storage_root.exists(),
+        "password_secret_path": str(state.accounts.secret_path),
+        "password_secret_exists": state.accounts.secret_path.exists(),
+        "account_count": len(accounts),
+    }
 
 
 def allowed_origin(config: BackendConfig, origin: str):
@@ -616,6 +639,10 @@ class ChatHandler(BaseHTTPRequestHandler):
                 "host": state.config.host,
                 "port": state.config.port,
             })
+            return
+
+        if self.path.startswith("/api/id/status"):
+            send_json(self, 200, account_foundation_status(self.server.app_state))
             return
 
         if self.path.startswith("/api/voice/status"):

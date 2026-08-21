@@ -454,6 +454,11 @@ class ControlPanel:
         geocode_count = len(geocode.get("results", [])) if isinstance(geocode, dict) else 0
         self.print_probe("local geocoder", geocode_status == 200 and geocode_count > 0, f"matches={geocode_count}")
 
+        account_status, account_data = self.request_json(f"{local_url}/api/id/status", timeout=8)
+        account_ok = account_status == 200 and bool(account_data.get("account_db_exists")) and bool(account_data.get("user_cloud_exists"))
+        account_detail = f"accounts={account_data.get('account_count', '?')} root={account_data.get('user_cloud_root', '-')}"
+        self.print_probe("account storage", account_ok, account_detail)
+
         relay_status, relay = self.request_json(f"{mobile.STABLE_RELAY}/api/status", timeout=20)
         relay_ok = relay_status == 200 and bool(relay.get("ready"))
         self.mobile_ready = relay_ok
@@ -477,6 +482,7 @@ class ControlPanel:
             "voice_bridge": voice_ok,
             "votronix": votronix_status == 200,
             "geocoder": geocode_status == 200 and geocode_count > 0,
+            "account_storage": account_ok,
             "relay": relay_ok,
             "chat": chat_ok,
         }
@@ -647,6 +653,12 @@ class ControlPanel:
         self.log(f"Mobile access {'READY' if self.mobile_ready else 'NOT READY'}")
         return self.mobile_ready
 
+    def account_status(self):
+        status, data = self.request_json(f"http://127.0.0.1:{self.config.port}/api/id/status", timeout=8)
+        ready = status == 200 and bool(data.get("ok"))
+        self.log(f"Account storage {'ready' if ready else 'not ready'}: status={status} {data}")
+        return ready
+
     def set_value(self, key, value):
         backend.set_config_value(self.config, key, value)
         self.log(f"Set {key}.")
@@ -742,6 +754,7 @@ Commands:
   review                       Review local backend, voice, GPU, relay, chat
   preview                      Open connected local preview with newest files
   preview-public               Open Netlify with a cache-buster
+  account-status               Check local account DB and user_cloud storage
   check-local                  Check local Qwen API
   check-voice                  Check local Live Satellite -> Votronix voice bridge
   check-relay                  Check stable Cloudflare relay
@@ -853,6 +866,8 @@ def main():
                 panel.preview_updates()
             elif command == "preview-public":
                 panel.preview_public()
+            elif command == "account-status":
+                panel.account_status()
             elif command == "check-local":
                 panel.check_local()
             elif command == "check-voice":
