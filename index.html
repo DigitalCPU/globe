@@ -22,6 +22,50 @@
       </button>
     </div>
     <button class="account-button" id="accountButton" type="button" aria-label="Profile account reserved">ID</button>
+    <section class="id-profile-panel" id="idProfilePanel" aria-label="ID profile" hidden>
+      <div class="id-profile-header">
+        <div>
+          <h2>ID</h2>
+          <span id="idProfileStatus">offline</span>
+        </div>
+        <button id="idProfileClose" type="button" aria-label="Close ID profile">-</button>
+      </div>
+
+      <div class="id-profile-forms" id="idProfileForms">
+        <div class="id-profile-tabs" role="group" aria-label="Account mode">
+          <button class="is-active" id="idLoginTab" type="button">Login</button>
+          <button id="idRegisterTab" type="button">Register</button>
+        </div>
+        <form id="idAuthForm" autocomplete="off">
+          <input id="idUsername" type="text" autocomplete="username" autocapitalize="off" spellcheck="false" placeholder="username">
+          <input id="idPassword" type="password" autocomplete="current-password" placeholder="password">
+          <input id="idDisplayName" type="text" autocomplete="off" placeholder="display name" hidden>
+          <button id="idSubmit" type="submit">Login</button>
+        </form>
+      </div>
+
+      <div class="id-profile-account" id="idProfileAccount" hidden>
+        <div class="id-profile-card">
+          <strong id="idProfileName">--</strong>
+          <span id="idProfileMeta">signed in</span>
+          <span id="idStorageMeta">storage --</span>
+        </div>
+        <div class="id-profile-actions">
+          <button id="idRefreshFiles" type="button">Refresh</button>
+          <button id="idLogout" type="button">Logout</button>
+        </div>
+        <form class="id-upload-form" id="idUploadForm">
+          <input id="idFileInput" type="file">
+          <input id="idFolderInput" type="text" autocomplete="off" placeholder="folder" value="uploads">
+          <button type="submit">Upload</button>
+        </form>
+        <ol class="id-file-list" id="idFileList">
+          <li>No files loaded.</li>
+        </ol>
+      </div>
+
+      <div class="id-profile-message" id="idProfileMessage">Sign in to open your folder.</div>
+    </section>
     <section class="panel" aria-label="Simulation settings">
       <div class="panel-header">
         <h2 class="panel-title">Settings</h2>
@@ -319,6 +363,7 @@
   <script src='js/space-weather.js'></script>
   <script src="js/country-selector.js?v=country1"></script>
   <script src='js/app.js?v=news-mobile1'></script>
+  <script src="js/id-profile.js?v=account1"></script>
   <script src="js/local-timeline.js?v=news-brief2"></script>
   <script src="chatbot/chat-widget.js?v=voice3"></script>
 

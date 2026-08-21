@@ -140,6 +140,164 @@
       background: rgba(30, 102, 122, 0.64);
     }
 
+    .account-button.is-active {
+      background: rgba(30, 102, 122, 0.64);
+      border-color: rgba(128, 239, 255, 0.56);
+    }
+
+    .id-profile-panel {
+      position: absolute;
+      left: 14px;
+      top: 54px;
+      z-index: 95;
+      width: min(360px, calc(100% - 28px));
+      max-height: min(560px, calc(100% - 78px));
+      overflow: auto;
+      box-sizing: border-box;
+      padding: 12px;
+      border: 1px solid rgba(84, 218, 255, 0.28);
+      border-radius: 8px;
+      background: rgba(2, 8, 12, 0.84);
+      box-shadow: 0 0 26px rgba(42, 205, 255, 0.16);
+      color: rgba(216, 247, 255, 0.9);
+      font: 12px Consolas, "Courier New", monospace;
+      backdrop-filter: blur(8px);
+      pointer-events: auto;
+    }
+
+    .id-profile-panel[hidden] {
+      display: none;
+    }
+
+    .id-profile-forms[hidden],
+    .id-profile-account[hidden],
+    #idDisplayName[hidden] {
+      display: none;
+    }
+
+    .id-profile-header,
+    .id-profile-tabs,
+    .id-profile-actions {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .id-profile-header h2 {
+      margin: 0;
+      font-size: 13px;
+    }
+
+    .id-profile-header span,
+    .id-profile-card span,
+    .id-profile-message {
+      color: rgba(137, 239, 255, 0.8);
+    }
+
+    .id-profile-header button,
+    .id-profile-tabs button,
+    .id-profile-actions button,
+    .id-upload-form button,
+    #idSubmit,
+    .id-file-list button {
+      min-height: 30px;
+      border: 1px solid rgba(84, 218, 255, 0.32);
+      border-radius: 6px;
+      background: rgba(18, 70, 84, 0.52);
+      color: rgba(230, 252, 255, 0.95);
+      font: 700 12px Consolas, "Courier New", monospace;
+      cursor: pointer;
+    }
+
+    .id-profile-header button {
+      width: 30px;
+      min-width: 30px;
+      padding: 0;
+      font: 700 16px/1 system-ui, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    .id-profile-tabs {
+      margin-top: 12px;
+    }
+
+    .id-profile-tabs button {
+      flex: 1;
+    }
+
+    .id-profile-tabs button:hover,
+    .id-profile-tabs button.is-active,
+    .id-profile-actions button:hover,
+    .id-upload-form button:hover,
+    #idSubmit:hover,
+    .id-file-list button:hover {
+      background: rgba(30, 102, 122, 0.64);
+    }
+
+    #idAuthForm,
+    .id-upload-form,
+    .id-profile-account {
+      display: grid;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    #idAuthForm input,
+    .id-upload-form input {
+      min-width: 0;
+      height: 30px;
+      box-sizing: border-box;
+      border: 1px solid rgba(84, 218, 255, 0.28);
+      border-radius: 6px;
+      background: rgba(0, 14, 20, 0.72);
+      color: rgba(230, 252, 255, 0.95);
+      padding: 0 9px;
+      font: 12px Consolas, "Courier New", monospace;
+    }
+
+    .id-profile-card,
+    .id-profile-message {
+      display: grid;
+      gap: 3px;
+      padding: 10px;
+      border: 1px solid rgba(84, 218, 255, 0.18);
+      border-radius: 7px;
+      background: rgba(0, 14, 20, 0.42);
+    }
+
+    .id-file-list {
+      display: grid;
+      gap: 7px;
+      max-height: 210px;
+      overflow: auto;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .id-file-list li {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto auto;
+      align-items: center;
+      gap: 6px;
+      padding: 8px;
+      border: 1px solid rgba(84, 218, 255, 0.16);
+      border-radius: 6px;
+      background: rgba(0, 14, 20, 0.36);
+    }
+
+    .id-file-list span {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .id-file-list button {
+      min-width: 54px;
+      padding: 0 8px;
+    }
+
     .panel {
       position: absolute;
       left: 14px;
