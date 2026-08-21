@@ -733,11 +733,41 @@ class ControlPanel:
         self.log(f"Role updated for {updated['username']}: {updated['role']}")
         return updated
 
+    def account_rename(self, value, username):
+        account = self.find_account(value)
+        old_username = account["username"]
+        updated = self.state.accounts.set_username(account, username)
+        self.log(f"Renamed account {old_username} -> {updated['username']}")
+        print(f"  account_folder: {updated['storage_dir']}")
+        return updated
+
     def account_set_status(self, value, status):
         account = self.find_account(value)
         updated = self.state.accounts.set_status(account, status)
         self.log(f"Status updated for {updated['username']}: {updated['status']}")
         return updated
+
+    def account_delete(self, value, confirm, delete_files=False):
+        if confirm != "CONFIRM":
+            raise ValueError("Usage: account-delete <user|id> CONFIRM [--delete-files]")
+        account = self.find_account(value)
+        deleted = self.state.accounts.delete_account(account, delete_files=delete_files)
+        self.log(f"Deleted account {deleted['username']} from database.")
+        if delete_files:
+            self.log(f"Deleted account folder: {deleted['storage_dir']}")
+        else:
+            print(f"  folder kept: {deleted['storage_dir']}")
+        return deleted
+
+    def account_folder(self, value, open_folder=False):
+        account = self.find_account(value)
+        folder = Path(account["storage_dir"])
+        print(folder)
+        if open_folder:
+            if not folder.exists():
+                raise FileNotFoundError(folder)
+            webbrowser.open(str(folder))
+        return folder
 
     def account_files(self, value):
         account = self.find_account(value)
@@ -857,8 +887,14 @@ Commands:
                                Admin: change an account password
   account-set-role <user|id> <role>
                                Admin: change an account role
+  account-rename <user|id> <new-user>
+                               Admin: rename account and storage folder
   account-enable <user|id>      Admin: enable an account
   account-disable <user|id>     Admin: disable an account and clear sessions
+  account-delete <user|id> CONFIRM [--delete-files]
+                               Admin: delete account; files kept unless flag is used
+  account-folder <user|id>      Admin: print account folder path
+  account-open-folder <user|id> Admin: open account folder in File Explorer
   account-files <user|id>       Admin: list files for an account
   check-local                  Check local Qwen API
   check-voice                  Check local Live Satellite -> Votronix voice bridge
@@ -1000,6 +1036,11 @@ def main():
                     print("Usage: account-set-role <user|id> <role>")
                     continue
                 panel.account_set_role(args[0], args[1])
+            elif command == "account-rename":
+                if len(args) != 2:
+                    print("Usage: account-rename <user|id> <new-user>")
+                    continue
+                panel.account_rename(args[0], args[1])
             elif command == "account-enable":
                 if len(args) != 1:
                     print("Usage: account-enable <user|id>")
@@ -1010,6 +1051,21 @@ def main():
                     print("Usage: account-disable <user|id>")
                     continue
                 panel.account_set_status(args[0], "disabled")
+            elif command == "account-delete":
+                if len(args) < 2:
+                    print("Usage: account-delete <user|id> CONFIRM [--delete-files]")
+                    continue
+                panel.account_delete(args[0], args[1], delete_files="--delete-files" in args[2:])
+            elif command == "account-folder":
+                if len(args) != 1:
+                    print("Usage: account-folder <user|id>")
+                    continue
+                panel.account_folder(args[0])
+            elif command == "account-open-folder":
+                if len(args) != 1:
+                    print("Usage: account-open-folder <user|id>")
+                    continue
+                panel.account_folder(args[0], open_folder=True)
             elif command == "account-files":
                 if len(args) != 1:
                     print("Usage: account-files <user|id>")

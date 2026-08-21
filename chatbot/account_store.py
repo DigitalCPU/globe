@@ -5,6 +5,7 @@ import json
 import os
 import re
 import secrets
+import shutil
 import sqlite3
 import time
 from pathlib import Path
@@ -323,6 +324,52 @@ class AccountStore:
             if clean_status != "active":
                 db.execute("DELETE FROM sessions WHERE account_id = ?", (account["account_id"],))
         return self.get_account(account_id=account["account_id"])
+
+    def set_username(self, account, username):
+        if not account:
+            raise ValueError("Account is required.")
+        username = normalize_username(username)
+        existing = self.get_account(username=username)
+        if existing and existing["account_id"] != account["account_id"]:
+            raise ValueError("Username is already taken.")
+        old_root = Path(account["storage_dir"])
+        new_root = self.account_storage_dir(username)
+        if old_root.resolve() != new_root.resolve():
+            if new_root.exists():
+                raise ValueError(f"Storage folder already exists: {new_root}")
+            if old_root.exists():
+                new_root.parent.mkdir(parents=True, exist_ok=True)
+                old_root.rename(new_root)
+            else:
+                self.ensure_account_dirs(username)
+        now = utc_now()
+        try:
+            with self.connect() as db:
+                db.execute(
+                    """
+                    UPDATE accounts
+                    SET username = ?, storage_dir = ?, updated_at = ?
+                    WHERE account_id = ?
+                    """,
+                    (username, str(new_root), now, account["account_id"]),
+                )
+        except sqlite3.IntegrityError as exc:
+            raise ValueError("Username is already taken.") from exc
+        return self.get_account(account_id=account["account_id"])
+
+    def delete_account(self, account, delete_files=False):
+        if not account:
+            raise ValueError("Account is required.")
+        storage_dir = Path(account["storage_dir"])
+        with self.connect() as db:
+            db.execute("DELETE FROM accounts WHERE account_id = ?", (account["account_id"],))
+        if delete_files and storage_dir.exists():
+            root = self.storage_root.resolve()
+            target = storage_dir.resolve()
+            if root == target or root not in target.parents:
+                raise ValueError("Refusing to delete outside user_cloud storage.")
+            shutil.rmtree(target)
+        return {"account_id": account["account_id"], "username": account["username"], "storage_dir": str(storage_dir)}
 
     def create_session(self, account_id, user_agent="", ip="", ttl_seconds=SESSION_TTL_SECONDS):
         if not account_id:
