@@ -433,6 +433,10 @@
 
     .timeline-modes button {
       flex: 1;
+      min-width: 0;
+      padding: 0 6px;
+      font-size: 11px;
+      white-space: nowrap;
     }
 
     .timeline-link-toggle {
@@ -518,6 +522,23 @@
       border-radius: 6px;
       background: rgba(0, 20, 28, 0.52);
       line-height: 1.35;
+    }
+
+    .timeline-summary.is-pulsing {
+      animation: timeline-summary-pulse 1.15s ease-in-out infinite;
+      border-color: rgba(84, 218, 255, 0.42);
+      color: rgba(210, 248, 255, 0.94);
+    }
+
+    @keyframes timeline-summary-pulse {
+      0%, 100% {
+        opacity: 0.68;
+        box-shadow: 0 0 0 rgba(84, 218, 255, 0);
+      }
+      50% {
+        opacity: 1;
+        box-shadow: 0 0 12px rgba(84, 218, 255, 0.18);
+      }
     }
 
     .timeline-list {

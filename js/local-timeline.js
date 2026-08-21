@@ -156,6 +156,48 @@
     return body.reply || (body.choices && body.choices[0] && body.choices[0].message.content) || '';
   }
 
+  function setSummaryText(summary, text, pulsing = false) {
+    summary.hidden = false;
+    summary.textContent = text;
+    summary.classList.toggle('is-pulsing', pulsing);
+  }
+
+  function buildSpeakText(state, summary) {
+    const summaryText = String(summary.textContent || '').trim();
+    if (summaryText && !/preparing|summarizing|unavailable/i.test(summaryText)) return summaryText;
+    if (!state.items.length) return '';
+    const place = state.place ? `News briefing for ${state.place}. ` : 'News briefing. ';
+    const headlines = state.items
+      .slice(0, 5)
+      .map((item, index) => `${index + 1}. ${cleanTitle(item.title)}`)
+      .join('. ');
+    return `${place}${headlines}`;
+  }
+
+  function speakTimelineText(text, speakButton, summary) {
+    const cleanText = String(text || '').replace(/\s+/g, ' ').trim();
+    if (!cleanText) {
+      setSummaryText(summary, 'Load or create an AI briefing before speaking.');
+      return;
+    }
+    if (!('speechSynthesis' in window) || typeof SpeechSynthesisUtterance === 'undefined') {
+      setSummaryText(summary, 'Speech is not available in this browser.');
+      return;
+    }
+
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(cleanText.slice(0, 1400));
+    utterance.rate = 0.95;
+    utterance.pitch = 1;
+    speakButton.textContent = 'Speaking';
+    utterance.onend = () => { speakButton.textContent = 'Speak'; };
+    utterance.onerror = () => {
+      speakButton.textContent = 'Speak';
+      setSummaryText(summary, 'Speech playback was interrupted.');
+    };
+    window.speechSynthesis.speak(utterance);
+  }
+
   function initTimeline() {
     const widget = $('timelineWidget');
     const list = $('timelineList');
@@ -167,6 +209,7 @@
     const recentButton = $('timelineRecent');
     const historyButton = $('timelineHistory');
     const summarizeButton = $('timelineSummarize');
+    const speakButton = $('timelineSpeak');
     const linksInput = $('timelineLinks');
     const locationForm = $('timelineLocationSearch');
     const locationInput = $('timelineLocationInput');
@@ -174,7 +217,7 @@
     const summary = $('timelineSummary');
     const showInput = $('showTimeline');
 
-    if (!widget || !list || !placeLabel || !refreshButton || !toggleButton || !opacityInput || !opacityValue || !recentButton || !historyButton || !summarizeButton) return;
+    if (!widget || !list || !placeLabel || !refreshButton || !toggleButton || !opacityInput || !opacityValue || !recentButton || !historyButton || !summarizeButton || !speakButton) return;
 
     const state = {
       location: null,
@@ -228,6 +271,7 @@
       historyButton.classList.toggle('is-active', mode === 'history');
       summary.hidden = true;
       summary.textContent = '';
+      summary.classList.remove('is-pulsing');
       loadTimeline();
     }
 
@@ -257,18 +301,17 @@
     }
 
     async function showItemBrief(entry) {
-      summary.hidden = false;
-      summary.textContent = 'Qwen preparing brief...';
+      setSummaryText(summary, 'Qwen preparing brief...', true);
       try {
         const text = await summarizeNewsItem(entry, state.place, state.mode);
-        summary.textContent = text || 'No brief available for this item.';
+        setSummaryText(summary, text || 'No brief available for this item.');
       } catch (error) {
         const fallback = newsMeta(entry);
-        summary.textContent = [
+        setSummaryText(summary, [
           cleanTitle(entry.title),
           fallback ? `Source: ${fallback}` : '',
           'Qwen brief unavailable.'
-        ].filter(Boolean).join('\n');
+        ].filter(Boolean).join('\n'));
       }
     }
 
@@ -314,17 +357,19 @@
     }
     summarizeButton.addEventListener('click', async () => {
       if (!state.items.length) {
-        summary.hidden = false;
-        summary.textContent = 'Load timeline items before asking Qwen.';
+        setSummaryText(summary, 'Load timeline items before asking Qwen.');
         return;
       }
-      summary.hidden = false;
-      summary.textContent = 'Qwen summarizing source items...';
+      setSummaryText(summary, 'Qwen summarizing source items...', true);
       try {
-        summary.textContent = await summarizeItems(state.items, state.place, state.mode);
+        setSummaryText(summary, await summarizeItems(state.items, state.place, state.mode));
       } catch (error) {
-        summary.textContent = error.message || 'Qwen summary unavailable.';
+        setSummaryText(summary, error.message || 'Qwen summary unavailable.');
       }
+    });
+
+    speakButton.addEventListener('click', () => {
+      speakTimelineText(buildSpeakText(state, summary), speakButton, summary);
     });
 
     if (showInput) {
