@@ -281,6 +281,49 @@ class AccountStore:
         account["last_login"] = now
         return account
 
+    def set_password(self, account, password):
+        if not account:
+            raise ValueError("Account is required.")
+        now = utc_now()
+        with self.connect() as db:
+            db.execute(
+                """
+                UPDATE accounts
+                SET password_hash = ?, password_ciphertext = ?, updated_at = ?
+                WHERE account_id = ?
+                """,
+                (hash_password(password), self.encrypt_password(password), now, account["account_id"]),
+            )
+        return self.get_account(account_id=account["account_id"])
+
+    def set_role(self, account, role):
+        if not account:
+            raise ValueError("Account is required.")
+        clean_role = str(role or "user").strip()[:40] or "user"
+        now = utc_now()
+        with self.connect() as db:
+            db.execute(
+                "UPDATE accounts SET role = ?, updated_at = ? WHERE account_id = ?",
+                (clean_role, now, account["account_id"]),
+            )
+        return self.get_account(account_id=account["account_id"])
+
+    def set_status(self, account, status):
+        if not account:
+            raise ValueError("Account is required.")
+        clean_status = str(status or "active").strip().lower()
+        if clean_status not in {"active", "disabled"}:
+            raise ValueError("status must be active or disabled.")
+        now = utc_now()
+        with self.connect() as db:
+            db.execute(
+                "UPDATE accounts SET status = ?, updated_at = ? WHERE account_id = ?",
+                (clean_status, now, account["account_id"]),
+            )
+            if clean_status != "active":
+                db.execute("DELETE FROM sessions WHERE account_id = ?", (account["account_id"],))
+        return self.get_account(account_id=account["account_id"])
+
     def create_session(self, account_id, user_agent="", ip="", ttl_seconds=SESSION_TTL_SECONDS):
         if not account_id:
             raise ValueError("account_id is required.")

@@ -40,6 +40,14 @@ LLM_SETTING_KEYS = {
 }
 
 
+def format_bytes(value):
+    size = float(value or 0)
+    for unit in ("B", "KB", "MB", "GB", "TB"):
+        if size < 1024 or unit == "TB":
+            return f"{size:.1f} {unit}" if unit != "B" else f"{int(size)} B"
+        size /= 1024
+
+
 class ControlPanel:
     def __init__(self):
         self.config = mobile.ensure_config()
@@ -662,6 +670,88 @@ class ControlPanel:
         print(f"  password_secret_path: {self.state.accounts.secret_path}")
         return ready
 
+    def find_account(self, value):
+        text = str(value or "").strip()
+        if not text:
+            raise ValueError("Account username or id is required.")
+        account = self.state.accounts.get_account(username=text)
+        if not account:
+            account = self.state.accounts.get_account(account_id=text)
+        if not account:
+            raise ValueError(f"Account not found: {text}")
+        return account
+
+    def account_list(self):
+        accounts = self.state.accounts.list_accounts()
+        if not accounts:
+            print("No local accounts yet.")
+            return []
+        for account in accounts:
+            usage = format_bytes(self.state.accounts.storage_usage(account))
+            print(
+                f"{account['username']} | {account['role']} | {account['status']} | "
+                f"usage={usage} | created={account['created_at']} | last_login={account.get('last_login') or '-'}"
+            )
+        return accounts
+
+    def account_show(self, value):
+        account = self.find_account(value)
+        files = self.state.accounts.list_files(account)
+        print(f"account_id: {account['account_id']}")
+        print(f"username: {account['username']}")
+        print(f"password: {'*' * max(8, len(self.state.accounts.decrypt_password(account['password_ciphertext'])))}")
+        print(f"role: {account['role']}")
+        print(f"status: {account['status']}")
+        print(f"created_at: {account['created_at']}")
+        print(f"updated_at: {account['updated_at']}")
+        print(f"last_login: {account.get('last_login') or '-'}")
+        print(f"storage_usage: {format_bytes(self.state.accounts.storage_usage(account))}")
+        print(f"account_folder: {account['storage_dir']}")
+        print(f"files: {len(files)}")
+        return account
+
+    def account_password(self, value):
+        account = self.find_account(value)
+        password = self.state.accounts.decrypt_password(account["password_ciphertext"])
+        print(f"{account['username']} password: {password}")
+        return password
+
+    def account_create(self, username, password, role="user"):
+        account = self.state.accounts.create_account(username, password, role=role)
+        self.log(f"Created account {account['username']} at {account['storage_dir']}")
+        return account
+
+    def account_set_password(self, value, password):
+        account = self.find_account(value)
+        updated = self.state.accounts.set_password(account, password)
+        self.log(f"Password updated for {updated['username']}.")
+        return updated
+
+    def account_set_role(self, value, role):
+        account = self.find_account(value)
+        updated = self.state.accounts.set_role(account, role)
+        self.log(f"Role updated for {updated['username']}: {updated['role']}")
+        return updated
+
+    def account_set_status(self, value, status):
+        account = self.find_account(value)
+        updated = self.state.accounts.set_status(account, status)
+        self.log(f"Status updated for {updated['username']}: {updated['status']}")
+        return updated
+
+    def account_files(self, value):
+        account = self.find_account(value)
+        files = self.state.accounts.list_files(account)
+        if not files:
+            print(f"No files for {account['username']}.")
+            return []
+        for file in files:
+            print(
+                f"{file['file_id']} | {file['path']} | {format_bytes(file['size'])} | "
+                f"{file.get('content_type') or '-'} | {file.get('scan_status') or '-'}"
+            )
+        return files
+
     def set_value(self, key, value):
         backend.set_config_value(self.config, key, value)
         self.log(f"Set {key}.")
@@ -758,6 +848,18 @@ Commands:
   preview                      Open connected local preview with newest files
   preview-public               Open Netlify with a cache-buster
   account-status               Check local account DB and user_cloud storage
+  account-list                 Admin: list local accounts
+  account-show <user|id>        Admin: show local account details
+  account-password <user|id>    Admin: reveal recoverable account password
+  account-create <user> <pass> [role]
+                               Admin: create a local account
+  account-set-password <user|id> <pass>
+                               Admin: change an account password
+  account-set-role <user|id> <role>
+                               Admin: change an account role
+  account-enable <user|id>      Admin: enable an account
+  account-disable <user|id>     Admin: disable an account and clear sessions
+  account-files <user|id>       Admin: list files for an account
   check-local                  Check local Qwen API
   check-voice                  Check local Live Satellite -> Votronix voice bridge
   check-relay                  Check stable Cloudflare relay
@@ -871,6 +973,48 @@ def main():
                 panel.preview_public()
             elif command == "account-status":
                 panel.account_status()
+            elif command == "account-list":
+                panel.account_list()
+            elif command == "account-show":
+                if len(args) != 1:
+                    print("Usage: account-show <user|id>")
+                    continue
+                panel.account_show(args[0])
+            elif command == "account-password":
+                if len(args) != 1:
+                    print("Usage: account-password <user|id>")
+                    continue
+                panel.account_password(args[0])
+            elif command == "account-create":
+                if len(args) < 2:
+                    print("Usage: account-create <user> <pass> [role]")
+                    continue
+                panel.account_create(args[0], args[1], args[2] if len(args) > 2 else "user")
+            elif command == "account-set-password":
+                if len(args) != 2:
+                    print("Usage: account-set-password <user|id> <pass>")
+                    continue
+                panel.account_set_password(args[0], args[1])
+            elif command == "account-set-role":
+                if len(args) != 2:
+                    print("Usage: account-set-role <user|id> <role>")
+                    continue
+                panel.account_set_role(args[0], args[1])
+            elif command == "account-enable":
+                if len(args) != 1:
+                    print("Usage: account-enable <user|id>")
+                    continue
+                panel.account_set_status(args[0], "active")
+            elif command == "account-disable":
+                if len(args) != 1:
+                    print("Usage: account-disable <user|id>")
+                    continue
+                panel.account_set_status(args[0], "disabled")
+            elif command == "account-files":
+                if len(args) != 1:
+                    print("Usage: account-files <user|id>")
+                    continue
+                panel.account_files(args[0])
             elif command == "check-local":
                 panel.check_local()
             elif command == "check-voice":
