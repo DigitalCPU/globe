@@ -164,11 +164,8 @@ def account_foundation_status(state: AppState):
     accounts = state.accounts.list_accounts()
     return {
         "ok": True,
-        "account_db_path": str(state.accounts.db_path),
         "account_db_exists": state.accounts.db_path.exists(),
-        "user_cloud_root": str(state.accounts.storage_root),
         "user_cloud_exists": state.accounts.storage_root.exists(),
-        "password_secret_path": str(state.accounts.secret_path),
         "password_secret_exists": state.accounts.secret_path.exists(),
         "account_count": len(accounts),
     }
@@ -189,7 +186,7 @@ def response_headers(handler, content_type="application/json; charset=utf-8"):
     if origin:
         headers["Access-Control-Allow-Origin"] = origin
         headers["Vary"] = "Origin"
-        headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+        headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-ID-Session"
         headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
     return headers
 
@@ -201,6 +198,13 @@ def is_authorized(handler):
 
     header = handler.headers.get("Authorization", "")
     return bool(config.access_token) and header == f"Bearer {config.access_token}"
+
+
+def id_session_token(handler):
+    header = handler.headers.get("Authorization", "")
+    if header.lower().startswith("bearer "):
+        return header[7:].strip()
+    return handler.headers.get("X-ID-Session", "").strip()
 
 
 def send_json(handler, status, payload):
@@ -247,6 +251,57 @@ def save_geo_event(handler, payload):
     with GEO_EVENTS_PATH.open("a", encoding="utf-8") as file:
         file.write(json.dumps(event, separators=(",", ":")) + "\n")
     return event
+
+
+def id_account_payload(state, account):
+    payload = state.accounts.public_account(account)
+    payload["storage_usage_bytes"] = state.accounts.storage_usage(account)
+    return payload
+
+
+def handle_id_register(handler):
+    state = handler.server.app_state
+    body = read_json(handler)
+    username = str(body.get("username") or "").strip()
+    password = str(body.get("password") or "")
+    display_name = str(body.get("display_name") or username).strip()
+    profile = {"display_name": display_name} if display_name else {}
+    account = state.accounts.create_account(username, password, profile=profile)
+    token = state.accounts.create_session(
+        account["account_id"],
+        user_agent=handler.headers.get("User-Agent", ""),
+        ip=client_ip(handler),
+    )
+    send_json(handler, 200, {"ok": True, "session_token": token, "account": id_account_payload(state, account)})
+
+
+def handle_id_login(handler):
+    state = handler.server.app_state
+    body = read_json(handler)
+    account = state.accounts.authenticate(body.get("username"), body.get("password"))
+    if not account:
+        send_json(handler, 401, {"ok": False, "error": "Invalid username or password."})
+        return
+    token = state.accounts.create_session(
+        account["account_id"],
+        user_agent=handler.headers.get("User-Agent", ""),
+        ip=client_ip(handler),
+    )
+    send_json(handler, 200, {"ok": True, "session_token": token, "account": id_account_payload(state, account)})
+
+
+def handle_id_logout(handler):
+    deleted = handler.server.app_state.accounts.delete_session(id_session_token(handler))
+    send_json(handler, 200, {"ok": True, "signed_out": bool(deleted)})
+
+
+def handle_id_me(handler):
+    state = handler.server.app_state
+    account = state.accounts.session_account(id_session_token(handler))
+    if not account:
+        send_json(handler, 401, {"ok": False, "error": "Not signed in."})
+        return
+    send_json(handler, 200, {"ok": True, "account": id_account_payload(state, account)})
 
 
 def fetch_json_url(url):
@@ -645,6 +700,10 @@ class ChatHandler(BaseHTTPRequestHandler):
             send_json(self, 200, account_foundation_status(self.server.app_state))
             return
 
+        if self.path.startswith("/api/id/me"):
+            handle_id_me(self)
+            return
+
         if self.path.startswith("/api/voice/status"):
             send_json(self, 200, voice_status(self.server.app_state))
             return
@@ -733,6 +792,28 @@ class ChatHandler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_POST(self):
+        if self.path.startswith("/api/id/register"):
+            try:
+                handle_id_register(self)
+            except ValueError as exc:
+                send_json(self, 400, {"ok": False, "error": str(exc)})
+            except Exception as exc:
+                send_json(self, 500, {"ok": False, "error": str(exc)})
+            return
+
+        if self.path.startswith("/api/id/login"):
+            try:
+                handle_id_login(self)
+            except ValueError as exc:
+                send_json(self, 400, {"ok": False, "error": str(exc)})
+            except Exception as exc:
+                send_json(self, 500, {"ok": False, "error": str(exc)})
+            return
+
+        if self.path.startswith("/api/id/logout"):
+            handle_id_logout(self)
+            return
+
         if self.path.startswith("/api/geo"):
             try:
                 event = save_geo_event(self, read_json(self))

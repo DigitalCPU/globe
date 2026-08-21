@@ -456,7 +456,7 @@ class ControlPanel:
 
         account_status, account_data = self.request_json(f"{local_url}/api/id/status", timeout=8)
         account_ok = account_status == 200 and bool(account_data.get("account_db_exists")) and bool(account_data.get("user_cloud_exists"))
-        account_detail = f"accounts={account_data.get('account_count', '?')} root={account_data.get('user_cloud_root', '-')}"
+        account_detail = f"accounts={account_data.get('account_count', '?')} root={self.state.accounts.storage_root}"
         self.print_probe("account storage", account_ok, account_detail)
 
         relay_status, relay = self.request_json(f"{mobile.STABLE_RELAY}/api/status", timeout=20)
@@ -657,6 +657,9 @@ class ControlPanel:
         status, data = self.request_json(f"http://127.0.0.1:{self.config.port}/api/id/status", timeout=8)
         ready = status == 200 and bool(data.get("ok"))
         self.log(f"Account storage {'ready' if ready else 'not ready'}: status={status} {data}")
+        print(f"  account_db_path: {self.state.accounts.db_path}")
+        print(f"  user_cloud_root: {self.state.accounts.storage_root}")
+        print(f"  password_secret_path: {self.state.accounts.secret_path}")
         return ready
 
     def set_value(self, key, value):

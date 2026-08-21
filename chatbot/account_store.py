@@ -12,6 +12,7 @@ from pathlib import Path
 
 USERNAME_RE = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_-]{2,31}$")
 PBKDF2_ITERATIONS = 210_000
+SESSION_TTL_SECONDS = 60 * 60 * 24 * 14
 
 
 def utc_now():
@@ -45,6 +46,10 @@ def hash_password(password):
     salt = secrets.token_bytes(16)
     digest = hashlib.pbkdf2_hmac("sha256", text.encode("utf-8"), salt, PBKDF2_ITERATIONS)
     return f"pbkdf2_sha256${PBKDF2_ITERATIONS}${b64e(salt)}${b64e(digest)}"
+
+
+def hash_session_token(token):
+    return hashlib.sha256(str(token or "").encode("utf-8")).hexdigest()
 
 
 def verify_password(password, password_hash):
@@ -208,28 +213,31 @@ class AccountStore:
         account_id = f"acct_{secrets.token_urlsafe(18)}"
         storage_dir = self.ensure_account_dirs(username)
         profile_json = json.dumps(profile or {}, separators=(",", ":"))
-        with self.connect() as db:
-            db.execute(
-                """
-                INSERT INTO accounts (
-                    account_id, username, password_hash, password_ciphertext, role, status,
-                    storage_dir, profile_json, created_at, updated_at
+        try:
+            with self.connect() as db:
+                db.execute(
+                    """
+                    INSERT INTO accounts (
+                        account_id, username, password_hash, password_ciphertext, role, status,
+                        storage_dir, profile_json, created_at, updated_at
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        account_id,
+                        username,
+                        hash_password(password),
+                        self.encrypt_password(password),
+                        role,
+                        status,
+                        str(storage_dir),
+                        profile_json,
+                        now,
+                        now,
+                    ),
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    account_id,
-                    username,
-                    hash_password(password),
-                    self.encrypt_password(password),
-                    role,
-                    status,
-                    str(storage_dir),
-                    profile_json,
-                    now,
-                    now,
-                ),
-            )
+        except sqlite3.IntegrityError as exc:
+            raise ValueError("Username is already taken.") from exc
         return self.get_account(account_id=account_id)
 
     def get_account(self, account_id=None, username=None):
@@ -257,6 +265,87 @@ class AccountStore:
             db.execute("UPDATE accounts SET last_login = ?, updated_at = ? WHERE account_id = ?", (now, now, account["account_id"]))
         account["last_login"] = now
         return account
+
+    def create_session(self, account_id, user_agent="", ip="", ttl_seconds=SESSION_TTL_SECONDS):
+        if not account_id:
+            raise ValueError("account_id is required.")
+        token = f"sess_{secrets.token_urlsafe(32)}"
+        now = utc_now()
+        expires_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(time.time() + int(ttl_seconds)))
+        with self.connect() as db:
+            db.execute(
+                """
+                INSERT INTO sessions (token_hash, account_id, created_at, expires_at, last_seen, user_agent, ip)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    hash_session_token(token),
+                    account_id,
+                    now,
+                    expires_at,
+                    now,
+                    str(user_agent or "")[:500],
+                    str(ip or "")[:120],
+                ),
+            )
+        return token
+
+    def session_account(self, token):
+        if not token:
+            return None
+        now = utc_now()
+        token_hash = hash_session_token(token)
+        with self.connect() as db:
+            row = db.execute(
+                """
+                SELECT accounts.*
+                FROM sessions
+                JOIN accounts ON accounts.account_id = sessions.account_id
+                WHERE sessions.token_hash = ? AND sessions.expires_at > ?
+                """,
+                (token_hash, now),
+            ).fetchone()
+            if row:
+                db.execute("UPDATE sessions SET last_seen = ? WHERE token_hash = ?", (now, token_hash))
+        account = dict(row) if row else None
+        if not account or account.get("status") != "active":
+            return None
+        return account
+
+    def delete_session(self, token):
+        if not token:
+            return 0
+        with self.connect() as db:
+            cursor = db.execute("DELETE FROM sessions WHERE token_hash = ?", (hash_session_token(token),))
+        return cursor.rowcount
+
+    def delete_expired_sessions(self):
+        with self.connect() as db:
+            cursor = db.execute("DELETE FROM sessions WHERE expires_at <= ?", (utc_now(),))
+        return cursor.rowcount
+
+    def public_account(self, account, include_storage=False):
+        if not account:
+            return None
+        try:
+            profile = json.loads(account.get("profile_json") or "{}")
+        except Exception:
+            profile = {}
+        payload = {
+            "account_id": account.get("account_id"),
+            "username": account.get("username"),
+            "display_name": account.get("display_name") or profile.get("display_name") or account.get("username"),
+            "role": account.get("role"),
+            "status": account.get("status"),
+            "profile": profile,
+            "created_at": account.get("created_at"),
+            "updated_at": account.get("updated_at"),
+            "last_login": account.get("last_login"),
+        }
+        if include_storage:
+            payload["storage_dir"] = account.get("storage_dir")
+            payload["storage_usage_bytes"] = self.storage_usage(account)
+        return payload
 
     def storage_usage(self, account):
         root = Path(account["storage_dir"])
