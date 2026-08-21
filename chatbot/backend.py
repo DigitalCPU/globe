@@ -7,7 +7,9 @@ import mimetypes
 import os
 import queue
 import re
+import secrets
 import shlex
+import shutil
 import subprocess
 import sys
 import threading
@@ -43,6 +45,8 @@ NEWS_TIMEOUT_SECONDS = 10
 VOICE_STATUS_TIMEOUT_SECONDS = 3
 VOICE_TTS_TIMEOUT_SECONDS = 120
 ACCOUNT_UPLOAD_MAX_BYTES = 25 * 1024 * 1024
+ACCOUNT_CHUNKED_UPLOAD_MAX_BYTES = 10 * 1024 * 1024 * 1024
+ACCOUNT_UPLOAD_CHUNK_BYTES = 8 * 1024 * 1024
 LOCAL_GEOCODER = LocalGeocoder(GEOCODER_DATA_PATH)
 TAG_RE = re.compile(r"<[^>]+>")
 
@@ -240,6 +244,15 @@ def read_json(handler, max_bytes=1024 * 1024):
     return json.loads(body)
 
 
+def read_request_bytes(handler, max_bytes):
+    length = int(handler.headers.get("Content-Length", "0"))
+    if length < 1:
+        raise ValueError("Request body is empty.")
+    if length > max_bytes:
+        raise ValueError(f"Request body too large. Limit is {max_bytes // (1024 * 1024)} MB per chunk.")
+    return handler.rfile.read(length)
+
+
 def client_ip(handler):
     forwarded = handler.headers.get("CF-Connecting-IP") or handler.headers.get("X-Forwarded-For") or ""
     return forwarded.split(",", 1)[0].strip() or handler.client_address[0]
@@ -365,13 +378,149 @@ def handle_id_file_download(handler):
 
     filename = str(file_row.get("original_name") or file_row.get("stored_name") or "download")
     content_type = file_row.get("content_type") or mimetypes.guess_type(filename)[0] or "application/octet-stream"
-    send_bytes(
-        handler,
-        200,
-        file_path.read_bytes(),
-        content_type=content_type,
-        extra_headers={"Content-Disposition": f'attachment; filename="{filename.replace(chr(34), "_")}"'},
+    handler.send_response(200)
+    for key, value in response_headers(handler, content_type=content_type).items():
+        handler.send_header(key, value)
+    handler.send_header("Content-Length", str(file_path.stat().st_size))
+    handler.send_header("Content-Disposition", f'attachment; filename="{filename.replace(chr(34), "_")}"')
+    handler.end_headers()
+    with file_path.open("rb") as file:
+        while True:
+            chunk = file.read(1024 * 1024)
+            if not chunk:
+                break
+            handler.wfile.write(chunk)
+
+
+def pending_upload_root(account):
+    root = (Path(account["storage_dir"]) / ".incoming").resolve()
+    account_root = Path(account["storage_dir"]).resolve()
+    if account_root != root and account_root not in root.parents:
+        raise ValueError("Upload staging path is outside account storage.")
+    root.mkdir(parents=True, exist_ok=True)
+    return root
+
+
+def pending_upload_paths(account, upload_id):
+    upload_id = str(upload_id or "").strip()
+    if not re.match(r"^upload_[A-Za-z0-9_-]{16,96}$", upload_id):
+        raise ValueError("Invalid upload id.")
+    root = pending_upload_root(account)
+    upload_dir = (root / upload_id).resolve()
+    if root != upload_dir and root not in upload_dir.parents:
+        raise ValueError("Upload path is outside account storage.")
+    return upload_dir, upload_dir / "upload.json", upload_dir / "data.part"
+
+
+def load_pending_upload(account, upload_id):
+    upload_dir, manifest_path, data_path = pending_upload_paths(account, upload_id)
+    if not manifest_path.exists():
+        raise ValueError("Upload session not found.")
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if manifest.get("account_id") != account.get("account_id"):
+        raise ValueError("Upload session does not belong to this account.")
+    return upload_dir, manifest_path, data_path, manifest
+
+
+def handle_id_file_upload_start(handler):
+    state = handler.server.app_state
+    account = require_id_account(handler)
+    if not account:
+        return
+    body = read_json(handler)
+    filename = str(body.get("filename") or "upload.bin")
+    folder = str(body.get("folder") or "uploads")
+    content_type = str(body.get("content_type") or mimetypes.guess_type(filename)[0] or "application/octet-stream")
+    size = int(body.get("size") or 0)
+    if size < 0 or size > ACCOUNT_CHUNKED_UPLOAD_MAX_BYTES:
+        raise ValueError(f"File is too large. Limit is {ACCOUNT_CHUNKED_UPLOAD_MAX_BYTES // (1024 * 1024 * 1024)} GB.")
+
+    upload_id = f"upload_{secrets.token_urlsafe(24)}"
+    upload_dir, manifest_path, data_path = pending_upload_paths(account, upload_id)
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    manifest = {
+        "upload_id": upload_id,
+        "account_id": account["account_id"],
+        "filename": filename,
+        "folder": folder,
+        "content_type": content_type,
+        "size": size,
+        "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+    }
+    manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+    data_path.touch(exist_ok=True)
+    send_json(handler, 200, {
+        "ok": True,
+        "upload_id": upload_id,
+        "chunk_size": ACCOUNT_UPLOAD_CHUNK_BYTES,
+        "received": 0,
+    })
+
+
+def handle_id_file_upload_chunk(handler):
+    account = require_id_account(handler)
+    if not account:
+        return
+    query = parse_qs(urlparse(handler.path).query)
+    upload_id = (query.get("upload_id") or [""])[0].strip()
+    offset = int((query.get("offset") or ["0"])[0])
+    _, _, data_path, manifest = load_pending_upload(account, upload_id)
+    current_size = data_path.stat().st_size if data_path.exists() else 0
+    if offset != current_size:
+        send_json(handler, 409, {"ok": False, "error": "Upload offset mismatch.", "received": current_size})
+        return
+
+    chunk = read_request_bytes(handler, ACCOUNT_UPLOAD_CHUNK_BYTES)
+    expected_size = int(manifest.get("size") or 0)
+    if current_size + len(chunk) > expected_size:
+        raise ValueError("Chunk exceeds declared upload size.")
+    with data_path.open("ab") as file:
+        file.write(chunk)
+    send_json(handler, 200, {"ok": True, "upload_id": upload_id, "received": current_size + len(chunk)})
+
+
+def handle_id_file_upload_finish(handler):
+    state = handler.server.app_state
+    account = require_id_account(handler)
+    if not account:
+        return
+    body = read_json(handler)
+    upload_id = str(body.get("upload_id") or "").strip()
+    upload_dir, _, data_path, manifest = load_pending_upload(account, upload_id)
+    expected_size = int(manifest.get("size") or 0)
+    received = data_path.stat().st_size if data_path.exists() else 0
+    if received != expected_size:
+        send_json(handler, 409, {"ok": False, "error": "Upload is incomplete.", "received": received, "expected": expected_size})
+        return
+
+    _, folder_name, stored_name, target_dir, target_path = state.accounts.unique_file_path(
+        account,
+        manifest.get("folder") or "uploads",
+        manifest.get("filename") or "upload.bin",
     )
+    target_dir.mkdir(parents=True, exist_ok=True)
+    shutil.move(str(data_path), str(target_path))
+    file_row = state.accounts.register_file(
+        account,
+        folder_name,
+        manifest.get("filename") or stored_name,
+        stored_name,
+        manifest.get("content_type") or "application/octet-stream",
+        received,
+    )
+    shutil.rmtree(upload_dir, ignore_errors=True)
+    send_json(handler, 200, {"ok": True, "file": state.accounts.public_file(file_row)})
+
+
+def handle_id_file_upload_cancel(handler):
+    account = require_id_account(handler)
+    if not account:
+        return
+    body = read_json(handler)
+    upload_id = str(body.get("upload_id") or "").strip()
+    upload_dir, _, _, _ = load_pending_upload(account, upload_id)
+    shutil.rmtree(upload_dir, ignore_errors=True)
+    send_json(handler, 200, {"ok": True, "canceled": upload_id})
 
 
 def handle_id_file_upload(handler):
@@ -940,6 +1089,42 @@ class ChatHandler(BaseHTTPRequestHandler):
 
         if self.path.startswith("/api/id/logout"):
             handle_id_logout(self)
+            return
+
+        if self.path.startswith("/api/id/files/upload/start"):
+            try:
+                handle_id_file_upload_start(self)
+            except ValueError as exc:
+                send_json(self, 400, {"ok": False, "error": str(exc)})
+            except Exception as exc:
+                send_json(self, 500, {"ok": False, "error": str(exc)})
+            return
+
+        if self.path.startswith("/api/id/files/upload/chunk"):
+            try:
+                handle_id_file_upload_chunk(self)
+            except ValueError as exc:
+                send_json(self, 400, {"ok": False, "error": str(exc)})
+            except Exception as exc:
+                send_json(self, 500, {"ok": False, "error": str(exc)})
+            return
+
+        if self.path.startswith("/api/id/files/upload/finish"):
+            try:
+                handle_id_file_upload_finish(self)
+            except ValueError as exc:
+                send_json(self, 400, {"ok": False, "error": str(exc)})
+            except Exception as exc:
+                send_json(self, 500, {"ok": False, "error": str(exc)})
+            return
+
+        if self.path.startswith("/api/id/files/upload/cancel"):
+            try:
+                handle_id_file_upload_cancel(self)
+            except ValueError as exc:
+                send_json(self, 400, {"ok": False, "error": str(exc)})
+            except Exception as exc:
+                send_json(self, 500, {"ok": False, "error": str(exc)})
             return
 
         if self.path.startswith("/api/id/files/upload"):

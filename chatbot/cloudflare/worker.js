@@ -315,6 +315,10 @@ export default {
     if (url.pathname === '/api/id/register' && request.method === 'POST') return proxyToTunnel(request, env, '/api/id/register');
     if (url.pathname === '/api/id/login' && request.method === 'POST') return proxyToTunnel(request, env, '/api/id/login');
     if (url.pathname === '/api/id/logout' && request.method === 'POST') return proxyToTunnel(request, env, '/api/id/logout');
+    if (url.pathname === '/api/id/files/upload/start' && request.method === 'POST') return proxyToTunnel(request, env, '/api/id/files/upload/start');
+    if (url.pathname === '/api/id/files/upload/chunk' && request.method === 'POST') return proxyToTunnel(request, env, `/api/id/files/upload/chunk${url.search}`);
+    if (url.pathname === '/api/id/files/upload/finish' && request.method === 'POST') return proxyToTunnel(request, env, '/api/id/files/upload/finish');
+    if (url.pathname === '/api/id/files/upload/cancel' && request.method === 'POST') return proxyToTunnel(request, env, '/api/id/files/upload/cancel');
     if (url.pathname === '/api/id/files/upload' && request.method === 'POST') return proxyToTunnel(request, env, '/api/id/files/upload');
     if (url.pathname === '/api/id/files/delete' && request.method === 'POST') return proxyToTunnel(request, env, '/api/id/files/delete');
     if (url.pathname === '/api/news' && request.method === 'GET') return proxyToTunnel(request, env, `/api/news${url.search}`);

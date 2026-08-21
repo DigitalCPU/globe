@@ -17,18 +17,6 @@
     return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
   }
 
-  function fileToBase64(file) {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const result = String(reader.result || '');
-        resolve(result.includes(',') ? result.split(',', 2)[1] : result);
-      };
-      reader.onerror = () => reject(reader.error || new Error('File read failed.'));
-      reader.readAsDataURL(file);
-    });
-  }
-
   async function api(path, options = {}) {
     const headers = { ...(options.headers || {}) };
     const token = localStorage.getItem(sessionKey) || '';
@@ -63,6 +51,49 @@
     link.click();
     link.remove();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  async function uploadFileChunked(file, folder, onProgress) {
+    const started = await api('/api/id/files/upload/start', {
+      method: 'POST',
+      body: JSON.stringify({
+        filename: file.name,
+        folder: folder || 'uploads',
+        content_type: file.type || 'application/octet-stream',
+        size: file.size
+      })
+    });
+    const uploadId = started.upload_id;
+    const chunkSize = Number(started.chunk_size || (8 * 1024 * 1024));
+    let offset = Number(started.received || 0);
+    try {
+      while (offset < file.size) {
+        const next = Math.min(offset + chunkSize, file.size);
+        const chunk = file.slice(offset, next);
+        const result = await api(`/api/id/files/upload/chunk?upload_id=${encodeURIComponent(uploadId)}&offset=${offset}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/octet-stream' },
+          body: chunk
+        });
+        offset = Number(result.received || next);
+        const percent = file.size ? Math.floor((offset / file.size) * 100) : 100;
+        onProgress(`Uploading ${file.name}... ${percent}%`);
+      }
+      return api('/api/id/files/upload/finish', {
+        method: 'POST',
+        body: JSON.stringify({ upload_id: uploadId })
+      });
+    } catch (error) {
+      try {
+        await api('/api/id/files/upload/cancel', {
+          method: 'POST',
+          body: JSON.stringify({ upload_id: uploadId })
+        });
+      } catch (cancelError) {
+        console.warn('Upload cancel failed.', cancelError);
+      }
+      throw error;
+    }
   }
 
   function init() {
@@ -269,16 +300,7 @@
       }
       try {
         setMessage(`Uploading ${file.name}...`);
-        const contentBase64 = await fileToBase64(file);
-        await api('/api/id/files/upload', {
-          method: 'POST',
-          body: JSON.stringify({
-            filename: file.name,
-            folder: folderInput.value || 'uploads',
-            content_type: file.type || 'application/octet-stream',
-            content_base64: contentBase64
-          })
-        });
+        await uploadFileChunked(file, folderInput.value || 'uploads', setMessage);
         fileInput.value = '';
         await refreshFiles();
         setMessage('Upload complete.');
