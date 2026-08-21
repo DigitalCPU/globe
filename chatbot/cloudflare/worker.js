@@ -12,7 +12,7 @@ function corsHeaders(request) {
   const allowOrigin = ALLOWED_ORIGINS.has(origin) ? origin : 'https://livesatellite.netlify.app';
   return {
     'Access-Control-Allow-Origin': allowOrigin,
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Update-Secret, X-Admin-Secret, X-Globe-User',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-ID-Session, X-Update-Secret, X-Admin-Secret, X-Globe-User',
     'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
     'Vary': 'Origin'
   };
@@ -308,6 +308,15 @@ export default {
     }
 
     if (url.pathname === '/api/status' && request.method === 'GET') return proxyToTunnel(request, env, '/api/status');
+    if (url.pathname === '/api/id/status' && request.method === 'GET') return proxyToTunnel(request, env, '/api/id/status');
+    if (url.pathname === '/api/id/me' && request.method === 'GET') return proxyToTunnel(request, env, '/api/id/me');
+    if (url.pathname === '/api/id/files' && request.method === 'GET') return proxyToTunnel(request, env, `/api/id/files${url.search}`);
+    if (url.pathname === '/api/id/file' && request.method === 'GET') return proxyToTunnel(request, env, `/api/id/file${url.search}`);
+    if (url.pathname === '/api/id/register' && request.method === 'POST') return proxyToTunnel(request, env, '/api/id/register');
+    if (url.pathname === '/api/id/login' && request.method === 'POST') return proxyToTunnel(request, env, '/api/id/login');
+    if (url.pathname === '/api/id/logout' && request.method === 'POST') return proxyToTunnel(request, env, '/api/id/logout');
+    if (url.pathname === '/api/id/files/upload' && request.method === 'POST') return proxyToTunnel(request, env, '/api/id/files/upload');
+    if (url.pathname === '/api/id/files/delete' && request.method === 'POST') return proxyToTunnel(request, env, '/api/id/files/delete');
     if (url.pathname === '/api/news' && request.method === 'GET') return proxyToTunnel(request, env, `/api/news${url.search}`);
     if (url.pathname === '/api/geocode' && request.method === 'GET') return proxyToTunnel(request, env, `/api/geocode${url.search}`);
     if (url.pathname === '/api/geo' && request.method === 'POST') return proxyToTunnel(request, env, '/api/geo');

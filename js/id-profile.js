@@ -1,6 +1,7 @@
 (function () {
+  const RELAY_BASE = 'https://globe-qwen-relay.digitalcomputermail.workers.dev';
   const LOCAL_HOSTS = ['127.0.0.1', 'localhost'];
-  const API_BASE = LOCAL_HOSTS.includes(window.location.hostname) ? '' : '';
+  const API_BASE = LOCAL_HOSTS.includes(window.location.hostname) ? '' : RELAY_BASE;
   const publicSite = !LOCAL_HOSTS.includes(window.location.hostname);
   const sessionKey = 'digitalcpu:id-session:v1';
 
@@ -29,9 +30,6 @@
   }
 
   async function api(path, options = {}) {
-    if (publicSite) {
-      throw new Error('ID storage is local-only in this build. Open the connected preview from control_panel.py.');
-    }
     const headers = { ...(options.headers || {}) };
     const token = localStorage.getItem(sessionKey) || '';
     if (token) headers['X-ID-Session'] = token;
@@ -48,9 +46,6 @@
   }
 
   async function downloadFile(file) {
-    if (publicSite) {
-      throw new Error('Downloads require the connected local preview.');
-    }
     const token = localStorage.getItem(sessionKey) || '';
     const response = await fetch(`${API_BASE}/api/id/file?file_id=${encodeURIComponent(file.file_id)}`, {
       headers: { 'X-ID-Session': token }
@@ -129,7 +124,7 @@
       const signedIn = Boolean(state.account);
       forms.hidden = signedIn;
       accountBox.hidden = !signedIn;
-      status.textContent = signedIn ? 'signed in' : publicSite ? 'local only' : 'offline';
+      status.textContent = signedIn ? 'signed in' : publicSite ? 'relay' : 'offline';
       if (!signedIn) {
         profileName.textContent = '--';
         profileMeta.textContent = 'signed out';
@@ -182,7 +177,7 @@
       const token = localStorage.getItem(sessionKey);
       if (!token) {
         renderAccount(null);
-        if (publicSite) setMessage('ID storage is local-only here. Use Preview from control_panel.py.');
+        if (publicSite) setMessage('Start quick-launch on the desktop, then sign in here.');
         return false;
       }
       try {
