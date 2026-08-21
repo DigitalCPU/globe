@@ -39,6 +39,21 @@ def safe_storage_name(username):
     return normalize_username(username).lower()
 
 
+def safe_file_name(name):
+    value = Path(str(name or "upload.bin")).name.strip().replace("\x00", "")
+    value = re.sub(r"[^A-Za-z0-9._ -]+", "_", value).strip(" .")
+    return value[:160] or "upload.bin"
+
+
+def safe_folder_name(name):
+    parts = []
+    for part in str(name or "uploads").replace("\\", "/").split("/"):
+        clean = re.sub(r"[^A-Za-z0-9._ -]+", "_", part).strip(" .")
+        if clean and clean not in (".", ".."):
+            parts.append(clean[:80])
+    return "/".join(parts) or "uploads"
+
+
 def hash_password(password):
     text = str(password or "")
     if len(text) < 1:
@@ -358,3 +373,100 @@ class AccountStore:
                     except OSError:
                         pass
         return total
+
+    def account_file_path(self, account, folder, filename):
+        root = Path(account["storage_dir"]).resolve()
+        folder_name = safe_folder_name(folder)
+        file_name = safe_file_name(filename)
+        target_dir = (root / folder_name).resolve()
+        target_path = (target_dir / file_name).resolve()
+        if root != target_path and root not in target_path.parents:
+            raise ValueError("File path is outside account storage.")
+        return root, folder_name, file_name, target_dir, target_path
+
+    def unique_file_path(self, account, folder, filename):
+        root, folder_name, file_name, target_dir, target_path = self.account_file_path(account, folder, filename)
+        stem = Path(file_name).stem or "upload"
+        suffix = Path(file_name).suffix
+        counter = 1
+        while target_path.exists():
+            file_name = safe_file_name(f"{stem}-{counter}{suffix}")
+            target_path = (target_dir / file_name).resolve()
+            if root != target_path and root not in target_path.parents:
+                raise ValueError("File path is outside account storage.")
+            counter += 1
+        return root, folder_name, file_name, target_dir, target_path
+
+    def register_file(self, account, folder, original_name, stored_name, content_type, size):
+        now = utc_now()
+        file_id = f"file_{secrets.token_urlsafe(18)}"
+        relative_path = f"{safe_folder_name(folder)}/{safe_file_name(stored_name)}"
+        with self.connect() as db:
+            db.execute(
+                """
+                INSERT INTO files (
+                    file_id, account_id, folder, original_name, stored_name, relative_path,
+                    content_type, size, created_at, updated_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    file_id,
+                    account["account_id"],
+                    safe_folder_name(folder),
+                    safe_file_name(original_name),
+                    safe_file_name(stored_name),
+                    relative_path,
+                    str(content_type or "application/octet-stream")[:160],
+                    int(size),
+                    now,
+                    now,
+                ),
+            )
+        return self.get_file(account, file_id=file_id)
+
+    def list_files(self, account, folder=None):
+        params = [account["account_id"]]
+        query = "SELECT * FROM files WHERE account_id = ?"
+        if folder:
+            query += " AND folder = ?"
+            params.append(safe_folder_name(folder))
+        query += " ORDER BY created_at DESC"
+        with self.connect() as db:
+            rows = db.execute(query, params).fetchall()
+        return [self.public_file(dict(row)) for row in rows]
+
+    def get_file(self, account, file_id=None, relative_path=None):
+        if not file_id and not relative_path:
+            raise ValueError("file_id or relative_path is required.")
+        if file_id:
+            query = "SELECT * FROM files WHERE account_id = ? AND file_id = ?"
+            params = (account["account_id"], file_id)
+        else:
+            query = "SELECT * FROM files WHERE account_id = ? AND relative_path = ?"
+            params = (account["account_id"], str(relative_path or ""))
+        with self.connect() as db:
+            row = db.execute(query, params).fetchone()
+        return dict(row) if row else None
+
+    def delete_file_record(self, account, file_id=None, relative_path=None):
+        file_row = self.get_file(account, file_id=file_id, relative_path=relative_path)
+        if not file_row:
+            return None
+        with self.connect() as db:
+            db.execute("DELETE FROM files WHERE account_id = ? AND file_id = ?", (account["account_id"], file_row["file_id"]))
+        return file_row
+
+    def public_file(self, file_row):
+        return {
+            "file_id": file_row.get("file_id"),
+            "folder": file_row.get("folder"),
+            "name": file_row.get("original_name"),
+            "stored_name": file_row.get("stored_name"),
+            "path": file_row.get("relative_path"),
+            "content_type": file_row.get("content_type"),
+            "size": file_row.get("size"),
+            "created_at": file_row.get("created_at"),
+            "updated_at": file_row.get("updated_at"),
+            "scan_status": file_row.get("scan_status"),
+        }

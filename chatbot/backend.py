@@ -1,6 +1,9 @@
 import argparse
+import base64
+import binascii
 import html
 import json
+import mimetypes
 import os
 import queue
 import re
@@ -39,6 +42,7 @@ DEFAULT_MODEL_PATH = r"C:\Users\inter\Desktop\votronix\models\llm\qwen3-4b-instr
 NEWS_TIMEOUT_SECONDS = 10
 VOICE_STATUS_TIMEOUT_SECONDS = 3
 VOICE_TTS_TIMEOUT_SECONDS = 120
+ACCOUNT_UPLOAD_MAX_BYTES = 25 * 1024 * 1024
 LOCAL_GEOCODER = LocalGeocoder(GEOCODER_DATA_PATH)
 TAG_RE = re.compile(r"<[^>]+>")
 
@@ -217,9 +221,20 @@ def send_json(handler, status, payload):
     handler.wfile.write(body)
 
 
-def read_json(handler):
+def send_bytes(handler, status, body, content_type="application/octet-stream", extra_headers=None):
+    handler.send_response(status)
+    for key, value in response_headers(handler, content_type=content_type).items():
+        handler.send_header(key, value)
+    for key, value in (extra_headers or {}).items():
+        handler.send_header(key, value)
+    handler.send_header("Content-Length", str(len(body)))
+    handler.end_headers()
+    handler.wfile.write(body)
+
+
+def read_json(handler, max_bytes=1024 * 1024):
     length = int(handler.headers.get("Content-Length", "0"))
-    if length > 1024 * 1024:
+    if length > max_bytes:
         raise ValueError("Request body too large.")
     body = handler.rfile.read(length).decode("utf-8") if length else "{}"
     return json.loads(body)
@@ -302,6 +317,111 @@ def handle_id_me(handler):
         send_json(handler, 401, {"ok": False, "error": "Not signed in."})
         return
     send_json(handler, 200, {"ok": True, "account": id_account_payload(state, account)})
+
+
+def require_id_account(handler):
+    account = handler.server.app_state.accounts.session_account(id_session_token(handler))
+    if not account:
+        send_json(handler, 401, {"ok": False, "error": "Not signed in."})
+        return None
+    return account
+
+
+def handle_id_files(handler):
+    account = require_id_account(handler)
+    if not account:
+        return
+    query = parse_qs(urlparse(handler.path).query)
+    folder = (query.get("folder") or [""])[0].strip()
+    files = handler.server.app_state.accounts.list_files(account, folder=folder or None)
+    send_json(handler, 200, {
+        "ok": True,
+        "account": id_account_payload(handler.server.app_state, account),
+        "files": files,
+    })
+
+
+def handle_id_file_download(handler):
+    state = handler.server.app_state
+    account = require_id_account(handler)
+    if not account:
+        return
+    query = parse_qs(urlparse(handler.path).query)
+    file_id = (query.get("file_id") or [""])[0].strip()
+    relative_path = (query.get("path") or [""])[0].strip()
+    file_row = state.accounts.get_file(account, file_id=file_id or None, relative_path=relative_path or None)
+    if not file_row:
+        send_json(handler, 404, {"ok": False, "error": "File not found."})
+        return
+
+    root = Path(account["storage_dir"]).resolve()
+    file_path = (root / file_row["relative_path"]).resolve()
+    if root != file_path and root not in file_path.parents:
+        send_json(handler, 400, {"ok": False, "error": "Invalid file path."})
+        return
+    if not file_path.exists() or not file_path.is_file():
+        send_json(handler, 404, {"ok": False, "error": "Stored file is missing."})
+        return
+
+    filename = str(file_row.get("original_name") or file_row.get("stored_name") or "download")
+    content_type = file_row.get("content_type") or mimetypes.guess_type(filename)[0] or "application/octet-stream"
+    send_bytes(
+        handler,
+        200,
+        file_path.read_bytes(),
+        content_type=content_type,
+        extra_headers={"Content-Disposition": f'attachment; filename="{filename.replace(chr(34), "_")}"'},
+    )
+
+
+def handle_id_file_upload(handler):
+    state = handler.server.app_state
+    account = require_id_account(handler)
+    if not account:
+        return
+    body = read_json(handler, max_bytes=int(ACCOUNT_UPLOAD_MAX_BYTES * 1.45) + 4096)
+    filename = str(body.get("filename") or "upload.bin")
+    folder = str(body.get("folder") or "uploads")
+    content_type = str(body.get("content_type") or mimetypes.guess_type(filename)[0] or "application/octet-stream")
+    content_text = str(body.get("content_base64") or "")
+    if "," in content_text and content_text.lower().startswith("data:"):
+        content_text = content_text.split(",", 1)[1]
+    try:
+        data = base64.b64decode(content_text, validate=True)
+    except (binascii.Error, ValueError) as exc:
+        raise ValueError("content_base64 is not valid base64.") from exc
+    if len(data) > ACCOUNT_UPLOAD_MAX_BYTES:
+        raise ValueError(f"File is too large for this version. Limit is {ACCOUNT_UPLOAD_MAX_BYTES // (1024 * 1024)} MB.")
+
+    root, folder_name, stored_name, target_dir, target_path = state.accounts.unique_file_path(account, folder, filename)
+    target_dir.mkdir(parents=True, exist_ok=True)
+    target_path.write_bytes(data)
+    file_row = state.accounts.register_file(account, folder_name, filename, stored_name, content_type, len(data))
+    send_json(handler, 200, {"ok": True, "file": state.accounts.public_file(file_row)})
+
+
+def handle_id_file_delete(handler):
+    state = handler.server.app_state
+    account = require_id_account(handler)
+    if not account:
+        return
+    body = read_json(handler)
+    file_id = str(body.get("file_id") or "").strip()
+    relative_path = str(body.get("path") or "").strip()
+    file_row = state.accounts.delete_file_record(account, file_id=file_id or None, relative_path=relative_path or None)
+    if not file_row:
+        send_json(handler, 404, {"ok": False, "error": "File not found."})
+        return
+
+    root = Path(account["storage_dir"]).resolve()
+    file_path = (root / file_row["relative_path"]).resolve()
+    if root == file_path or root in file_path.parents:
+        try:
+            file_path.unlink(missing_ok=True)
+        except OSError as exc:
+            send_json(handler, 500, {"ok": False, "error": f"File record removed, but delete failed: {exc}"})
+            return
+    send_json(handler, 200, {"ok": True, "deleted": state.accounts.public_file(file_row)})
 
 
 def fetch_json_url(url):
@@ -704,6 +824,14 @@ class ChatHandler(BaseHTTPRequestHandler):
             handle_id_me(self)
             return
 
+        if self.path.startswith("/api/id/files"):
+            handle_id_files(self)
+            return
+
+        if self.path.startswith("/api/id/file"):
+            handle_id_file_download(self)
+            return
+
         if self.path.startswith("/api/voice/status"):
             send_json(self, 200, voice_status(self.server.app_state))
             return
@@ -812,6 +940,24 @@ class ChatHandler(BaseHTTPRequestHandler):
 
         if self.path.startswith("/api/id/logout"):
             handle_id_logout(self)
+            return
+
+        if self.path.startswith("/api/id/files/upload"):
+            try:
+                handle_id_file_upload(self)
+            except ValueError as exc:
+                send_json(self, 400, {"ok": False, "error": str(exc)})
+            except Exception as exc:
+                send_json(self, 500, {"ok": False, "error": str(exc)})
+            return
+
+        if self.path.startswith("/api/id/files/delete"):
+            try:
+                handle_id_file_delete(self)
+            except ValueError as exc:
+                send_json(self, 400, {"ok": False, "error": str(exc)})
+            except Exception as exc:
+                send_json(self, 500, {"ok": False, "error": str(exc)})
             return
 
         if self.path.startswith("/api/geo"):
