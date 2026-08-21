@@ -26,6 +26,7 @@ def app_root():
 
 
 ROOT = app_root()
+WEB_ROOT = ROOT.parent
 CONFIG_PATH = ROOT / "backend_config.json"
 DATA_DIR = ROOT / "data"
 GEOCODER_DATA_PATH = ROOT / "geocoder" / "locations.json"
@@ -571,10 +572,29 @@ def static_path(url_path):
     requested = unquote(urlparse(url_path).path)
     if requested == "/":
         requested = "/index.html"
-    candidate = (ROOT / requested.lstrip("/")).resolve()
-    if ROOT not in candidate.parents and candidate != ROOT:
-        return None
-    return candidate
+    relative = requested.lstrip("/")
+    first_part = relative.split("/", 1)[0]
+    allowed_web_roots = {"index.html", "css", "js", "fonts"}
+    allowed_chatbot_files = {"chat-widget.js", "styles.css", "widget.html"}
+
+    if first_part in allowed_web_roots:
+        candidate = (WEB_ROOT / relative).resolve()
+        if WEB_ROOT in candidate.parents or candidate == WEB_ROOT:
+            return candidate
+
+    if first_part == "chatbot":
+        nested = relative.split("/", 1)[1] if "/" in relative else ""
+        if nested in allowed_chatbot_files:
+            candidate = (WEB_ROOT / relative).resolve()
+            if WEB_ROOT in candidate.parents or candidate == WEB_ROOT:
+                return candidate
+
+    if relative in allowed_chatbot_files:
+        candidate = (ROOT / relative).resolve()
+        if ROOT in candidate.parents or candidate == ROOT:
+            return candidate
+
+    return None
 
 
 class ChatHandler(BaseHTTPRequestHandler):
@@ -675,6 +695,8 @@ class ChatHandler(BaseHTTPRequestHandler):
             ".css": "text/css; charset=utf-8",
             ".js": "application/javascript; charset=utf-8",
             ".json": "application/json; charset=utf-8",
+            ".ttf": "font/ttf",
+            ".woff2": "font/woff2",
         }
         body = file_path.read_bytes()
         self.send_response(200)

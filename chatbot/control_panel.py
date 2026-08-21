@@ -396,6 +396,91 @@ class ControlPanel:
         webbrowser.open(mobile.PUBLIC_GLOBE)
         self.log(f"Opened {mobile.PUBLIC_GLOBE}")
 
+    def local_preview_url(self):
+        return f"http://127.0.0.1:{self.config.port}/?local_preview={int(time.time())}"
+
+    def preview_updates(self):
+        status, _ = self.request_json(f"http://127.0.0.1:{self.config.port}/api/status", timeout=4)
+        if status != 200:
+            self.log("Local preview server is not running. Starting local API server...")
+            self.start_api()
+            deadline = time.time() + 12
+            while time.time() < deadline:
+                status, _ = self.request_json(f"http://127.0.0.1:{self.config.port}/api/status", timeout=4)
+                if status == 200:
+                    break
+                time.sleep(1)
+
+        url = self.local_preview_url()
+        webbrowser.open(url)
+        self.log(f"Opened connected local preview: {url}")
+        self.log("Use this for local updates before pushing to GitHub/Netlify.")
+
+    def preview_public(self):
+        url = f"{mobile.PUBLIC_GLOBE}?v={int(time.time())}"
+        webbrowser.open(url)
+        self.log(f"Opened public Netlify preview: {url}")
+
+    def print_probe(self, label, ok, detail=""):
+        state = "PASS" if ok else "FAIL"
+        print(f"{state:<4} {label:<24} {detail}")
+        return ok
+
+    def review_connections(self):
+        print()
+        print("Live Satellite backend review")
+        print("--------------------------------")
+
+        local_url = f"http://127.0.0.1:{self.config.port}"
+        status, local = self.request_json(f"{local_url}/api/status", timeout=8)
+        local_server_ok = status == 200
+        local_model_ok = local_server_ok and bool(local.get("ready"))
+        self.print_probe("local server", local_server_ok, f"status={status} {local_url}")
+        self.print_probe("qwen model", local_model_ok, local.get("model") or local.get("error") or "not loaded")
+
+        status, voice = self.request_json(f"{local_url}/api/voice/status", timeout=8)
+        voice_ok = status == 200 and bool(voice.get("votronix_running"))
+        active_status, active = self.request_json(f"{local_url}/api/voice/active", timeout=8)
+        active_name = active.get("name") if active_status == 200 else ""
+        gpu = voice.get("gpu") if isinstance(voice, dict) else None
+        gpu_label = gpu.get("label") if isinstance(gpu, dict) else "GPU --"
+        self.print_probe("voice bridge", voice_ok, active_name or voice.get("error") or f"status={status}")
+        self.print_probe("gpu readout", bool(gpu and gpu.get("ok")), gpu_label)
+
+        votronix_status, votronix = self.request_json(f"{self.config.votronix_url.rstrip('/')}/api/status", timeout=8)
+        self.print_probe("votronix direct", votronix_status == 200 and bool(votronix.get("ok", True)), f"status={votronix_status}")
+
+        geocode_status, geocode = self.request_json(f"{local_url}/api/geocode?q=San%20Jose&limit=1", timeout=8)
+        geocode_count = len(geocode.get("results", [])) if isinstance(geocode, dict) else 0
+        self.print_probe("local geocoder", geocode_status == 200 and geocode_count > 0, f"matches={geocode_count}")
+
+        relay_status, relay = self.request_json(f"{mobile.STABLE_RELAY}/api/status", timeout=20)
+        relay_ok = relay_status == 200 and bool(relay.get("ready"))
+        self.mobile_ready = relay_ok
+        self.print_probe("cloudflare relay", relay_ok, relay.get("tunnel_base") or relay.get("error") or f"status={relay_status}")
+
+        chat_ok = False
+        if relay_ok:
+            chat_ok = self.check_chat()
+        else:
+            self.log("Skipping relay chat test because relay is not ready.")
+        self.print_probe("mobile chat route", chat_ok, f"{mobile.STABLE_RELAY}/api/chat")
+
+        print()
+        print(f"Local preview:  {self.local_preview_url()}")
+        print(f"Public site:    {mobile.PUBLIC_GLOBE}")
+        print(f"Current tunnel: {self.tunnel_url or '-'}")
+        print()
+        return {
+            "local_server": local_server_ok,
+            "qwen_model": local_model_ok,
+            "voice_bridge": voice_ok,
+            "votronix": votronix_status == 200,
+            "geocoder": geocode_status == 200 and geocode_count > 0,
+            "relay": relay_ok,
+            "chat": chat_ok,
+        }
+
     def request_json(self, url, method="GET", payload=None, timeout=20):
         body = None if payload is None else json.dumps(payload).encode("utf-8")
         request = Request(
@@ -654,6 +739,9 @@ Commands:
   start-all                    Save settings, run mobile sequence, open Netlify
   restart-all                  Stop then start the full mobile sequence
   stop-all                     Stop tunnel/API started by this panel
+  review                       Review local backend, voice, GPU, relay, chat
+  preview                      Open connected local preview with newest files
+  preview-public               Open Netlify with a cache-buster
   check-local                  Check local Qwen API
   check-voice                  Check local Live Satellite -> Votronix voice bridge
   check-relay                  Check stable Cloudflare relay
@@ -759,6 +847,12 @@ def main():
                 panel.restart_all()
             elif command == "stop-all":
                 panel.stop_all()
+            elif command == "review":
+                panel.review_connections()
+            elif command == "preview":
+                panel.preview_updates()
+            elif command == "preview-public":
+                panel.preview_public()
             elif command == "check-local":
                 panel.check_local()
             elif command == "check-voice":

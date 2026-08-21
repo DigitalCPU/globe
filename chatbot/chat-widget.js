@@ -4,6 +4,9 @@
   const cloudUserStorageKey = 'digitalcpu:qwen-chat-widget:cloud-user:v1';
   const cloudConversationStorageKey = 'digitalcpu:qwen-chat-widget:cloud-conversation:v1';
   const stableRelayEndpoint = 'https://globe-qwen-relay.digitalcomputermail.workers.dev/api/chat';
+  const isLocalPreview = ['127.0.0.1', 'localhost'].includes(window.location.hostname);
+  const localRelayEndpoint = `${window.location.origin}/api/chat`;
+  const defaultEndpoint = isLocalPreview ? localRelayEndpoint : stableRelayEndpoint;
   const cloudApiBase = stableRelayEndpoint.replace('/api/chat', '/api/cloud');
   const systemMessage = {
     role: 'system',
@@ -11,7 +14,7 @@
   };
   const defaultSettings = {
     mode: 'relay',
-    endpoint: stableRelayEndpoint,
+    endpoint: defaultEndpoint,
     model: 'qwen3-4b-instruct-2507-q5_k_m',
     apiKey: '',
     opacity: 90,
@@ -142,6 +145,11 @@
     normalized.endpoint = cleanEndpoint(normalized.endpoint);
     normalized.voiceEnabled = normalized.voiceEnabled === true || normalized.voiceEnabled === 'true';
     normalized.voiceAutoplay = normalized.voiceAutoplay === true || normalized.voiceAutoplay === 'true';
+    if (isLocalPreview) {
+      normalized.endpoint = localRelayEndpoint;
+      normalized.apiKey = '';
+      return normalized;
+    }
     if (
       !normalized.endpoint
       || normalized.endpoint.includes('127.0.0.1')
