@@ -33,7 +33,13 @@
     return payload;
   }
 
-  async function downloadFile(file) {
+  function isImageFile(file) {
+    const type = String(file.content_type || file.type || '').toLowerCase();
+    const name = String(file.name || file.stored_name || '').toLowerCase();
+    return type.startsWith('image/') || /\.(avif|gif|jpe?g|png|webp|bmp|svg)$/i.test(name);
+  }
+
+  async function fetchFileBlob(file) {
     const token = localStorage.getItem(sessionKey) || '';
     const response = await fetch(`${API_BASE}/api/id/file?file_id=${encodeURIComponent(file.file_id)}`, {
       headers: { 'X-ID-Session': token }
@@ -42,7 +48,11 @@
       const payload = await response.json().catch(() => ({}));
       throw new Error(payload.error || `Download failed: ${response.status}`);
     }
-    const blob = await response.blob();
+    return response.blob();
+  }
+
+  async function downloadFile(file) {
+    const blob = await fetchFileBlob(file);
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
@@ -120,13 +130,15 @@
     const fileInput = $('idFileInput');
     const folderInput = $('idFolderInput');
     const fileList = $('idFileList');
+    const filePreview = $('idFilePreview');
 
     if (!button || !panel || !authForm || !fileList) return;
 
     const state = {
       mode: 'login',
       account: null,
-      files: []
+      files: [],
+      previewUrl: ''
     };
 
     function setMessage(text, isError = false) {
@@ -150,6 +162,43 @@
       setMessage(registering ? 'Create a name and password for your folder.' : 'Sign in to open your folder.');
     }
 
+    function clearPreview() {
+      if (state.previewUrl) {
+        URL.revokeObjectURL(state.previewUrl);
+        state.previewUrl = '';
+      }
+      if (filePreview) {
+        filePreview.hidden = true;
+        filePreview.innerHTML = '';
+      }
+    }
+
+    async function previewFile(file) {
+      if (!filePreview) return;
+      clearPreview();
+      setMessage(`Previewing ${file.name || file.stored_name}...`);
+      const blob = await fetchFileBlob(file);
+      const url = URL.createObjectURL(blob);
+      state.previewUrl = url;
+
+      const header = document.createElement('div');
+      const title = document.createElement('span');
+      const close = document.createElement('button');
+      const image = document.createElement('img');
+
+      title.textContent = file.name || file.stored_name || 'image';
+      close.type = 'button';
+      close.textContent = 'Close';
+      close.addEventListener('click', clearPreview);
+      image.src = url;
+      image.alt = title.textContent;
+
+      header.append(title, close);
+      filePreview.append(header, image);
+      filePreview.hidden = false;
+      setMessage('Preview ready.');
+    }
+
     function renderAccount(account) {
       state.account = account || null;
       const signedIn = Boolean(state.account);
@@ -161,6 +210,7 @@
         profileMeta.textContent = 'signed out';
         storageMeta.textContent = 'storage --';
         renderFiles([]);
+        clearPreview();
         return;
       }
       profileName.textContent = account.display_name || account.username;
@@ -172,6 +222,7 @@
     function renderFiles(files) {
       state.files = Array.isArray(files) ? files : [];
       fileList.innerHTML = '';
+      clearPreview();
       if (!state.files.length) {
         const item = document.createElement('li');
         item.textContent = 'No files in this folder yet.';
@@ -181,12 +232,23 @@
       for (const file of state.files) {
         const item = document.createElement('li');
         const label = document.createElement('span');
+        const preview = document.createElement('button');
         const open = document.createElement('button');
         const remove = document.createElement('button');
         label.textContent = `${file.name || file.stored_name} - ${formatBytes(file.size)}`;
         label.title = file.path || file.name || '';
+        preview.type = 'button';
+        preview.textContent = 'Preview';
+        preview.hidden = !isImageFile(file);
+        preview.addEventListener('click', async () => {
+          try {
+            await previewFile(file);
+          } catch (error) {
+            setMessage(error.message || 'Preview failed.', true);
+          }
+        });
         open.type = 'button';
-        open.textContent = 'Open';
+        open.textContent = 'Download';
         open.addEventListener('click', async () => {
           try {
             setMessage(`Opening ${file.name || file.stored_name}...`);
@@ -199,7 +261,7 @@
         remove.type = 'button';
         remove.textContent = 'Delete';
         remove.addEventListener('click', () => deleteFile(file.file_id));
-        item.append(label, open, remove);
+        item.append(label, preview, open, remove);
         fileList.appendChild(item);
       }
     }

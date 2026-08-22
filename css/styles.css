@@ -277,7 +277,7 @@
 
     .id-file-list li {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) auto auto;
+      grid-template-columns: minmax(0, 1fr) auto auto auto;
       align-items: center;
       gap: 6px;
       padding: 8px;
@@ -296,6 +296,54 @@
     .id-file-list button {
       min-width: 54px;
       padding: 0 8px;
+    }
+
+    .id-file-list button[hidden],
+    .id-file-preview[hidden] {
+      display: none;
+    }
+
+    .id-file-preview {
+      display: grid;
+      gap: 8px;
+      padding: 8px;
+      border: 1px solid rgba(84, 218, 255, 0.18);
+      border-radius: 7px;
+      background: rgba(0, 14, 20, 0.42);
+    }
+
+    .id-file-preview div {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .id-file-preview span {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: rgba(137, 239, 255, 0.84);
+    }
+
+    .id-file-preview button {
+      min-height: 30px;
+      border: 1px solid rgba(84, 218, 255, 0.32);
+      border-radius: 6px;
+      background: rgba(18, 70, 84, 0.52);
+      color: rgba(230, 252, 255, 0.95);
+      font: 700 12px Consolas, "Courier New", monospace;
+      cursor: pointer;
+    }
+
+    .id-file-preview img {
+      display: block;
+      width: 100%;
+      max-height: 260px;
+      object-fit: contain;
+      border-radius: 6px;
+      background: rgba(0, 0, 0, 0.34);
     }
 
     .panel {

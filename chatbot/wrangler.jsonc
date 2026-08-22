@@ -1,0 +1,19 @@
+{
+  "$schema": "https://raw.githubusercontent.com/cloudflare/workers-sdk/main/packages/wrangler/config-schema.json",
+  "name": "globe-qwen-relay",
+  "main": "./cloudflare/worker.js",
+  "compatibility_date": "2026-08-21",
+  "kv_namespaces": [
+    {
+      "binding": "RELAY",
+      "id": "8c906871abc04f20909063aa6d013426"
+    }
+  ],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "globe-account-center",
+      "database_id": "cb3a6190-7856-4070-9ff5-9f377aa02f3b"
+    }
+  ]
+}
