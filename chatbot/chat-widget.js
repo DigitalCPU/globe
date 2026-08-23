@@ -39,10 +39,7 @@
   </header>
 
   <form class="chat-settings" id="chatSettings">
-    <label><span>API mode</span><select id="apiMode"><option value="relay">Relay server</option><option value="direct">Direct endpoint</option></select></label>
-    <label><span>Endpoint</span><input id="apiEndpoint" type="url" autocomplete="off" spellcheck="false"></label>
     <label><span>Model</span><input id="apiModel" type="text" autocomplete="off" spellcheck="false"></label>
-    <label><span>Access token / API key</span><input id="apiKey" type="password" autocomplete="off" spellcheck="false" placeholder="optional"></label>
     <label><span>Opacity</span><span class="opacity-row"><input id="chatOpacity" type="range" min="35" max="100" step="5"><span id="chatOpacityValue">90%</span></span></label>
     <div class="voice-settings"><label><span>Voice</span><select id="voiceEnabled"><option value="true">Enabled</option><option value="false">Off</option></select></label><label><span>Speak replies</span><select id="voiceAutoplay"><option value="false">Manual</option><option value="true">Auto</option></select></label></div>
     <div class="voice-status-row"><span id="voiceStatus">voice unknown</span><span id="gpuStatus">GPU --</span><button id="voiceRefresh" type="button">Check voice</button></div>
@@ -69,7 +66,7 @@
 
     try {
       const script = document.currentScript;
-      const widgetUrl = new URL('widget.html?v=voice3', script ? script.src : window.location.href);
+      const widgetUrl = new URL('widget.html?v=voice4', script ? script.src : window.location.href);
       const response = await fetch(widgetUrl);
       if (!response.ok) throw new Error(`Widget markup failed: ${response.status}`);
       const host = document.body;
@@ -123,6 +120,8 @@
   let cloudUserKey = loadCloudUserKey();
   let cloudConversationId = localStorage.getItem(cloudConversationStorageKey) || '';
   let messages = loadConversation();
+  let activeVoicePlayback = null;
+  let activeVoiceSessionId = 0;
 
   function loadSettings() {
     try {
@@ -248,10 +247,10 @@
   }
 
   function renderSettings() {
-    apiMode.value = settings.mode;
-    apiEndpoint.value = settings.endpoint;
-    apiModel.value = settings.model;
-    apiKey.value = settings.apiKey;
+    if (apiMode) apiMode.value = settings.mode;
+    if (apiEndpoint) apiEndpoint.value = settings.endpoint;
+    if (apiModel) apiModel.value = settings.model;
+    if (apiKey) apiKey.value = settings.apiKey;
     chatOpacity.value = String(settings.opacity);
     if (voiceEnabled) voiceEnabled.value = String(settings.voiceEnabled);
     if (voiceAutoplay) voiceAutoplay.value = String(settings.voiceAutoplay);
@@ -330,17 +329,36 @@
     if (role === 'assistant') {
       const actions = document.createElement('div');
       actions.className = 'message-actions';
-      const speak = document.createElement('button');
-      speak.type = 'button';
-      speak.textContent = 'Speak';
-      speak.addEventListener('click', () => {
-        if (speak.dataset.audioUrls) {
-          playVoiceAudioSequence(JSON.parse(speak.dataset.audioUrls || '[]'), speak);
+      const play = document.createElement('button');
+      play.type = 'button';
+      play.dataset.voiceAction = 'play';
+      play.textContent = 'Play';
+      play.addEventListener('click', () => {
+        if (activeVoicePlayback?.controls === actions && activeVoicePlayback.audio?.paused) {
+          activeVoicePlayback.audio.play().catch((error) => {
+            addMessage('system', `Voice playback failed: ${error.message}`);
+          });
           return;
         }
-        speakText(contentNode.textContent, speak);
+        if (play.dataset.audioUrls) {
+          playVoiceAudioSequence(JSON.parse(play.dataset.audioUrls || '[]'), actions);
+          return;
+        }
+        speakText(contentNode.textContent, actions);
       });
-      actions.appendChild(speak);
+      const pause = document.createElement('button');
+      pause.type = 'button';
+      pause.dataset.voiceAction = 'pause';
+      pause.textContent = 'Pause';
+      pause.disabled = true;
+      pause.addEventListener('click', () => pauseVoicePlayback(actions));
+      const stop = document.createElement('button');
+      stop.type = 'button';
+      stop.dataset.voiceAction = 'stop';
+      stop.textContent = 'Stop';
+      stop.disabled = true;
+      stop.addEventListener('click', () => stopVoicePlayback(actions));
+      actions.append(play, pause, stop);
       message.appendChild(actions);
     }
     chatLog.appendChild(message);
@@ -435,39 +453,76 @@
     return URL.createObjectURL(await response.blob());
   }
 
-  async function playOneVoiceAudio(audioUrl, button) {
+  function voiceButton(controls, action) {
+    return controls ? controls.querySelector(`[data-voice-action="${action}"]`) : null;
+  }
+
+  function setVoiceControls(controls, state, label) {
+    const play = voiceButton(controls, 'play');
+    const pause = voiceButton(controls, 'pause');
+    const stop = voiceButton(controls, 'stop');
+    if (play && label) play.textContent = label;
+    if (play) play.disabled = state === 'rendering';
+    if (pause) pause.disabled = state !== 'playing';
+    if (stop) stop.disabled = state !== 'playing' && state !== 'paused';
+    if (play) play.classList.toggle('is-rendering', state === 'rendering');
+  }
+
+  function pauseVoicePlayback(controls) {
+    if (activeVoicePlayback?.controls !== controls || !activeVoicePlayback.audio) return;
+    activeVoicePlayback.audio.pause();
+    setVoiceControls(controls, 'paused', 'Play');
+    status.textContent = 'paused';
+  }
+
+  function stopVoicePlayback(controls) {
+    if (activeVoicePlayback?.controls !== controls || !activeVoicePlayback.audio) return;
+    activeVoiceSessionId += 1;
+    activeVoicePlayback.cancelled = true;
+    activeVoicePlayback.audio.pause();
+    activeVoicePlayback.audio.currentTime = 0;
+    if (activeVoicePlayback.resolve) activeVoicePlayback.resolve();
+    setVoiceControls(controls, 'ready', 'Play');
+    status.textContent = 'ready';
+  }
+
+  async function playOneVoiceAudio(audioUrl, controls, sessionId) {
     return new Promise((resolve, reject) => {
       const audio = new Audio(audioUrl);
+      activeVoicePlayback = { audio, controls, cancelled: false, resolve };
       audio.preload = 'auto';
       audio.addEventListener('ended', resolve, { once: true });
       audio.addEventListener('error', () => reject(new Error('Audio playback failed.')), { once: true });
-      audio.play().catch(reject);
+      audio.play().then(() => {
+        if (sessionId === activeVoiceSessionId) setVoiceControls(controls, 'playing', 'Pause');
+      }).catch(reject);
     }).finally(() => {
-      if (button) button.textContent = 'Play';
+      if (activeVoicePlayback?.controls === controls) activeVoicePlayback = null;
     });
   }
 
-  async function playVoiceAudioSequence(audioUrls, button) {
+  async function playVoiceAudioSequence(audioUrls, controls) {
     if (!audioUrls || !audioUrls.length) return;
-    if (button) {
-      button.disabled = false;
-      button.textContent = 'Playing';
-    }
+    const play = voiceButton(controls, 'play');
+    const sessionId = activeVoiceSessionId + 1;
+    activeVoiceSessionId = sessionId;
+    setVoiceControls(controls, 'playing', 'Playing');
     status.textContent = 'playing';
     try {
       for (let index = 0; index < audioUrls.length; index += 1) {
-        if (button) button.textContent = audioUrls.length > 1 ? `Playing ${index + 1}/${audioUrls.length}` : 'Playing';
-        await playOneVoiceAudio(audioUrls[index], button);
+        if (sessionId !== activeVoiceSessionId) break;
+        if (play) play.textContent = audioUrls.length > 1 ? `Playing ${index + 1}/${audioUrls.length}` : 'Playing';
+        await playOneVoiceAudio(audioUrls[index], controls, sessionId);
       }
+      if (sessionId !== activeVoiceSessionId) return;
       status.textContent = 'ready';
-      if (button) button.textContent = 'Replay';
+      setVoiceControls(controls, 'ready', 'Replay');
       if (voiceStatus) voiceStatus.textContent = 'playing voice';
     } catch (error) {
       status.textContent = 'tap Play';
-      if (button) {
-        button.disabled = false;
-        button.textContent = 'Play';
-        button.title = 'Audio is ready. Tap Play to allow mobile playback.';
+      setVoiceControls(controls, 'ready', 'Play');
+      if (play) {
+        play.title = 'Audio is ready. Tap Play to allow mobile playback.';
       }
       if (voiceStatus) voiceStatus.textContent = 'tap Play';
       const blocked = error && (
@@ -478,22 +533,21 @@
     }
   }
 
-  async function speakText(text, button) {
+  async function speakText(text, controls) {
     const cleanText = String(text || '').trim();
     if (!cleanText || !settings.voiceEnabled) return;
-    const previous = button ? button.textContent : '';
+    const play = voiceButton(controls, 'play');
+    const previous = play ? play.textContent : '';
     const chunks = splitVoiceText(cleanText);
     const audioUrls = [];
-    if (button) {
-      button.disabled = true;
-      button.classList.add('is-rendering');
-      button.textContent = chunks.length > 1 ? `Rendering 1/${chunks.length}` : 'Rendering';
-      button.title = 'Rendering voice audio in chunks...';
+    if (play) {
+      setVoiceControls(controls, 'rendering', chunks.length > 1 ? `Rendering 1/${chunks.length}` : 'Rendering');
+      play.title = 'Rendering voice audio in chunks...';
     }
     status.textContent = 'voice';
     try {
       for (let index = 0; index < chunks.length; index += 1) {
-        if (button) button.textContent = chunks.length > 1 ? `Rendering ${index + 1}/${chunks.length}` : 'Rendering';
+        if (play) play.textContent = chunks.length > 1 ? `Rendering ${index + 1}/${chunks.length}` : 'Rendering';
         if (voiceStatus) voiceStatus.textContent = chunks.length > 1 ? `rendering ${index + 1}/${chunks.length}` : 'rendering voice';
         const data = await voiceRequest('/api/voice/tts', {
           method: 'POST',
@@ -503,26 +557,23 @@
         audioUrls.push(await fetchVoiceAudioBlob(data.audio_url || '/api/voice/last.wav'));
         refreshVoiceStatus().catch(() => {});
       }
-      if (button) {
-        button.dataset.audioUrls = JSON.stringify(audioUrls);
-        button.disabled = false;
-        button.textContent = 'Play';
-        button.classList.remove('is-rendering');
-        button.title = 'Audio is ready. Tap Play if mobile blocks autoplay.';
+      if (play) {
+        play.dataset.audioUrls = JSON.stringify(audioUrls);
+        setVoiceControls(controls, 'ready', 'Play');
+        play.title = 'Audio is ready. Tap Play if mobile blocks autoplay.';
       }
       status.textContent = 'tap Play';
       if (voiceStatus) voiceStatus.textContent = 'audio ready';
-      await playVoiceAudioSequence(audioUrls, button);
+      await playVoiceAudioSequence(audioUrls, controls);
     } catch (error) {
       status.textContent = 'voice failed';
       if (voiceStatus) voiceStatus.textContent = 'voice failed';
       addMessage('system', `Voice failed: ${error.message}`);
     } finally {
-      if (button) button.classList.remove('is-rendering');
-      if (button && !audioUrls.length) {
-        button.disabled = false;
-        button.textContent = previous || 'Speak';
-        button.title = '';
+      if (play) play.classList.remove('is-rendering');
+      if (play && !audioUrls.length) {
+        setVoiceControls(controls, 'ready', previous || 'Play');
+        play.title = '';
       }
     }
   }
@@ -574,8 +625,8 @@
       setMessageContent(assistantNode, reply);
       status.textContent = 'ready';
       if (settings.voiceAutoplay) {
-        const speakButton = assistantNode.querySelector('.message-actions button');
-        speakText(reply, speakButton).catch(() => {});
+        const controls = assistantNode.querySelector('.message-actions');
+        speakText(reply, controls).catch(() => {});
       }
       autoSaveConversationToCloud();
     } catch (error) {
@@ -754,10 +805,10 @@
   settingsForm.addEventListener('submit', (event) => {
     event.preventDefault();
     saveSettings({
-      mode: apiMode.value,
-      endpoint: cleanEndpoint(apiEndpoint.value),
-      model: apiModel.value.trim(),
-      apiKey: apiKey.value.trim(),
+      mode: apiMode ? apiMode.value : settings.mode,
+      endpoint: apiEndpoint ? cleanEndpoint(apiEndpoint.value) : settings.endpoint,
+      model: apiModel ? apiModel.value.trim() : settings.model,
+      apiKey: apiKey ? apiKey.value.trim() : settings.apiKey,
       opacity: Number(chatOpacity.value),
       voiceEnabled: voiceEnabled ? voiceEnabled.value === 'true' : settings.voiceEnabled,
       voiceAutoplay: voiceAutoplay ? voiceAutoplay.value === 'true' : settings.voiceAutoplay

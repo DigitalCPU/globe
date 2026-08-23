@@ -1177,6 +1177,7 @@ class ChatHandler(BaseHTTPRequestHandler):
             messages = body.get("messages")
             if not isinstance(messages, list):
                 raise ValueError("messages must be a list.")
+            messages = with_backend_system_prompt(state.config, messages)
 
             reply = state.engine.chat(
                 messages,
@@ -1205,6 +1206,23 @@ def server_can_start(config: BackendConfig):
     if config.host != "127.0.0.1" and not config.access_token:
         return False, "Public host requires access_token. Set token before start."
     return True, ""
+
+
+def with_backend_system_prompt(config: BackendConfig, messages):
+    cleaned = []
+    for message in messages:
+        if not isinstance(message, dict):
+            continue
+        role = message.get("role")
+        if role not in {"system", "user", "assistant"}:
+            continue
+        cleaned.append({"role": role, "content": str(message.get("content") or "")})
+
+    system_prompt = (config.system_prompt or "").strip()
+    if system_prompt:
+        cleaned = [message for message in cleaned if message["role"] != "system"]
+        cleaned.insert(0, {"role": "system", "content": system_prompt})
+    return cleaned
 
 
 def start_server(state: AppState):
