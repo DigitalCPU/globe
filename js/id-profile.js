@@ -106,6 +106,17 @@
     }
   }
 
+  function conversionMessage(result, fallback = 'Upload complete.') {
+    const file = result && result.file;
+    const conversion = result && result.conversion;
+    if (!conversion) return fallback;
+    const saved = Number(conversion.saved_bytes || 0);
+    const target = file?.name || conversion.stored_name || 'file';
+    const action = conversion.action === 'converted' ? 'Converted' : conversion.action === 'copied' ? 'Saved' : 'Uploaded';
+    if (saved > 0) return `${action} ${target}. Saved ${formatBytes(saved)}.`;
+    return `${action} ${target}.`;
+  }
+
   function init() {
     const button = $('accountButton');
     const panel = $('idProfilePanel');
@@ -128,6 +139,8 @@
     const refreshFilesButton = $('idRefreshFiles');
     const uploadForm = $('idUploadForm');
     const fileInput = $('idFileInput');
+    const cameraInput = $('idCameraInput');
+    const cameraButton = $('idCameraButton');
     const folderInput = $('idFolderInput');
     const fileList = $('idFileList');
     const filePreview = $('idFilePreview');
@@ -362,12 +375,36 @@
       }
       try {
         setMessage(`Uploading ${file.name}...`);
-        await uploadFileChunked(file, folderInput.value || 'uploads', setMessage);
+        const result = await uploadFileChunked(file, folderInput.value || 'uploads', setMessage);
         fileInput.value = '';
         await refreshFiles();
-        setMessage('Upload complete.');
+        setMessage(conversionMessage(result));
       } catch (error) {
         setMessage(error.message || 'Upload failed.', true);
+      }
+    });
+
+    cameraButton?.addEventListener('click', () => {
+      if (!state.account) {
+        setMessage('Sign in before using the camera.', true);
+        return;
+      }
+      cameraInput?.click();
+    });
+
+    cameraInput?.addEventListener('change', async () => {
+      const file = cameraInput.files && cameraInput.files[0];
+      if (!file) return;
+      try {
+        setMessage('Uploading camera picture...');
+        const result = await uploadFileChunked(file, folderInput.value || 'uploads', setMessage);
+        cameraInput.value = '';
+        await refreshFiles();
+        setMessage(conversionMessage(result, 'Camera picture saved.'));
+      } catch (error) {
+        setMessage(error.message || 'Camera upload failed.', true);
+      } finally {
+        cameraInput.value = '';
       }
     });
 

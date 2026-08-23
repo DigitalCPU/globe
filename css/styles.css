@@ -199,6 +199,7 @@
     .id-profile-tabs button,
     .id-profile-actions button,
     .id-upload-form button,
+    #idCameraButton,
     #idSubmit,
     .id-file-list button {
       min-height: 30px;
@@ -229,6 +230,7 @@
     .id-profile-tabs button.is-active,
     .id-profile-actions button:hover,
     .id-upload-form button:hover,
+    #idCameraButton:hover,
     #idSubmit:hover,
     .id-file-list button:hover {
       background: rgba(30, 102, 122, 0.64);

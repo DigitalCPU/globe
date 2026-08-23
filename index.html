@@ -56,7 +56,9 @@
         </div>
         <form class="id-upload-form" id="idUploadForm">
           <input id="idFileInput" type="file">
+          <input id="idCameraInput" type="file" accept="image/*" capture="environment" hidden>
           <input id="idFolderInput" type="text" autocomplete="off" placeholder="folder" value="uploads">
+          <button id="idCameraButton" type="button">Camera</button>
           <button type="submit">Upload</button>
         </form>
         <ol class="id-file-list" id="idFileList">
@@ -364,7 +366,7 @@
   <script src='js/space-weather.js'></script>
   <script src="js/country-selector.js?v=country1"></script>
   <script src='js/app.js?v=news-mobile1'></script>
-  <script src="js/id-profile.js?v=account4"></script>
+  <script src="js/id-profile.js?v=account5"></script>
   <script src="js/local-timeline.js?v=news-brief2"></script>
   <script src="chatbot/chat-widget.js?v=voice4"></script>
 

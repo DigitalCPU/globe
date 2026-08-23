@@ -22,6 +22,8 @@ from urllib.parse import parse_qs, quote_plus, unquote, urlparse
 from urllib.request import Request, urlopen
 import xml.etree.ElementTree as ET
 from account_store import AccountStore
+from account_store import safe_file_name
+from file_converter import ConverterSettings, convert_file
 from geocoder import LocalGeocoder
 
 
@@ -49,6 +51,22 @@ ACCOUNT_CHUNKED_UPLOAD_MAX_BYTES = 10 * 1024 * 1024 * 1024
 ACCOUNT_UPLOAD_CHUNK_BYTES = 8 * 1024 * 1024
 LOCAL_GEOCODER = LocalGeocoder(GEOCODER_DATA_PATH)
 TAG_RE = re.compile(r"<[^>]+>")
+
+
+def converter_settings():
+    return ConverterSettings(
+        image_quality=78,
+        image_max_width=1920,
+        image_max_height=1920,
+        video_crf=34,
+        video_max_width=1280,
+        video_max_height=720,
+        keep_original=False,
+    )
+
+
+def converted_content_type(path):
+    return mimetypes.guess_type(str(path))[0] or "application/octet-stream"
 
 
 @dataclass
@@ -493,23 +511,45 @@ def handle_id_file_upload_finish(handler):
         send_json(handler, 409, {"ok": False, "error": "Upload is incomplete.", "received": received, "expected": expected_size})
         return
 
-    _, folder_name, stored_name, target_dir, target_path = state.accounts.unique_file_path(
+    _, folder_name, _, target_dir, _ = state.accounts.unique_file_path(
         account,
         manifest.get("folder") or "uploads",
         manifest.get("filename") or "upload.bin",
     )
     target_dir.mkdir(parents=True, exist_ok=True)
-    shutil.move(str(data_path), str(target_path))
+    staged_name = safe_file_name(manifest.get("filename") or "upload.bin")
+    staged_path = (upload_dir / staged_name).resolve()
+    shutil.move(str(data_path), str(staged_path))
+    conversion = convert_file(staged_path, target_dir, converter_settings())
+    if not conversion.output_path:
+        raise ValueError(f"File conversion failed: {conversion.error or 'unknown error'}")
+    converted_path = Path(conversion.output_path).resolve()
+    stored_name = converted_path.name
+    final_size = converted_path.stat().st_size
+    content_type = converted_content_type(converted_path)
     file_row = state.accounts.register_file(
         account,
         folder_name,
-        manifest.get("filename") or stored_name,
         stored_name,
-        manifest.get("content_type") or "application/octet-stream",
-        received,
+        stored_name,
+        content_type,
+        final_size,
     )
     shutil.rmtree(upload_dir, ignore_errors=True)
-    send_json(handler, 200, {"ok": True, "file": state.accounts.public_file(file_row)})
+    send_json(handler, 200, {
+        "ok": True,
+        "file": state.accounts.public_file(file_row),
+        "conversion": {
+            "action": conversion.action,
+            "media_type": conversion.media_type,
+            "original_name": manifest.get("filename") or "upload.bin",
+            "original_size": received,
+            "stored_name": stored_name,
+            "stored_size": final_size,
+            "saved_bytes": max(0, received - final_size),
+            "error": conversion.error,
+        },
+    })
 
 
 def handle_id_file_upload_cancel(handler):
@@ -544,9 +584,33 @@ def handle_id_file_upload(handler):
 
     root, folder_name, stored_name, target_dir, target_path = state.accounts.unique_file_path(account, folder, filename)
     target_dir.mkdir(parents=True, exist_ok=True)
-    target_path.write_bytes(data)
-    file_row = state.accounts.register_file(account, folder_name, filename, stored_name, content_type, len(data))
-    send_json(handler, 200, {"ok": True, "file": state.accounts.public_file(file_row)})
+    incoming_dir = (root / ".incoming" / f"single_{secrets.token_urlsafe(16)}").resolve()
+    incoming_dir.mkdir(parents=True, exist_ok=True)
+    staged_path = (incoming_dir / stored_name).resolve()
+    staged_path.write_bytes(data)
+    conversion = convert_file(staged_path, target_dir, converter_settings())
+    if not conversion.output_path:
+        raise ValueError(f"File conversion failed: {conversion.error or 'unknown error'}")
+    converted_path = Path(conversion.output_path).resolve()
+    stored_name = converted_path.name
+    final_size = converted_path.stat().st_size
+    content_type = converted_content_type(converted_path)
+    file_row = state.accounts.register_file(account, folder_name, stored_name, stored_name, content_type, final_size)
+    shutil.rmtree(incoming_dir, ignore_errors=True)
+    send_json(handler, 200, {
+        "ok": True,
+        "file": state.accounts.public_file(file_row),
+        "conversion": {
+            "action": conversion.action,
+            "media_type": conversion.media_type,
+            "original_name": filename,
+            "original_size": len(data),
+            "stored_name": stored_name,
+            "stored_size": final_size,
+            "saved_bytes": max(0, len(data) - final_size),
+            "error": conversion.error,
+        },
+    })
 
 
 def handle_id_file_delete(handler):
