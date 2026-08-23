@@ -61,6 +61,82 @@
     const geoUserStorageKey = 'digitalcpu:globe-geo-user:v1';
     const backgroundStorageKey = 'digitalcpu:globe-background:v1';
     const controlsOpacityStorageKey = 'digitalcpu:controls-opacity:v1';
+    const userLoadoutStorageKey = 'digitalcpu:globe-user-loadout:v1';
+    const panelMinimizedStorageKey = 'digitalcpu:globe-settings-minimized:v1';
+    const controllerEnabledStorageKey = 'digitalcpu:globe-controller-enabled:v1';
+    const userLoadoutSkipIds = new Set([
+      'idUsername',
+      'idDisplayName',
+      'idFolderInput',
+      'timelineLocationInput',
+      'calendarLockUser',
+      'calendarLockPass'
+    ]);
+
+    function getStoredUserLoadout() {
+      try {
+        return JSON.parse(localStorage.getItem(userLoadoutStorageKey) || '{}');
+      } catch (error) {
+        console.warn('Could not read user loadout.', error);
+        return {};
+      }
+    }
+
+    function setStoredUserLoadout(loadout) {
+      try {
+        localStorage.setItem(userLoadoutStorageKey, JSON.stringify(loadout));
+      } catch (error) {
+        console.warn('Could not save user loadout.', error);
+      }
+    }
+
+    function isLoadoutControl(element) {
+      if (!element || !element.id || userLoadoutSkipIds.has(element.id)) return false;
+      if (element.type === 'password' || element.type === 'file') return false;
+      if (element.tagName === 'TEXTAREA') return false;
+      return element.matches('input, select');
+    }
+
+    function readLoadoutControlValue(element) {
+      if (element.type === 'checkbox') return Boolean(element.checked);
+      if (element.type === 'radio') return Boolean(element.checked);
+      return element.value;
+    }
+
+    function applyLoadoutControlValue(element, value) {
+      if (element.type === 'checkbox') {
+        element.checked = Boolean(value);
+      } else if (element.type === 'radio') {
+        element.checked = Boolean(value);
+      } else {
+        element.value = String(value);
+      }
+    }
+
+    function saveUserLoadoutControl(element) {
+      if (!isLoadoutControl(element)) return;
+      const loadout = getStoredUserLoadout();
+      loadout[element.id] = readLoadoutControlValue(element);
+      setStoredUserLoadout(loadout);
+    }
+
+    function restoreUserLoadoutControls() {
+      const loadout = getStoredUserLoadout();
+      document.querySelectorAll('input[id], select[id]').forEach((element) => {
+        if (!isLoadoutControl(element) || !Object.prototype.hasOwnProperty.call(loadout, element.id)) return;
+        applyLoadoutControlValue(element, loadout[element.id]);
+      });
+    }
+
+    function watchUserLoadoutControls() {
+      document.querySelectorAll('input[id], select[id]').forEach((element) => {
+        if (!isLoadoutControl(element)) return;
+        element.addEventListener('input', () => saveUserLoadoutControl(element));
+        element.addEventListener('change', () => saveUserLoadoutControl(element));
+      });
+    }
+
+    restoreUserLoadoutControls();
 
     function updateConnectionInfo() {
       if (!connectionInfo) return;
@@ -180,6 +256,7 @@
 
     function setControllerEnabled(enabled) {
       virtualController.enabled = enabled;
+      localStorage.setItem(controllerEnabledStorageKey, enabled ? '1' : '0');
       controllerOverlay?.classList.toggle('is-active', enabled);
       controllerOverlay?.setAttribute('aria-hidden', String(!enabled));
       controllerButton?.classList.toggle('is-active', enabled);
@@ -1000,25 +1077,29 @@ const distanceLines = new THREE.Group();
     };
 
     const timeScaleSteps = [1, 60, 600, 1800, 3600, 21600, 86400];
+    simulation.timeScale = timeScaleSteps[Number(timeScaleInput.value)] || simulation.timeScale;
+    simulation.matchActualTime = actualTimeInput.checked;
 
-    function setPanelMinimized(minimized) {
+    function setPanelMinimized(minimized, persist = true) {
       panel.classList.toggle('is-minimized', minimized);
       togglePanelButton.textContent = minimized ? '+' : '-';
       togglePanelButton.setAttribute('aria-expanded', String(!minimized));
       togglePanelButton.setAttribute('aria-label', minimized ? 'Show settings' : 'Minimize settings');
+      if (persist) localStorage.setItem(panelMinimizedStorageKey, minimized ? '1' : '0');
     }
 
     togglePanelButton.addEventListener('click', () => {
       setPanelMinimized(!panel.classList.contains('is-minimized'));
     });
 
-    setPanelMinimized(true);
+    setPanelMinimized(localStorage.getItem(panelMinimizedStorageKey) !== '0', false);
 
     if (controllerButton) {
       controllerButton.addEventListener('click', () => {
         setControllerEnabled(!virtualController.enabled);
       });
     }
+    setControllerEnabled(localStorage.getItem(controllerEnabledStorageKey) === '1');
 
     if (zoomHalo) {
       zoomHalo.addEventListener('pointerdown', (event) => {
@@ -1441,6 +1522,7 @@ const distanceLines = new THREE.Group();
     window.addEventListener('globe:user-location', collectGeoPoint);
 
     updateTimeScaleLabel();
+    watchUserLoadoutControls();
     distanceLines.visible = distanceLinesInput.checked;
     lighting.setDayNightVisible(dayNightInput.checked);
     lighting.setMoonPhaseVisible(moonPhaseInput.checked);

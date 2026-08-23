@@ -332,6 +332,12 @@ body {
   min-width: 0;
 }
 
+.message.assistant.is-thinking .message-content {
+  color: rgba(190, 247, 255, 0.96);
+  text-shadow: 0 0 10px rgba(84, 218, 255, 0.42);
+  animation: thinking-text-pulse 1.1s ease-in-out infinite;
+}
+
 .message-actions {
   display: flex;
   justify-content: flex-end;
@@ -356,6 +362,15 @@ body {
   }
   50% {
     background: rgba(84, 218, 255, 0.24);
+  }
+}
+
+@keyframes thinking-text-pulse {
+  0%, 100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
   }
 }
 

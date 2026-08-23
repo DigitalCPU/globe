@@ -319,6 +319,28 @@
     }
   }
 
+  function startThinkingAnimation(message) {
+    const contentNode = message.querySelector('.message-content');
+    if (!contentNode) return () => {};
+    let step = 0;
+    let stopped = false;
+    message.classList.add('is-thinking');
+
+    const render = () => {
+      if (stopped) return;
+      step = (step % 4) + 1;
+      contentNode.textContent = `Thinking${'.'.repeat(step)}`;
+    };
+
+    render();
+    const timer = window.setInterval(render, 450);
+    return () => {
+      stopped = true;
+      window.clearInterval(timer);
+      message.classList.remove('is-thinking');
+    };
+  }
+
   function addMessage(role, content) {
     const message = document.createElement('div');
     message.className = `message ${role}`;
@@ -614,7 +636,8 @@
 
   async function sendMessage(userText) {
     pushMessage('user', userText);
-    const assistantNode = addMessage('assistant', 'Thinking...');
+    const assistantNode = addMessage('assistant', 'Thinking.');
+    const stopThinking = startThinkingAnimation(assistantNode);
     status.textContent = 'thinking';
     sendButton.disabled = true;
 
@@ -622,6 +645,7 @@
       const reply = await requestCompletion();
       messages.push({ role: 'assistant', content: reply });
       saveConversation();
+      stopThinking();
       setMessageContent(assistantNode, reply);
       status.textContent = 'ready';
       if (settings.voiceAutoplay) {
@@ -630,6 +654,7 @@
       }
       autoSaveConversationToCloud();
     } catch (error) {
+      stopThinking();
       setMessageContent(assistantNode, `Connection failed: ${error.message}`);
       status.textContent = 'offline';
     } finally {
