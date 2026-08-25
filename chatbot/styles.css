@@ -42,18 +42,26 @@ body {
 
 .chat-widget {
   position: fixed;
-  right: 18px;
-  bottom: 18px;
+  left: 50%;
+  right: auto;
+  top: 50%;
+  bottom: auto;
   z-index: 1500;
   display: grid;
   grid-template-rows: auto auto 1fr auto;
-  width: min(390px, calc(100vw - 28px));
-  height: min(600px, calc(100vh - 36px));
+  width: min(375px, calc(100vw - 28px));
+  height: min(667px, calc(100dvh - 28px));
+  min-width: min(300px, calc(100vw - 28px));
+  min-height: min(260px, calc(100dvh - 28px));
+  max-width: calc(100vw - 28px);
+  max-height: calc(100dvh - 28px);
   border: 1px solid rgba(84, 218, 255, 0.28);
   border-radius: 8px;
   background: rgba(2, 8, 12, var(--chat-opacity, 0.9));
   box-shadow: 0 0 32px rgba(42, 205, 255, 0.16);
   overflow: hidden;
+  resize: both;
+  transform: translate(-50%, -50%);
   backdrop-filter: blur(8px);
 }
 
@@ -415,7 +423,8 @@ body {
 .chat-launcher {
   position: fixed;
   right: 18px;
-  top: 18px;
+  top: 102px;
+  bottom: auto;
   z-index: 1499;
   display: none;
   width: 114px;
@@ -436,10 +445,17 @@ body {
 
 @media (max-width: 520px) {
   .chat-widget {
-    right: 8px;
-    bottom: 8px;
-    width: calc(100vw - 16px);
-    height: min(560px, calc(100dvh - 16px));
+    left: 50%;
+    right: auto;
+    top: 50%;
+    bottom: auto;
+    width: min(375px, calc(100vw - 16px));
+    height: min(667px, calc(100dvh - 16px));
+    min-width: min(290px, calc(100vw - 16px));
+    min-height: min(260px, calc(100dvh - 16px));
+    max-width: calc(100vw - 16px);
+    max-height: calc(100dvh - 16px);
+    transform: translate(-50%, -50%);
     grid-template-rows: auto minmax(0, auto) minmax(96px, 1fr) auto;
   }
 
@@ -529,7 +545,8 @@ body {
 
   .chat-launcher {
     right: 10px;
-    top: 10px;
+    top: 98px;
+    bottom: auto;
     width: 114px;
     height: 36px;
     min-height: 36px;

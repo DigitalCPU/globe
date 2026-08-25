@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Wire Mesh Earth</title>
-  <link rel='stylesheet' href='css/styles.css?v=news-brief2'>
-  <link rel="stylesheet" href="chatbot/styles.css?v=voice3">
+  <link rel='stylesheet' href='css/styles.css?v=center-widgets3'>
+  <link rel="stylesheet" href="chatbot/styles.css?v=center-widgets2">
 
 </head>
 <body>
@@ -236,7 +236,7 @@
         <div class="controller-stick" id="directionStick"></div>
       </div>
     </div>
-    <section class="timeline-widget" id="timelineWidget" aria-label="News">
+    <section class="timeline-widget is-collapsed" id="timelineWidget" aria-label="News">
       <div class="timeline-header">
         <div>
           <h2>News</h2>
@@ -244,7 +244,7 @@
         </div>
         <div class="timeline-actions">
           <button id="timelineRefresh" type="button">Refresh</button>
-          <button id="timelineToggle" type="button" aria-expanded="true" aria-label="Minimize news feed">-</button>
+          <button id="timelineToggle" type="button" aria-expanded="false" aria-label="Open news feed">+</button>
         </div>
       </div>
       <div class="timeline-modes" role="group" aria-label="Timeline mode">
@@ -274,6 +274,47 @@
       <ol class="timeline-list" id="timelineList">
         <li>Use location to load local headlines.</li>
       </ol>
+    </section>
+    <section class="board-widget is-collapsed" id="boardWidget" aria-label="Message board">
+      <div class="board-header">
+        <div>
+          <h2>Board</h2>
+          <span id="boardStatus">sign in to post</span>
+        </div>
+        <div class="board-actions">
+          <button id="boardRefresh" type="button">Refresh</button>
+          <button id="boardToggle" type="button" aria-expanded="false" aria-label="Open message board">+</button>
+        </div>
+      </div>
+      <div class="board-content">
+        <form class="board-post-form" id="boardPostForm">
+          <label for="boardCategory">Category</label>
+          <select id="boardCategory" required></select>
+          <textarea id="boardText" rows="3" maxlength="1000" placeholder="Write a message..."></textarea>
+          <div class="board-attach-row">
+            <select id="boardImageSelect" aria-label="Attach converted WebP image">
+              <option value="">No image attached</option>
+            </select>
+            <button id="boardCameraButton" type="button">Camera</button>
+          </div>
+          <input id="boardCameraInput" type="file" accept="image/*" capture="environment" hidden>
+          <div class="board-submit-row">
+            <button id="boardImagesRefresh" type="button">Images</button>
+            <button id="boardPostButton" type="submit">Post</button>
+          </div>
+        </form>
+        <div class="board-filter-row">
+          <select id="boardFilter" aria-label="Filter board category"></select>
+        </div>
+        <label class="board-opacity" for="boardOpacity">
+          <span>Opacity</span>
+          <input id="boardOpacity" type="range" min="35" max="95" step="5" value="84">
+          <span id="boardOpacityValue">84%</span>
+        </label>
+        <ol class="board-list" id="boardList">
+          <li>Open the board to load messages.</li>
+        </ol>
+      </div>
     </section>
     <div class="hover-label" id="hoverLabel"></div>
     <div class="credits">DigitalCPU / globe</div>
@@ -367,8 +408,9 @@
   <script src="js/country-selector.js?v=country1"></script>
   <script src='js/app.js?v=news-mobile1'></script>
   <script src="js/id-profile.js?v=account5"></script>
-  <script src="js/local-timeline.js?v=news-brief2"></script>
-  <script src="chatbot/chat-widget.js?v=voice4"></script>
+  <script src="js/local-timeline.js?v=news-button1"></script>
+  <script src="js/message-board.js?v=board-relay1"></script>
+  <script src="chatbot/chat-widget.js?v=chat-center1"></script>
 
 </body>
 </html>

@@ -5,7 +5,7 @@
   const GEOCODE_ENDPOINT = `${API_BASE}/api/geocode`;
   const CHAT_ENDPOINT = `${API_BASE}/api/chat`;
   const visibilityKey = 'digitalcpu:local-timeline-visible:v1';
-  const collapsedKey = 'digitalcpu:local-timeline-collapsed:v1';
+  const collapsedKey = 'digitalcpu:local-timeline-collapsed:v2';
   const opacityKey = 'digitalcpu:local-timeline-opacity:v1';
   const linksKey = 'digitalcpu:local-timeline-links:v1';
 
