@@ -154,6 +154,10 @@
       previewUrl: ''
     };
 
+    function notifyFilesChanged() {
+      window.dispatchEvent(new CustomEvent('digitalcpu:id-files-changed'));
+    }
+
     function setMessage(text, isError = false) {
       message.textContent = text;
       message.style.color = isError ? 'rgba(255, 170, 170, 0.95)' : '';
@@ -361,6 +365,7 @@
         passwordInput.value = '';
         renderAccount(data.account);
         await refreshFiles();
+        notifyFilesChanged();
       } catch (error) {
         setMessage(error.message || 'Account request failed.', true);
       }
@@ -378,6 +383,7 @@
         const result = await uploadFileChunked(file, folderInput.value || 'uploads', setMessage);
         fileInput.value = '';
         await refreshFiles();
+        notifyFilesChanged();
         setMessage(conversionMessage(result));
       } catch (error) {
         setMessage(error.message || 'Upload failed.', true);
@@ -400,6 +406,7 @@
         const result = await uploadFileChunked(file, folderInput.value || 'uploads', setMessage);
         cameraInput.value = '';
         await refreshFiles();
+        notifyFilesChanged();
         setMessage(conversionMessage(result, 'Camera picture saved.'));
       } catch (error) {
         setMessage(error.message || 'Camera upload failed.', true);

@@ -310,6 +310,10 @@
       setStatus(state.images.length ? `${state.images.length} WebP images` : 'no WebP images');
     }
 
+    function refreshImagesQuietly() {
+      refreshImages().catch((error) => setStatus(error.message || 'images failed', true));
+    }
+
     async function refreshBoard() {
       const query = filter.value ? `?category=${encodeURIComponent(filter.value)}` : '';
       const data = await api(`/api/board/posts${query}`);
@@ -403,9 +407,20 @@
 
     toggle.addEventListener('click', () => setOpen(widget.classList.contains('is-collapsed')));
     refresh?.addEventListener('click', () => refreshBoard().catch((error) => setStatus(error.message || 'refresh failed', true)));
-    imageRefresh?.addEventListener('click', () => refreshImages().catch((error) => setStatus(error.message || 'images failed', true)));
+    imageRefresh?.addEventListener('click', refreshImagesQuietly);
     opacityInput?.addEventListener('input', () => applyOpacity(opacityInput.value));
     filter.addEventListener('change', () => refreshBoard().catch((error) => setStatus(error.message || 'filter failed', true)));
+    imageSelect?.addEventListener('focus', refreshImagesQuietly);
+    imageSelect?.addEventListener('pointerdown', refreshImagesQuietly);
+    replyImageSelect?.addEventListener('focus', refreshImagesQuietly);
+    replyImageSelect?.addEventListener('pointerdown', refreshImagesQuietly);
+    window.addEventListener('digitalcpu:id-files-changed', refreshImagesQuietly);
+    window.addEventListener('storage', (event) => {
+      if (event.key === sessionKey) refreshImagesQuietly();
+    });
+    window.addEventListener('focus', () => {
+      if (!widget.classList.contains('is-collapsed')) refreshImagesQuietly();
+    });
     form.addEventListener('submit', (event) => {
       event.preventDefault();
       submitPost();
