@@ -939,10 +939,17 @@
 
     .board-content {
       display: grid;
-      grid-template-rows: auto auto auto 1fr;
+      grid-template-rows: auto auto auto 1fr auto;
       gap: 8px;
       min-height: 0;
       padding: 0 10px 10px;
+    }
+
+    .board-widget.is-thread-open .board-post-form,
+    .board-widget.is-thread-open .board-filter-row,
+    .board-widget.is-thread-open .board-opacity,
+    .board-widget.is-thread-open .board-list {
+      display: none;
     }
 
     .board-post-form {
@@ -1031,6 +1038,13 @@
       background: rgba(0, 14, 20, 0.42);
     }
 
+    .board-open-thread {
+      justify-self: end;
+      min-height: 26px;
+      padding: 0 8px;
+      font-size: 11px;
+    }
+
     .board-post-meta {
       overflow: hidden;
       color: rgba(137, 239, 255, 0.78);
@@ -1047,7 +1061,9 @@
       overflow-wrap: anywhere;
     }
 
-    .board-list img {
+    .board-list img,
+    .board-thread-root img,
+    .board-reply-list img {
       width: 100%;
       max-height: 220px;
       object-fit: contain;
@@ -1059,6 +1075,80 @@
       color: rgba(255, 170, 170, 0.92);
       font-family: Consolas, "Courier New", monospace;
       font-size: 11px;
+    }
+
+    .board-thread {
+      min-height: 0;
+      display: grid;
+      grid-template-rows: auto auto 1fr auto;
+      gap: 8px;
+      overflow: hidden;
+    }
+
+    .board-thread[hidden] {
+      display: none;
+    }
+
+    .board-thread-header {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      align-items: center;
+      gap: 8px;
+      padding-top: 2px;
+    }
+
+    .board-thread-header button {
+      min-height: 28px;
+      padding: 0 10px;
+    }
+
+    .board-thread-header strong,
+    .board-thread-header span {
+      display: block;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .board-thread-header span {
+      color: rgba(137, 239, 255, 0.76);
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 11px;
+    }
+
+    .board-thread-root,
+    .board-reply-list li {
+      display: grid;
+      gap: 6px;
+      padding: 8px;
+      border: 1px solid rgba(84, 218, 255, 0.16);
+      border-radius: 7px;
+      background: rgba(0, 14, 20, 0.5);
+    }
+
+    .board-thread-root p,
+    .board-reply-list p {
+      margin: 0;
+      line-height: 1.35;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+
+    .board-reply-list {
+      min-height: 0;
+      overflow-y: auto;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .board-reply-list li {
+      margin-bottom: 8px;
+    }
+
+    .board-reply-form {
+      display: grid;
+      gap: 7px;
     }
 
     .controller-button {

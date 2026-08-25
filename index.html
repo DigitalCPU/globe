@@ -314,6 +314,26 @@
         <ol class="board-list" id="boardList">
           <li>Open the board to load messages.</li>
         </ol>
+        <div class="board-thread" id="boardThread" hidden>
+          <div class="board-thread-header">
+            <button id="boardThreadBack" type="button">Back</button>
+            <div>
+              <strong>Thread</strong>
+              <span id="boardThreadStatus">select a post</span>
+            </div>
+          </div>
+          <div class="board-thread-root" id="boardThreadRoot"></div>
+          <ol class="board-reply-list" id="boardReplyList"></ol>
+          <form class="board-reply-form" id="boardReplyForm">
+            <textarea id="boardReplyText" rows="3" maxlength="1000" placeholder="Write a reply..."></textarea>
+            <div class="board-submit-row">
+              <select id="boardReplyImageSelect" aria-label="Attach image to reply">
+                <option value="">No image attached</option>
+              </select>
+              <button id="boardReplyButton" type="submit">Reply</button>
+            </div>
+          </form>
+        </div>
       </div>
     </section>
     <div class="hover-label" id="hoverLabel"></div>
@@ -409,7 +429,7 @@
   <script src='js/app.js?v=news-mobile1'></script>
   <script src="js/id-profile.js?v=account5"></script>
   <script src="js/local-timeline.js?v=news-button1"></script>
-  <script src="js/message-board.js?v=board-relay1"></script>
+  <script src="js/message-board.js?v=board-thread1"></script>
   <script src="chatbot/chat-widget.js?v=chat-center1"></script>
 
 </body>

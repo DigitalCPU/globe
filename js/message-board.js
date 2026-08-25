@@ -43,11 +43,11 @@
     return payload;
   }
 
-  async function fetchBoardImageBlob(post) {
-    const fileId = post.image && post.image.file_id;
+  async function fetchBoardImageBlob(entry) {
+    const fileId = entry.image && entry.image.file_id;
     if (!fileId) throw new Error('Post has no image.');
     const token = localStorage.getItem(sessionKey) || '';
-    const response = await fetch(`${API_BASE}/api/board/image?post_id=${encodeURIComponent(post.post_id)}&file_id=${encodeURIComponent(fileId)}`, {
+    const response = await fetch(`${API_BASE}/api/board/image?file_id=${encodeURIComponent(fileId)}`, {
       headers: { 'X-ID-Session': token }
     });
     if (!response.ok) {
@@ -117,15 +117,25 @@
     const filter = $('boardFilter');
     const list = $('boardList');
     const postButton = $('boardPostButton');
+    const thread = $('boardThread');
+    const threadBack = $('boardThreadBack');
+    const threadStatus = $('boardThreadStatus');
+    const threadRoot = $('boardThreadRoot');
+    const replyList = $('boardReplyList');
+    const replyForm = $('boardReplyForm');
+    const replyText = $('boardReplyText');
+    const replyImageSelect = $('boardReplyImageSelect');
+    const replyButton = $('boardReplyButton');
 
-    if (!widget || !toggle || !form || !category || !filter || !list) return;
+    if (!widget || !toggle || !form || !category || !filter || !list || !thread || !replyForm || !replyText || !replyList) return;
 
     const state = {
       categories: [],
       posts: [],
       images: [],
       imageUrls: [],
-      cameraFileId: ''
+      cameraFileId: '',
+      activePostId: ''
     };
 
     function setStatus(message, isError = false) {
@@ -147,6 +157,7 @@
       toggle.setAttribute('aria-expanded', String(open));
       toggle.setAttribute('aria-label', open ? 'Minimize message board' : 'Open message board');
       localStorage.setItem(panelStateKey, open ? '1' : '0');
+      if (!open) showThreadView(false);
       if (open) {
         refreshCategories()
           .then(refreshBoard)
@@ -179,6 +190,81 @@
       state.imageUrls = [];
     }
 
+    function appendEntryImage(container, entry) {
+      if (!entry.image) return;
+      const image = document.createElement('img');
+      image.alt = entry.image.name || 'board image';
+      image.loading = 'lazy';
+      container.appendChild(image);
+      fetchBoardImageBlob(entry)
+        .then((blob) => {
+          const url = URL.createObjectURL(blob);
+          state.imageUrls.push(url);
+          image.src = url;
+        })
+        .catch((error) => {
+          image.remove();
+          const failed = document.createElement('span');
+          failed.className = 'board-image-error';
+          failed.textContent = error.message || 'Image preview failed.';
+          container.appendChild(failed);
+        });
+    }
+
+    function appendPostContents(container, post, includeOpen = false) {
+      const meta = document.createElement('div');
+      meta.className = 'board-post-meta';
+      const replies = Number(post.reply_count || 0);
+      const replyLabel = replies === 1 ? '1 reply' : `${replies} replies`;
+      meta.textContent = `${post.category || 'General'} / ${post.display_name || post.username || 'user'} / ${formatDate(post.created_at)} / ${replyLabel}`;
+      container.appendChild(meta);
+      if (post.text) {
+        const body = document.createElement('p');
+        body.textContent = post.text;
+        container.appendChild(body);
+      }
+      appendEntryImage(container, post);
+      if (includeOpen) {
+        const open = document.createElement('button');
+        open.className = 'board-open-thread';
+        open.type = 'button';
+        open.textContent = replies ? 'Open' : 'Reply';
+        open.addEventListener('click', () => openThread(post.post_id));
+        container.appendChild(open);
+      }
+    }
+
+    function renderReplies(replies) {
+      const rows = Array.isArray(replies) ? replies : [];
+      replyList.innerHTML = '';
+      if (!rows.length) {
+        const item = document.createElement('li');
+        item.textContent = 'No replies yet.';
+        replyList.appendChild(item);
+        return;
+      }
+      rows.forEach((reply) => {
+        const item = document.createElement('li');
+        const meta = document.createElement('div');
+        meta.className = 'board-post-meta';
+        meta.textContent = `${reply.display_name || reply.username || 'user'} / ${formatDate(reply.created_at)}`;
+        item.appendChild(meta);
+        if (reply.text) {
+          const body = document.createElement('p');
+          body.textContent = reply.text;
+          item.appendChild(body);
+        }
+        appendEntryImage(item, reply);
+        replyList.appendChild(item);
+      });
+    }
+
+    function showThreadView(show) {
+      widget.classList.toggle('is-thread-open', Boolean(show));
+      thread.hidden = !show;
+      if (!show) state.activePostId = '';
+    }
+
     function renderPosts(posts) {
       state.posts = Array.isArray(posts) ? posts : [];
       clearImageUrls();
@@ -191,34 +277,7 @@
       }
       state.posts.forEach((post) => {
         const item = document.createElement('li');
-        const meta = document.createElement('div');
-        meta.className = 'board-post-meta';
-        meta.textContent = `${post.category || 'General'} / ${post.display_name || post.username || 'user'} / ${formatDate(post.created_at)}`;
-        item.appendChild(meta);
-        if (post.text) {
-          const body = document.createElement('p');
-          body.textContent = post.text;
-          item.appendChild(body);
-        }
-        if (post.image) {
-          const image = document.createElement('img');
-          image.alt = post.image.name || 'board image';
-          image.loading = 'lazy';
-          item.appendChild(image);
-          fetchBoardImageBlob(post)
-            .then((blob) => {
-              const url = URL.createObjectURL(blob);
-              state.imageUrls.push(url);
-              image.src = url;
-            })
-            .catch((error) => {
-              image.remove();
-              const failed = document.createElement('span');
-              failed.className = 'board-image-error';
-              failed.textContent = error.message || 'Image preview failed.';
-              item.appendChild(failed);
-            });
-        }
+        appendPostContents(item, post, true);
         list.appendChild(item);
       });
     }
@@ -226,14 +285,18 @@
     function renderImages(files) {
       state.images = Array.isArray(files) ? files : [];
       const current = imageSelect.value;
+      const currentReply = replyImageSelect ? replyImageSelect.value : '';
       imageSelect.innerHTML = '<option value="">No image attached</option>';
+      if (replyImageSelect) replyImageSelect.innerHTML = '<option value="">No image attached</option>';
       state.images.forEach((file) => {
         const option = document.createElement('option');
         option.value = file.file_id;
         option.textContent = `${file.name || file.stored_name} (${formatBytes(file.size)})`;
         imageSelect.appendChild(option);
+        if (replyImageSelect) replyImageSelect.appendChild(option.cloneNode(true));
       });
       if (current && state.images.some((file) => file.file_id === current)) imageSelect.value = current;
+      if (replyImageSelect && currentReply && state.images.some((file) => file.file_id === currentReply)) replyImageSelect.value = currentReply;
     }
 
     async function refreshCategories() {
@@ -285,6 +348,59 @@
       }
     }
 
+    async function openThread(postId) {
+      state.activePostId = postId || '';
+      showThreadView(true);
+      if (threadStatus) threadStatus.textContent = 'loading...';
+      if (threadRoot) threadRoot.innerHTML = '';
+      replyList.innerHTML = '';
+      try {
+        const data = await api(`/api/board/thread?post_id=${encodeURIComponent(state.activePostId)}`);
+        if (threadRoot) {
+          threadRoot.innerHTML = '';
+          appendPostContents(threadRoot, data.post || {}, false);
+        }
+        renderReplies(data.replies || []);
+        if (threadStatus) {
+          const count = Array.isArray(data.replies) ? data.replies.length : 0;
+          threadStatus.textContent = count === 1 ? '1 reply' : `${count} replies`;
+        }
+      } catch (error) {
+        if (threadStatus) threadStatus.textContent = error.message || 'thread failed';
+      }
+    }
+
+    async function submitReply() {
+      if (!state.activePostId) return;
+      const body = replyText.value.trim();
+      const imageFileId = replyImageSelect ? replyImageSelect.value : '';
+      if (!body && !imageFileId) {
+        if (threadStatus) threadStatus.textContent = 'write or attach first';
+        return;
+      }
+      if (replyButton) replyButton.disabled = true;
+      if (threadStatus) threadStatus.textContent = 'replying...';
+      try {
+        const postId = state.activePostId;
+        await api('/api/board/replies', {
+          method: 'POST',
+          body: JSON.stringify({
+            post_id: postId,
+            text: body,
+            image_file_id: imageFileId
+          })
+        });
+        replyText.value = '';
+        if (replyImageSelect) replyImageSelect.value = '';
+        await refreshBoard();
+        await openThread(postId);
+      } catch (error) {
+        if (threadStatus) threadStatus.textContent = error.message || 'reply failed';
+      } finally {
+        if (replyButton) replyButton.disabled = false;
+      }
+    }
+
     toggle.addEventListener('click', () => setOpen(widget.classList.contains('is-collapsed')));
     refresh?.addEventListener('click', () => refreshBoard().catch((error) => setStatus(error.message || 'refresh failed', true)));
     imageRefresh?.addEventListener('click', () => refreshImages().catch((error) => setStatus(error.message || 'images failed', true)));
@@ -293,6 +409,11 @@
     form.addEventListener('submit', (event) => {
       event.preventDefault();
       submitPost();
+    });
+    threadBack?.addEventListener('click', () => showThreadView(false));
+    replyForm.addEventListener('submit', (event) => {
+      event.preventDefault();
+      submitReply();
     });
 
     cameraButton?.addEventListener('click', () => cameraInput?.click());
