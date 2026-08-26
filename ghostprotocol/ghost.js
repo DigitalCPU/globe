@@ -15,7 +15,8 @@
     account: null,
     files: [],
     posts: [],
-    fullscreenAttempted: false
+    fullscreenAttempted: false,
+    promptHandler: null
   };
 
   function write(text = '', className = '') {
@@ -138,15 +139,13 @@
       input.type = type;
       input.value = '';
       input.focus();
-      const handler = (event) => {
-        event.preventDefault();
-        form.removeEventListener('submit', handler);
+      state.promptHandler = () => {
         const value = input.value;
         input.value = '';
         input.type = oldType;
+        state.promptHandler = null;
         resolve(value);
       };
-      form.addEventListener('submit', handler);
     });
   }
 
@@ -421,6 +420,10 @@
 
   form.addEventListener('submit', (event) => {
     event.preventDefault();
+    if (state.promptHandler) {
+      state.promptHandler();
+      return;
+    }
     const command = input.value;
     input.value = '';
     run(command);
