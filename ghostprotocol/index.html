@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>GhostProtocol</title>
+  <link rel="stylesheet" href="styles.css?v=ghost1">
+</head>
+<body>
+  <main class="terminal" aria-label="GhostProtocol terminal">
+    <header class="terminal-header">
+      <div>
+        <strong>GhostProtocol</strong>
+        <span id="connectionState">offline</span>
+      </div>
+      <span id="sessionState">guest</span>
+    </header>
+    <section class="terminal-screen" id="screen" aria-live="polite"></section>
+    <form class="terminal-input" id="commandForm">
+      <label for="commandInput">&gt;</label>
+      <input id="commandInput" autocomplete="off" autocapitalize="none" spellcheck="false" autofocus>
+      <button type="submit">enter</button>
+    </form>
+  </main>
+  <input id="fileInput" type="file" hidden>
+  <input id="cameraInput" type="file" accept="image/*" capture="environment" hidden>
+  <script src="ghost.js?v=ghost1"></script>
+</body>
+</html>
