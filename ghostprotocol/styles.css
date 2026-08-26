@@ -30,10 +30,7 @@ body {
   grid-template-rows: auto 1fr auto;
   min-height: 100dvh;
   padding: 12px;
-  background:
-    linear-gradient(rgba(57, 255, 106, 0.035) 1px, transparent 1px),
-    #000;
-  background-size: 100% 28px;
+  background: #000;
 }
 
 .terminal-header,
@@ -41,8 +38,6 @@ body {
   display: flex;
   align-items: center;
   gap: 10px;
-  border: 1px solid var(--green-faint);
-  background: rgba(0, 24, 5, 0.32);
   padding: 8px;
 }
 
@@ -71,6 +66,10 @@ body {
   margin: 0 0 6px;
 }
 
+.line.hint {
+  color: #166b2b;
+}
+
 .line.error {
   color: #8cff9f;
   text-decoration: underline;
@@ -94,8 +93,8 @@ body {
 .terminal-input button,
 .terminal-button {
   min-height: 30px;
-  border: 1px solid var(--green-faint);
-  background: #001a05;
+  border: 0;
+  background: transparent;
   color: var(--green);
   font: inherit;
   cursor: pointer;
@@ -113,7 +112,9 @@ body {
 
 .terminal-button:hover,
 .terminal-button:focus {
-  border-color: var(--green);
+  color: #b8ffc5;
+  outline: 0;
+  text-decoration: underline;
 }
 
 .file-row,

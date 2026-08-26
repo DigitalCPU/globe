@@ -14,7 +14,8 @@
   const state = {
     account: null,
     files: [],
-    posts: []
+    posts: [],
+    fullscreenAttempted: false
   };
 
   function write(text = '', className = '') {
@@ -27,6 +28,24 @@
 
   function clear() {
     screen.innerHTML = '';
+  }
+
+  async function enterFullscreen() {
+    if (document.fullscreenElement) return true;
+    const target = document.documentElement;
+    if (!target.requestFullscreen) return false;
+    try {
+      await target.requestFullscreen({ navigationUI: 'hide' });
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  function activateImmersion() {
+    if (state.fullscreenAttempted || document.fullscreenElement) return;
+    state.fullscreenAttempted = true;
+    void enterFullscreen();
   }
 
   function token() {
@@ -59,17 +78,22 @@
 
   function help() {
     write('help');
-    write('Commands:');
+    write('Terminal portal commands:');
     write('  help');
-    write('  sign-in');
-    write('  sign-up');
+    write('  sign-up        create a terminal profile');
+    write('  sign-in        access an existing terminal profile');
+    write('  sign-out       close the active terminal profile');
+    write('  full');
     if (state.account) {
-      write('  menu');
-      write('  upload');
-      write('  mydatabase');
-      write('  camera');
-      write('  board');
-      write('  logout');
+      write('  menu           show terminal features');
+      write('  upload         upload files to your local profile folder');
+      write('  uploaded-files open files stored in your local profile folder');
+      write('  mydatabase     open files stored in your local profile folder');
+      write('  camera         use camera and save to your local profile folder');
+      write('  board          open the message board');
+    } else {
+      write('');
+      write('Sign in or sign up to access upload, files, camera, and board features.');
     }
     write('');
     commandButton('sign-in', 'sign-in');
@@ -87,16 +111,17 @@
       write('Access denied. Use sign-in or sign-up first.', 'error');
       return;
     }
-    write('1) upload');
-    write('2) MyDatabase');
+    write(`terminal access granted: ${state.account.display_name || state.account.username}`);
+    write('1) upload files');
+    write('2) uploaded files / local profile folder');
     write('3) use camera');
     write('4) message board');
-    write('5) Log out');
+    write('5) sign out');
     commandButton('upload', 'upload');
-    commandButton('MyDatabase', 'mydatabase');
+    commandButton('uploaded files', 'uploaded-files');
     commandButton('camera', 'camera');
     commandButton('board', 'board');
-    commandButton('logout', 'logout');
+    commandButton('sign out', 'sign-out');
     write('');
   }
 
@@ -127,18 +152,18 @@
 
   async function signUp() {
     try {
-      const email = await promptLine('email address (.com required):');
-      const displayName = await promptLine('name chosen:');
-      const phone = await promptLine('phone number optional:');
-      const password = await promptLine('password:', 'password');
+      const email = await promptLine('enter e-mail:');
+      const password = await promptLine('create any password:', 'password');
+      const displayName = email.split('@')[0] || email;
       const data = await api('/api/ghost/register', {
         method: 'POST',
-        body: JSON.stringify({ email, display_name: displayName, phone, password })
+        body: JSON.stringify({ email, display_name: displayName, phone: '', password })
       });
       localStorage.setItem(sessionKey, data.session_token);
       state.account = data.account;
       updateSession();
-      write(`signed up: ${state.account.display_name || state.account.username}`);
+      write(`logged in: ${state.account.display_name || state.account.username}`);
+      write('terminal features unlocked.');
       menu();
     } catch (error) {
       write(error.message || 'sign-up failed', 'error');
@@ -156,7 +181,8 @@
       localStorage.setItem(sessionKey, data.session_token);
       state.account = data.account;
       updateSession();
-      write(`signed in: ${state.account.display_name || state.account.username}`);
+      write(`logged in: ${state.account.display_name || state.account.username}`);
+      write('terminal features unlocked.');
       menu();
     } catch (error) {
       write(error.message || 'sign-in failed', 'error');
@@ -381,13 +407,17 @@
     else if (command === 'sign-up' || command === 'signup' || command === 'register') void signUp();
     else if (command === 'menu') menu();
     else if (command === 'upload' || command === '1') void upload();
-    else if (command === 'mydatabase' || command === 'database' || command === '2') void myDatabase();
+    else if (command === 'mydatabase' || command === 'database' || command === 'uploaded-files' || command === 'files' || command === '2') void myDatabase();
     else if (command === 'camera' || command === 'use camera' || command === '3') void camera();
     else if (command === 'board' || command === 'message board' || command === '4') void board();
-    else if (command === 'logout' || command === 'log out' || command === '5') logout();
+    else if (command === 'logout' || command === 'log out' || command === 'sign-out' || command === 'sign out' || command === '5') logout();
     else if (command === 'clear') clear();
+    else if (command === 'full' || command === 'fullscreen' || command === 'immersion') void enterFullscreen();
     else write('unknown command. type help.', 'error');
   }
+
+  document.addEventListener('pointerdown', activateImmersion, { once: true });
+  document.addEventListener('keydown', activateImmersion, { once: true });
 
   form.addEventListener('submit', (event) => {
     event.preventDefault();
@@ -397,9 +427,7 @@
   });
 
   clear();
-  write('GhostProtocol terminal portal');
-  write('Type help.');
-  help();
+  write("type 'help' to access the terminal portal", 'hint');
   void status();
   void refreshMe();
 })();
