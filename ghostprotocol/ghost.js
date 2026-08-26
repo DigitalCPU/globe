@@ -81,7 +81,7 @@
     write('help');
     write('Terminal portal commands:');
     write('  help');
-    write('  sign-up        create a terminal profile');
+    write('  sign-up        create a terminal profile with name, email, and password');
     write('  sign-in        access an existing terminal profile');
     write('  sign-out       close the active terminal profile');
     write('  full');
@@ -151,12 +151,18 @@
 
   async function signUp() {
     try {
+      const username = await promptLine('create user name:');
       const email = await promptLine('enter e-mail:');
-      const password = await promptLine('create any password:', 'password');
-      const displayName = email.split('@')[0] || email;
+      const password = await promptLine('create password:', 'password');
+      const confirmPassword = await promptLine('enter password again:', 'password');
+      if (password !== confirmPassword) {
+        write('passwords do not match. account not created.', 'error');
+        return;
+      }
+      const displayName = username;
       const data = await api('/api/ghost/register', {
         method: 'POST',
-        body: JSON.stringify({ email, display_name: displayName, phone: '', password })
+        body: JSON.stringify({ username, email, display_name: displayName, phone: '', password })
       });
       localStorage.setItem(sessionKey, data.session_token);
       state.account = data.account;
@@ -171,7 +177,7 @@
 
   async function signIn() {
     try {
-      const login = await promptLine('email address or phone number:');
+      const login = await promptLine('user name or e-mail:');
       const password = await promptLine('password:', 'password');
       const data = await api('/api/ghost/login', {
         method: 'POST',
