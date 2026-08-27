@@ -16,7 +16,6 @@
     account: null,
     files: [],
     posts: [],
-    fullscreenAttempted: false,
     promptHandler: null,
     controlMode: false
   };
@@ -41,24 +40,6 @@
       localStorage.setItem(deviceKey, value);
     }
     return value;
-  }
-
-  async function enterFullscreen() {
-    if (document.fullscreenElement) return true;
-    const target = document.documentElement;
-    if (!target.requestFullscreen) return false;
-    try {
-      await target.requestFullscreen({ navigationUI: 'hide' });
-      return true;
-    } catch (error) {
-      return false;
-    }
-  }
-
-  function activateImmersion() {
-    if (state.fullscreenAttempted || document.fullscreenElement) return;
-    state.fullscreenAttempted = true;
-    void enterFullscreen();
   }
 
   function token() {
@@ -96,7 +77,6 @@
     write('  sign-up        create a terminal profile with name, email, and password');
     write('  sign-in        access an existing terminal profile');
     write('  sign-out       close the active terminal profile');
-    write('  full');
     if (state.account) {
       write('  menu           show terminal features');
       write('  upload         upload files to your local profile folder');
@@ -511,12 +491,8 @@
     else if (command === 'board' || command === 'message board' || command === '4') void board();
     else if (command === 'logout' || command === 'log out' || command === 'sign-out' || command === 'sign out' || command === '5') logout();
     else if (command === 'clear') clear();
-    else if (command === 'full' || command === 'fullscreen' || command === 'immersion') void enterFullscreen();
     else write('unknown command. type help.', 'error');
   }
-
-  document.addEventListener('pointerdown', activateImmersion, { once: true });
-  document.addEventListener('keydown', activateImmersion, { once: true });
 
   form.addEventListener('submit', (event) => {
     event.preventDefault();
