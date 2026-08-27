@@ -148,6 +148,18 @@
     const storageMeta = $('idStorageMeta');
     const message = $('idProfileMessage');
     const logoutButton = $('idLogout');
+    const settingsButton = $('idSettingsButton');
+    const settingsPanel = $('idSettingsPanel');
+    const settingsClose = $('idSettingsClose');
+    const emailForm = $('idEmailForm');
+    const updateEmailInput = $('idUpdateEmail');
+    const passwordForm = $('idPasswordForm');
+    const currentPasswordInput = $('idCurrentPassword');
+    const newPasswordInput = $('idNewPassword');
+    const confirmPasswordInput = $('idConfirmPassword');
+    const deleteForm = $('idDeleteForm');
+    const deletePasswordInput = $('idDeletePassword');
+    const deleteConfirmInput = $('idDeleteConfirm');
     const refreshFilesButton = $('idRefreshFiles');
     const uploadForm = $('idUploadForm');
     const fileInput = $('idFileInput');
@@ -178,6 +190,18 @@
     function setOpen(open) {
       panel.hidden = !open;
       button.classList.toggle('is-active', open);
+    }
+
+    function setSettingsOpen(open) {
+      if (settingsPanel) settingsPanel.hidden = !open;
+    }
+
+    function clearSettingsFields() {
+      if (currentPasswordInput) currentPasswordInput.value = '';
+      if (newPasswordInput) newPasswordInput.value = '';
+      if (confirmPasswordInput) confirmPasswordInput.value = '';
+      if (deletePasswordInput) deletePasswordInput.value = '';
+      if (deleteConfirmInput) deleteConfirmInput.value = '';
     }
 
     function setMode(mode) {
@@ -242,6 +266,9 @@
         profileName.textContent = '--';
         profileMeta.textContent = 'signed out';
         storageMeta.textContent = 'storage --';
+        setSettingsOpen(false);
+        clearSettingsFields();
+        if (updateEmailInput) updateEmailInput.value = '';
         renderFiles([]);
         clearPreview();
         return;
@@ -249,6 +276,7 @@
       profileName.textContent = account.display_name || account.username;
       profileMeta.textContent = account.profile?.email ? `${account.username} / ${account.profile.email}` : account.username;
       storageMeta.textContent = `storage ${formatBytes(account.storage_usage_bytes)}`;
+      if (updateEmailInput) updateEmailInput.value = account.profile?.email || '';
       setMessage('Your local host folder is ready.');
     }
 
@@ -350,9 +378,75 @@
     });
 
     closeButton?.addEventListener('click', () => setOpen(false));
+    settingsButton?.addEventListener('click', () => setSettingsOpen(settingsPanel?.hidden !== false));
+    settingsClose?.addEventListener('click', () => setSettingsOpen(false));
     loginTab?.addEventListener('click', () => setMode('login'));
     registerTab?.addEventListener('click', () => setMode('register'));
     refreshFilesButton?.addEventListener('click', () => refreshFiles());
+
+    emailForm?.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      try {
+        setMessage('Updating e-mail...');
+        const data = await api('/api/id/email', {
+          method: 'POST',
+          body: JSON.stringify({ email: updateEmailInput?.value.trim() || '' })
+        });
+        renderAccount(data.account);
+        setMessage('E-mail updated.');
+      } catch (error) {
+        setMessage(error.message || 'E-mail update failed.', true);
+      }
+    });
+
+    passwordForm?.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      if ((newPasswordInput?.value || '') !== (confirmPasswordInput?.value || '')) {
+        setMessage('New passwords do not match.', true);
+        return;
+      }
+      try {
+        setMessage('Resetting password...');
+        const data = await api('/api/id/password', {
+          method: 'POST',
+          body: JSON.stringify({
+            current_password: currentPasswordInput?.value || '',
+            new_password: newPasswordInput?.value || '',
+            confirm_password: confirmPasswordInput?.value || ''
+          })
+        });
+        renderAccount(data.account);
+        clearSettingsFields();
+        setMessage('Password updated.');
+      } catch (error) {
+        setMessage(error.message || 'Password reset failed.', true);
+      }
+    });
+
+    deleteForm?.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      if ((deleteConfirmInput?.value || '').trim() !== 'DELETE') {
+        setMessage('Type DELETE to confirm account deletion.', true);
+        return;
+      }
+      try {
+        setMessage('Deleting account...');
+        await api('/api/id/delete-account', {
+          method: 'POST',
+          body: JSON.stringify({
+            password: deletePasswordInput?.value || '',
+            confirm: 'DELETE'
+          })
+        });
+        localStorage.removeItem(sessionKey);
+        renderAccount(null);
+        setMode('register');
+        notifyFilesChanged();
+        setMessage('Account deleted.');
+      } catch (error) {
+        setMessage(error.message || 'Delete account failed.', true);
+      }
+    });
 
     logoutButton?.addEventListener('click', async () => {
       try {

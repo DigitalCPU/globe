@@ -171,13 +171,15 @@
 
     .id-profile-forms[hidden],
     .id-profile-account[hidden],
+    .id-settings-panel[hidden],
     #idDisplayName[hidden] {
       display: none;
     }
 
     .id-profile-header,
     .id-profile-tabs,
-    .id-profile-actions {
+    .id-profile-actions,
+    .id-settings-header {
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -198,6 +200,8 @@
     .id-profile-header button,
     .id-profile-tabs button,
     .id-profile-actions button,
+    .id-settings-header button,
+    .id-settings-form button,
     .id-upload-form button,
     #idCameraButton,
     #idSubmit,
@@ -229,6 +233,8 @@
     .id-profile-tabs button:hover,
     .id-profile-tabs button.is-active,
     .id-profile-actions button:hover,
+    .id-settings-header button:hover,
+    .id-settings-form button:hover,
     .id-upload-form button:hover,
     #idCameraButton:hover,
     #idSubmit:hover,
@@ -238,6 +244,7 @@
 
     #idAuthForm,
     .id-upload-form,
+    .id-settings-form,
     .id-profile-account {
       display: grid;
       gap: 8px;
@@ -245,7 +252,8 @@
     }
 
     #idAuthForm input,
-    .id-upload-form input {
+    .id-upload-form input,
+    .id-settings-form input {
       min-width: 0;
       height: 30px;
       box-sizing: border-box;
@@ -255,6 +263,46 @@
       color: rgba(230, 252, 255, 0.95);
       padding: 0 9px;
       font: 12px Consolas, "Courier New", monospace;
+    }
+
+
+
+    .id-settings-panel {
+      display: grid;
+      gap: 9px;
+      margin-top: 10px;
+      padding: 10px;
+      border: 1px solid rgba(84, 218, 255, 0.22);
+      border-radius: 7px;
+      background: rgba(0, 18, 26, 0.62);
+    }
+
+    .id-settings-header strong,
+    .id-settings-form label {
+      color: rgba(220, 249, 255, 0.95);
+      font-size: 12px;
+    }
+
+    .id-settings-header button {
+      width: 30px;
+      min-width: 30px;
+      padding: 0;
+      font: 700 16px/1 system-ui, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    .id-settings-form {
+      margin-top: 0;
+    }
+
+    .id-settings-danger {
+      border-top: 1px solid rgba(255, 96, 120, 0.28);
+      padding-top: 9px;
+    }
+
+    .id-settings-danger button {
+      border-color: rgba(255, 96, 120, 0.55);
+      color: rgba(255, 205, 215, 0.98);
+      background: rgba(92, 16, 30, 0.5);
     }
 
     .id-profile-card,
