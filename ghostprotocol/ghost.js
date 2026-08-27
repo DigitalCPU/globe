@@ -16,6 +16,7 @@
     account: null,
     files: [],
     posts: [],
+    fullscreenAttempted: false,
     promptHandler: null,
     controlMode: false
   };
@@ -40,6 +41,24 @@
       localStorage.setItem(deviceKey, value);
     }
     return value;
+  }
+
+  async function enterFullscreen() {
+    if (document.fullscreenElement) return true;
+    const target = document.documentElement;
+    if (!target.requestFullscreen) return false;
+    try {
+      await target.requestFullscreen({ navigationUI: 'hide' });
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  function activateImmersion() {
+    if (state.fullscreenAttempted || document.fullscreenElement) return;
+    state.fullscreenAttempted = true;
+    void enterFullscreen();
   }
 
   function token() {
@@ -127,6 +146,8 @@
   function writeControlCommands() {
     write('control panel ui access granted');
     write('remote command center ready');
+    write('');
+    write('system commands:');
     write('  status');
     write('  settings');
     write('  preset balanced');
@@ -139,6 +160,21 @@
     write('  set-model <path>');
     write('  load-model');
     write('  unload-model');
+    write('');
+    write('account commands:');
+    write('  account-list');
+    write('  account-show <user|id>');
+    write('  account-password <user|id>');
+    write('  account-ranks');
+    write('  account-set-role <user|id> <rank>');
+    write('  account-ban <user|id>');
+    write('  account-unban <user|id>');
+    write('  account-punish <user|id>');
+    write('  account-reward <user|id>');
+    write('  account-delete <user|id> CONFIRM');
+    write('  account-delete <user|id> CONFIRM --delete-files');
+    write('  owner delete: account-delete <user|id> OWNER-CONFIRM --delete-files');
+    write('');
     write('  exit-control');
   }
 
@@ -491,8 +527,12 @@
     else if (command === 'board' || command === 'message board' || command === '4') void board();
     else if (command === 'logout' || command === 'log out' || command === 'sign-out' || command === 'sign out' || command === '5') logout();
     else if (command === 'clear') clear();
+    else if (command === 'full' || command === 'fullscreen' || command === 'immersion') void enterFullscreen();
     else write('unknown command. type help.', 'error');
   }
+
+  document.addEventListener('pointerdown', activateImmersion, { once: true });
+  document.addEventListener('keydown', activateImmersion, { once: true });
 
   form.addEventListener('submit', (event) => {
     event.preventDefault();
