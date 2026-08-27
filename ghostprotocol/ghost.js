@@ -16,7 +16,8 @@
     files: [],
     posts: [],
     fullscreenAttempted: false,
-    promptHandler: null
+    promptHandler: null,
+    controlMode: false
   };
 
   function write(text = '', className = '') {
@@ -130,6 +131,74 @@
     if (state.account) return true;
     write('No active session. Use sign-in.', 'error');
     return false;
+  }
+
+  function writeControlCommands() {
+    write('control panel ui access granted');
+    write('remote command center ready');
+    write('  status');
+    write('  settings');
+    write('  preset balanced');
+    write('  preset cpu');
+    write('  preset long');
+    write('  set-temp <0..2>');
+    write('  set-tokens <count>');
+    write('  set-context <count>');
+    write('  set-gpu-layers <-1|0|count>');
+    write('  set-model <path>');
+    write('  load-model');
+    write('  unload-model');
+    write('  exit-control');
+  }
+
+  function formatControlValue(value, depth = 0) {
+    if (value === null || value === undefined) return '--';
+    if (typeof value !== 'object') return String(value);
+    const lines = [];
+    const indent = '  '.repeat(depth);
+    Object.entries(value).forEach(([key, item]) => {
+      if (item && typeof item === 'object') {
+        lines.push(`${indent}${key}:`);
+        lines.push(formatControlValue(item, depth + 1));
+      } else {
+        lines.push(`${indent}${key}: ${formatControlValue(item, depth + 1)}`);
+      }
+    });
+    return lines.join('\n');
+  }
+
+  async function accessControlPanelUi() {
+    if (!requireAccount()) return;
+    try {
+      const data = await api('/api/ghost/control/status');
+      state.controlMode = true;
+      writeControlCommands();
+      if (data.backend) {
+        write(`backend: ${data.backend.host}:${data.backend.port}`);
+        write(`model: ${data.backend.model_ready ? 'ready' : 'not ready'} / ${data.backend.model}`);
+      }
+    } catch (error) {
+      write(error.message || 'access denied', 'error');
+    }
+  }
+
+  async function runControlCommand(command) {
+    const lowered = command.trim().toLowerCase();
+    if (lowered === 'exit-control' || lowered === 'exit control' || lowered === 'exit') {
+      state.controlMode = false;
+      write('control panel ui access closed');
+      return;
+    }
+    try {
+      const data = await api('/api/ghost/control/command', {
+        method: 'POST',
+        body: JSON.stringify({ command })
+      });
+      write(data.message || 'command complete');
+      if (data.data) write(formatControlValue(data.data));
+    } catch (error) {
+      write(error.message || 'control command failed', 'error');
+    }
   }
 
   function promptLine(question, type = 'text') {
@@ -404,9 +473,18 @@
   }
 
   function run(raw) {
-    const command = String(raw || '').trim().toLowerCase();
+    const rawCommand = String(raw || '').trim();
+    const command = rawCommand.toLowerCase();
     if (!command) return;
-    write(`> ${command}`);
+    write(`> ${rawCommand}`);
+    if (command === 'access control panel ui') {
+      void accessControlPanelUi();
+      return;
+    }
+    if (state.controlMode) {
+      void runControlCommand(rawCommand);
+      return;
+    }
     if (command === 'help') help();
     else if (command === 'sign-in' || command === 'signin' || command === 'login') void signIn();
     else if (command === 'sign-up' || command === 'signup' || command === 'register') void signUp();
