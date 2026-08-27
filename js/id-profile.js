@@ -4,9 +4,20 @@
   const API_BASE = LOCAL_HOSTS.includes(window.location.hostname) ? '' : RELAY_BASE;
   const publicSite = !LOCAL_HOSTS.includes(window.location.hostname);
   const sessionKey = 'digitalcpu:id-session:v1';
+  const deviceKey = 'digitalcpu:device-id:v1';
 
   function $(id) {
     return document.getElementById(id);
+  }
+
+  function deviceId() {
+    let value = localStorage.getItem(deviceKey);
+    if (!value) {
+      const random = crypto && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      value = `web-${random}`;
+      localStorage.setItem(deviceKey, value);
+    }
+    return value;
   }
 
   function formatBytes(value) {
@@ -130,6 +141,7 @@
     const usernameInput = $('idUsername');
     const passwordInput = $('idPassword');
     const displayNameInput = $('idDisplayName');
+    const emailInput = $('idEmail');
     const submitButton = $('idSubmit');
     const profileName = $('idProfileName');
     const profileMeta = $('idProfileMeta');
@@ -174,6 +186,10 @@
       loginTab.classList.toggle('is-active', !registering);
       registerTab.classList.toggle('is-active', registering);
       displayNameInput.hidden = !registering;
+      if (emailInput) {
+        emailInput.hidden = !registering;
+        emailInput.required = registering;
+      }
       submitButton.textContent = registering ? 'Register' : 'Login';
       passwordInput.autocomplete = registering ? 'new-password' : 'current-password';
       setMessage(registering ? 'Create a name and password for your folder.' : 'Sign in to open your folder.');
@@ -231,7 +247,7 @@
         return;
       }
       profileName.textContent = account.display_name || account.username;
-      profileMeta.textContent = account.username;
+      profileMeta.textContent = account.profile?.email ? `${account.username} / ${account.profile.email}` : account.username;
       storageMeta.textContent = `storage ${formatBytes(account.storage_usage_bytes)}`;
       setMessage('Your local host folder is ready.');
     }
@@ -358,11 +374,14 @@
           body: JSON.stringify({
             username: usernameInput.value.trim(),
             password: passwordInput.value,
-            display_name: displayNameInput.value.trim()
+            display_name: displayNameInput.value.trim(),
+            email: emailInput ? emailInput.value.trim() : '',
+            device_id: deviceId()
           })
         });
         localStorage.setItem(sessionKey, data.session_token);
         passwordInput.value = '';
+        if (emailInput) emailInput.value = '';
         renderAccount(data.account);
         await refreshFiles();
         notifyFilesChanged();

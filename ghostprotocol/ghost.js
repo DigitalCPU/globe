@@ -2,6 +2,7 @@
   const RELAY_BASE = 'https://globe-qwen-relay.digitalcomputermail.workers.dev';
   const API_BASE = ['127.0.0.1', 'localhost'].includes(window.location.hostname) ? '' : RELAY_BASE;
   const sessionKey = 'ghostprotocol:session:v1';
+  const deviceKey = 'ghostprotocol:device-id:v1';
 
   const screen = document.getElementById('screen');
   const form = document.getElementById('commandForm');
@@ -30,6 +31,16 @@
 
   function clear() {
     screen.innerHTML = '';
+  }
+
+  function deviceId() {
+    let value = localStorage.getItem(deviceKey);
+    if (!value) {
+      const random = crypto && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      value = `ghost-${random}`;
+      localStorage.setItem(deviceKey, value);
+    }
+    return value;
   }
 
   async function enterFullscreen() {
@@ -231,7 +242,7 @@
       const displayName = username;
       const data = await api('/api/ghost/register', {
         method: 'POST',
-        body: JSON.stringify({ username, email, display_name: displayName, phone: '', password })
+        body: JSON.stringify({ username, email, display_name: displayName, phone: '', password, device_id: deviceId() })
       });
       localStorage.setItem(sessionKey, data.session_token);
       state.account = data.account;
@@ -264,7 +275,12 @@
   }
 
   function updateSession() {
-    sessionState.textContent = state.account ? (state.account.display_name || state.account.username) : 'guest';
+    if (!state.account) {
+      sessionState.textContent = 'guest';
+      return;
+    }
+    const email = state.account.profile && state.account.profile.email ? ` / ${state.account.profile.email}` : '';
+    sessionState.textContent = `${state.account.display_name || state.account.username}${email}`;
   }
 
   function formatBytes(value) {
