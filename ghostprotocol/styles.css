@@ -75,9 +75,44 @@ body {
 .terminal-screen {
   min-height: 0;
   overflow-y: auto;
+  scrollbar-color: var(--green) #000;
+  scrollbar-width: thin;
   padding: 14px 4px;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+}
+
+.terminal-screen::-webkit-scrollbar {
+  width: 18px;
+}
+
+.terminal-screen::-webkit-scrollbar-track {
+  background: #000;
+}
+
+.terminal-screen::-webkit-scrollbar-thumb {
+  min-height: 18px;
+  border: 6px solid #000;
+  background: var(--green);
+}
+
+.terminal-screen::-webkit-scrollbar-button:single-button {
+  display: block;
+  width: 18px;
+  height: 18px;
+  background: #000;
+}
+
+.terminal-screen::-webkit-scrollbar-button:single-button:vertical:decrement {
+  background:
+    linear-gradient(135deg, transparent 50%, var(--green) 50%) 6px 6px / 6px 6px no-repeat,
+    linear-gradient(225deg, transparent 50%, var(--green) 50%) 6px 6px / 6px 6px no-repeat;
+}
+
+.terminal-screen::-webkit-scrollbar-button:single-button:vertical:increment {
+  background:
+    linear-gradient(45deg, transparent 50%, var(--green) 50%) 6px 6px / 6px 6px no-repeat,
+    linear-gradient(315deg, transparent 50%, var(--green) 50%) 6px 6px / 6px 6px no-repeat;
 }
 
 .line {
