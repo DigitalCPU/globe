@@ -42,12 +42,24 @@ body {
 }
 
 .terminal-header {
+  position: sticky;
+  top: 0;
+  z-index: 4;
   justify-content: space-between;
+  background: #000;
 }
 
 .terminal-header strong,
 .terminal-header span {
   display: block;
+}
+
+#sessionState {
+  max-width: 48vw;
+  overflow: hidden;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .terminal-header span,

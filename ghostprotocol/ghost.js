@@ -26,11 +26,19 @@
     line.className = `line ${className}`.trim();
     line.textContent = text;
     screen.appendChild(line);
-    screen.scrollTop = screen.scrollHeight;
+    autoScroll();
   }
 
   function clear() {
     screen.innerHTML = '';
+  }
+
+  function autoScroll() {
+    screen.scrollTop = screen.scrollHeight;
+  }
+
+  function commandKey(value) {
+    return String(value || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
   }
 
   function deviceId() {
@@ -298,8 +306,7 @@
       sessionState.textContent = 'guest';
       return;
     }
-    const email = state.account.profile && state.account.profile.email ? ` / ${state.account.profile.email}` : '';
-    sessionState.textContent = `${state.account.display_name || state.account.username}${email}`;
+    sessionState.textContent = state.account.display_name || state.account.username;
   }
 
   function formatBytes(value) {
@@ -502,14 +509,17 @@
     try {
       await api('/api/status');
       connectionState.textContent = 'online';
+      return true;
     } catch (error) {
       connectionState.textContent = 'offline';
+      return false;
     }
   }
 
   function run(raw) {
     const rawCommand = String(raw || '').trim();
     const command = rawCommand.toLowerCase();
+    const key = commandKey(rawCommand);
     if (!command) return;
     write(`> ${rawCommand}`);
     if (command === 'access control panel ui') {
@@ -521,14 +531,14 @@
       return;
     }
     if (command === 'help') help();
-    else if (command === 'sign-in' || command === 'signin' || command === 'login') void signIn();
-    else if (command === 'sign-up' || command === 'signup' || command === 'register') void signUp();
+    else if (['signin', 'login', 'logon'].includes(key)) void signIn();
+    else if (['signup', 'register', 'createaccount', 'createprofile'].includes(key)) void signUp();
     else if (command === 'menu') menu();
     else if (command === 'upload' || command === '1') void upload();
     else if (command === 'mydatabase' || command === 'database' || command === 'uploaded-files' || command === 'files' || command === '2') void myDatabase();
     else if (command === 'camera' || command === 'use camera' || command === '3') void camera();
     else if (command === 'board' || command === 'message board' || command === '4') void board();
-    else if (command === 'logout' || command === 'log out' || command === 'sign-out' || command === 'sign out' || command === '5') logout();
+    else if (['logout', 'signout', 'logoff'].includes(key) || command === '5') logout();
     else if (command === 'clear') clear();
     else if (command === 'full' || command === 'fullscreen' || command === 'immersion') void enterFullscreen();
     else write('unknown command. type help.', 'error');
@@ -549,7 +559,11 @@
   });
 
   clear();
-  write("type 'help' to access the terminal portal", 'hint');
-  void status();
+  write('Ghost Protocol');
+  void status().then((online) => {
+    write(online ? 'online' : 'offline', online ? '' : 'error');
+    write("type 'help' to access the terminal portal", 'hint');
+    autoScroll();
+  });
   void refreshMe();
 })();
