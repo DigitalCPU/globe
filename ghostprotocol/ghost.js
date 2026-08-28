@@ -559,11 +559,6 @@
   });
 
   clear();
-  write('Ghost Protocol');
-  void status().then((online) => {
-    write(online ? 'online' : 'offline', online ? '' : 'error');
-    write("type 'help' to access the terminal portal", 'hint');
-    autoScroll();
-  });
+  void status();
   void refreshMe();
 })();
