@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Wire Mesh Earth</title>
-  <link rel='stylesheet' href='css/styles.css?v=id-settings1'>
+  <link rel='stylesheet' href='css/styles.css?v=owner-control1'>
   <link rel="stylesheet" href="chatbot/styles.css?v=center-widgets2">
 
 </head>
@@ -79,6 +79,17 @@
             <input id="idDeleteConfirm" type="text" autocomplete="off" placeholder="type DELETE">
             <button type="submit">Delete account</button>
           </form>
+          <section class="id-owner-terminal" id="idOwnerTerminal" hidden>
+            <div class="id-owner-terminal-header">
+              <strong>Owner terminal</strong>
+              <button id="idOwnerRefresh" type="button">Status</button>
+            </div>
+            <div class="id-owner-output" id="idOwnerOutput" aria-live="polite"></div>
+            <form class="id-owner-command-form" id="idOwnerCommandForm">
+              <input id="idOwnerCommand" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="owner command">
+              <button type="submit">Run</button>
+            </form>
+          </section>
         </section>
         <form class="id-upload-form" id="idUploadForm">
           <input id="idFileInput" type="file">
@@ -453,7 +464,7 @@
   <script src='js/space-weather.js'></script>
   <script src="js/country-selector.js?v=country1"></script>
   <script src='js/app.js?v=news-mobile1'></script>
-  <script src="js/id-profile.js?v=account-settings1"></script>
+  <script src="js/id-profile.js?v=owner-control1"></script>
   <script src="js/local-timeline.js?v=news-button1"></script>
   <script src="js/message-board.js?v=board-images1"></script>
   <script src="chatbot/chat-widget.js?v=chat-center1"></script>

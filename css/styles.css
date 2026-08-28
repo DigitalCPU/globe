@@ -172,6 +172,7 @@
     .id-profile-forms[hidden],
     .id-profile-account[hidden],
     .id-settings-panel[hidden],
+    .id-owner-terminal[hidden],
     #idDisplayName[hidden] {
       display: none;
     }
@@ -179,7 +180,9 @@
     .id-profile-header,
     .id-profile-tabs,
     .id-profile-actions,
-    .id-settings-header {
+    .id-settings-header,
+    .id-owner-terminal-header,
+    .id-owner-command-form {
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -202,6 +205,7 @@
     .id-profile-actions button,
     .id-settings-header button,
     .id-settings-form button,
+    .id-owner-terminal button,
     .id-upload-form button,
     #idCameraButton,
     #idSubmit,
@@ -235,6 +239,7 @@
     .id-profile-actions button:hover,
     .id-settings-header button:hover,
     .id-settings-form button:hover,
+    .id-owner-terminal button:hover,
     .id-upload-form button:hover,
     #idCameraButton:hover,
     #idSubmit:hover,
@@ -245,6 +250,7 @@
     #idAuthForm,
     .id-upload-form,
     .id-settings-form,
+    .id-owner-terminal,
     .id-profile-account {
       display: grid;
       gap: 8px;
@@ -253,7 +259,8 @@
 
     #idAuthForm input,
     .id-upload-form input,
-    .id-settings-form input {
+    .id-settings-form input,
+    .id-owner-command-form input {
       min-width: 0;
       height: 30px;
       box-sizing: border-box;
@@ -292,6 +299,45 @@
 
     .id-settings-form {
       margin-top: 0;
+    }
+
+    .id-owner-terminal {
+      margin-top: 0;
+      padding-top: 9px;
+      border-top: 1px solid rgba(84, 218, 255, 0.22);
+    }
+
+    .id-owner-terminal-header strong {
+      color: rgba(220, 249, 255, 0.95);
+      font-size: 12px;
+    }
+
+    .id-owner-output {
+      min-height: 128px;
+      max-height: 190px;
+      overflow: auto;
+      padding: 8px;
+      border: 1px solid rgba(84, 218, 255, 0.22);
+      border-radius: 6px;
+      background: rgba(0, 7, 10, 0.72);
+      color: rgba(207, 246, 255, 0.9);
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      line-height: 1.35;
+    }
+
+    .id-owner-output .ok {
+      color: rgba(121, 255, 166, 0.95);
+    }
+
+    .id-owner-output .error {
+      color: rgba(255, 170, 170, 0.95);
+    }
+
+    .id-owner-command-form {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      margin: 0;
     }
 
     .id-settings-danger {

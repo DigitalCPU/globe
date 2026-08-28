@@ -69,6 +69,7 @@
     const headers = { ...(options.headers || {}) };
     const auth = token();
     if (auth) headers['X-ID-Session'] = auth;
+    headers['X-Device-ID'] = deviceId();
     if (options.body && !headers['Content-Type']) headers['Content-Type'] = 'application/json';
     const response = await fetch(`${API_BASE}${path}`, { ...options, headers });
     const type = response.headers.get('Content-Type') || '';
@@ -146,6 +147,8 @@
   function writeControlCommands() {
     write('control panel ui access granted');
     write('remote command center ready');
+    write(`device id: ${deviceId()}`);
+    write('backend gate: owner account + remote-access on + trusted device');
     write('');
     write('system commands:');
     write('  status');
@@ -164,7 +167,7 @@
     write('account commands:');
     write('  account-list');
     write('  account-show <user|id>');
-    write('  account-password <user|id>');
+    write('  account-set-password <user|id> <new-password>');
     write('  account-ranks');
     write('  account-set-role <user|id> <rank>');
     write('  account-ban <user|id>');
@@ -173,7 +176,7 @@
     write('  account-reward <user|id>');
     write('  account-delete <user|id> CONFIRM');
     write('  account-delete <user|id> CONFIRM --delete-files');
-    write('  owner delete: account-delete <user|id> OWNER-CONFIRM --delete-files');
+    write('  owner accounts cannot be deleted remotely');
     write('');
     write('  exit-control');
   }
@@ -386,7 +389,7 @@
 
   async function downloadFile(file) {
     const response = await fetch(`${API_BASE}/api/id/file?file_id=${encodeURIComponent(file.file_id)}`, {
-      headers: { 'X-ID-Session': token() }
+      headers: { 'X-ID-Session': token(), 'X-Device-ID': deviceId() }
     });
     if (!response.ok) throw new Error(`download failed: ${response.status}`);
     const blob = await response.blob();

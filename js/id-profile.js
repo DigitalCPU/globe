@@ -32,6 +32,7 @@
     const headers = { ...(options.headers || {}) };
     const token = localStorage.getItem(sessionKey) || '';
     if (token) headers['X-ID-Session'] = token;
+    headers['X-Device-ID'] = deviceId();
     if (options.body && !headers['Content-Type']) headers['Content-Type'] = 'application/json';
 
     const response = await fetch(`${API_BASE}${path}`, { ...options, headers });
@@ -53,7 +54,7 @@
   async function fetchFileBlob(file) {
     const token = localStorage.getItem(sessionKey) || '';
     const response = await fetch(`${API_BASE}/api/id/file?file_id=${encodeURIComponent(file.file_id)}`, {
-      headers: { 'X-ID-Session': token }
+      headers: { 'X-ID-Session': token, 'X-Device-ID': deviceId() }
     });
     if (!response.ok) {
       const payload = await response.json().catch(() => ({}));
@@ -160,6 +161,11 @@
     const deleteForm = $('idDeleteForm');
     const deletePasswordInput = $('idDeletePassword');
     const deleteConfirmInput = $('idDeleteConfirm');
+    const ownerTerminal = $('idOwnerTerminal');
+    const ownerOutput = $('idOwnerOutput');
+    const ownerCommandForm = $('idOwnerCommandForm');
+    const ownerCommandInput = $('idOwnerCommand');
+    const ownerRefresh = $('idOwnerRefresh');
     const refreshFilesButton = $('idRefreshFiles');
     const uploadForm = $('idUploadForm');
     const fileInput = $('idFileInput');
@@ -177,6 +183,10 @@
       files: [],
       previewUrl: ''
     };
+
+    function isOwner(account = state.account) {
+      return String(account?.role || '').toLowerCase() === 'owner';
+    }
 
     function notifyFilesChanged() {
       window.dispatchEvent(new CustomEvent('digitalcpu:id-files-changed'));
@@ -202,6 +212,81 @@
       if (confirmPasswordInput) confirmPasswordInput.value = '';
       if (deletePasswordInput) deletePasswordInput.value = '';
       if (deleteConfirmInput) deleteConfirmInput.value = '';
+    }
+
+    function writeOwner(text = '', className = '') {
+      if (!ownerOutput) return;
+      const line = document.createElement('div');
+      line.className = className;
+      line.textContent = text;
+      ownerOutput.appendChild(line);
+      ownerOutput.scrollTop = ownerOutput.scrollHeight;
+    }
+
+    function clearOwnerOutput() {
+      if (ownerOutput) ownerOutput.innerHTML = '';
+    }
+
+    function formatOwnerValue(value, depth = 0) {
+      if (value === null || value === undefined || value === '') return '--';
+      if (typeof value !== 'object') return String(value);
+      if (Array.isArray(value)) {
+        return value.map((item, index) => `${'  '.repeat(depth)}${index + 1}. ${formatOwnerValue(item, depth + 1)}`).join('\n');
+      }
+      const indent = '  '.repeat(depth);
+      return Object.entries(value).map(([key, item]) => {
+        if (item && typeof item === 'object') return `${indent}${key}:\n${formatOwnerValue(item, depth + 1)}`;
+        return `${indent}${key}: ${formatOwnerValue(item, depth + 1)}`;
+      }).join('\n');
+    }
+
+    function renderOwnerTerminal() {
+      if (!ownerTerminal) return;
+      ownerTerminal.hidden = !isOwner();
+      if (!isOwner()) {
+        clearOwnerOutput();
+        return;
+      }
+      if (!ownerOutput?.childElementCount) {
+        writeOwner('owner terminal');
+        writeOwner(`device id: ${deviceId()}`);
+        writeOwner('Backend must allow this device: remote-access on');
+        writeOwner(`Then trust it locally: remote-device-trust ${deviceId()} your-label`);
+        writeOwner('Try: status, settings, account-list, account-show <user>, account-set-password <user> <new-pass>');
+      }
+    }
+
+    async function refreshOwnerControlStatus() {
+      if (!isOwner()) return;
+      try {
+        const data = await api('/api/ghost/control/status');
+        writeOwner('status: granted', 'ok');
+        if (data.remote_access) writeOwner(formatOwnerValue({ remote_access: data.remote_access }));
+        if (data.backend) writeOwner(formatOwnerValue({ backend: data.backend }));
+      } catch (error) {
+        writeOwner(error.message || 'owner control unavailable', 'error');
+      }
+    }
+
+    async function runOwnerCommand(command) {
+      const raw = String(command || '').trim();
+      if (!raw) return;
+      writeOwner(`> ${raw}`);
+      if (raw.toLowerCase() === 'clear') {
+        clearOwnerOutput();
+        renderOwnerTerminal();
+        return;
+      }
+      try {
+        const data = await api('/api/ghost/control/command', {
+          method: 'POST',
+          body: JSON.stringify({ command: raw })
+        });
+        writeOwner(data.message || 'command complete', 'ok');
+        if (data.data) writeOwner(formatOwnerValue(data.data));
+      } catch (error) {
+        writeOwner(error.message || 'command failed', 'error');
+      }
     }
 
     function setMode(mode) {
@@ -271,6 +356,7 @@
         if (updateEmailInput) updateEmailInput.value = '';
         renderFiles([]);
         clearPreview();
+        renderOwnerTerminal();
         return;
       }
       profileName.textContent = account.display_name || account.username;
@@ -278,6 +364,7 @@
       storageMeta.textContent = `storage ${formatBytes(account.storage_usage_bytes)}`;
       if (updateEmailInput) updateEmailInput.value = account.profile?.email || '';
       setMessage('Your local host folder is ready.');
+      renderOwnerTerminal();
     }
 
     function renderFiles(files) {
@@ -380,6 +467,13 @@
     closeButton?.addEventListener('click', () => setOpen(false));
     settingsButton?.addEventListener('click', () => setSettingsOpen(settingsPanel?.hidden !== false));
     settingsClose?.addEventListener('click', () => setSettingsOpen(false));
+    ownerRefresh?.addEventListener('click', () => refreshOwnerControlStatus());
+    ownerCommandForm?.addEventListener('submit', (event) => {
+      event.preventDefault();
+      const command = ownerCommandInput?.value || '';
+      if (ownerCommandInput) ownerCommandInput.value = '';
+      void runOwnerCommand(command);
+    });
     loginTab?.addEventListener('click', () => setMode('login'));
     registerTab?.addEventListener('click', () => setMode('register'));
     refreshFilesButton?.addEventListener('click', () => refreshFiles());
