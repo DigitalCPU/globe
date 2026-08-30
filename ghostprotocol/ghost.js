@@ -190,6 +190,7 @@
     write('  set-model <path>');
     write('  load-model');
     write('  unload-model');
+    write('  fxp3-status');
     write('');
     write('account commands:');
     write('  account-list');
@@ -440,7 +441,8 @@
   }
 
   async function fetchBoardImage(entry, container) {
-    const fileId = entry && (entry.image_file_id || entry.file_id);
+    const imageInfo = entry && (entry.image || entry);
+    const fileId = imageInfo && (imageInfo.image_file_id || imageInfo.file_id);
     if (!fileId) return;
     try {
       const response = await fetch(`${API_BASE}/api/board/image?file_id=${encodeURIComponent(fileId)}`, {
@@ -451,7 +453,7 @@
       const url = URL.createObjectURL(blob);
       const image = document.createElement('img');
       image.src = url;
-      image.alt = entry.image_name || entry.file_name || 'board image';
+      image.alt = imageInfo.image_name || imageInfo.file_name || imageInfo.name || 'board image';
       image.addEventListener('load', () => URL.revokeObjectURL(url), { once: true });
       container.appendChild(image);
     } catch (error) {
