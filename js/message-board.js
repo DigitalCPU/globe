@@ -229,7 +229,10 @@
         open.className = 'board-open-thread';
         open.type = 'button';
         open.textContent = replies ? 'Open' : 'Reply';
-        open.addEventListener('click', () => openThread(post.post_id));
+        open.addEventListener('click', (event) => {
+          event.stopPropagation();
+          openThread(post.post_id);
+        });
         container.appendChild(open);
       }
     }
@@ -288,7 +291,7 @@
             openThread(post.post_id);
           }
         });
-        appendPostContents(item, post, false);
+        appendPostContents(item, post, true);
         list.appendChild(item);
       });
     }

@@ -23,7 +23,8 @@
     fullscreenAttempted: false,
     promptHandler: null,
     controlMode: false,
-    boardOpen: false
+    boardOpen: false,
+    boardElement: null
   };
 
   function write(text = '', className = '') {
@@ -104,6 +105,15 @@
     autoScroll();
   }
 
+  function inlineButton(label, handler) {
+    const button = document.createElement('button');
+    button.className = 'terminal-button';
+    button.type = 'button';
+    button.textContent = label;
+    button.addEventListener('click', handler);
+    return button;
+  }
+
   function help() {
     write('help');
     write('Terminal portal commands:');
@@ -118,6 +128,7 @@
       write('  mydatabase     open files stored in your local profile folder');
       write('  camera         use camera and save to your local profile folder');
       write('  board          open the message board');
+      write('  post board     write a new message board post');
       write('  close board    close the message board view');
     } else {
       write('');
@@ -149,6 +160,7 @@
     commandButton('uploaded files', 'uploaded-files');
     commandButton('camera', 'camera');
     commandButton('board', 'board');
+    commandButton('post board', 'post-board');
     commandButton('sign out', 'sign-out');
     write('');
   }
@@ -427,6 +439,29 @@
     write(`sent to board: ${file.name || file.stored_name}`);
   }
 
+  async function fetchBoardImage(entry, container) {
+    const fileId = entry && (entry.image_file_id || entry.file_id);
+    if (!fileId) return;
+    try {
+      const response = await fetch(`${API_BASE}/api/board/image?file_id=${encodeURIComponent(fileId)}`, {
+        headers: { 'X-ID-Session': token(), 'X-Device-ID': deviceId() }
+      });
+      if (!response.ok) throw new Error(`image unavailable: ${response.status}`);
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const image = document.createElement('img');
+      image.src = url;
+      image.alt = entry.image_name || entry.file_name || 'board image';
+      image.addEventListener('load', () => URL.revokeObjectURL(url), { once: true });
+      container.appendChild(image);
+    } catch (error) {
+      const failed = document.createElement('div');
+      failed.className = 'line error';
+      failed.textContent = error.message || 'image preview failed';
+      container.appendChild(failed);
+    }
+  }
+
   async function myDatabase() {
     if (!requireAccount()) return;
     try {
@@ -462,26 +497,93 @@
     }
   }
 
-  async function board() {
+  function clearBoardElement() {
+    if (state.boardElement) state.boardElement.remove();
+    state.boardElement = null;
+  }
+
+  function boardSummary(post) {
+    const name = post.display_name || post.username || 'user';
+    const text = post.text || '[file]';
+    const replies = Number(post.reply_count || 0);
+    const replyText = replies === 1 ? '1 reply' : `${replies} replies`;
+    return `${name}: ${text} (${replyText})`;
+  }
+
+  async function refreshBoardPanel() {
+    if (!state.boardElement) return;
+    const list = state.boardElement.querySelector('.board-panel-list');
+    list.textContent = 'loading board...';
+    const data = await api('/api/board/posts?limit=80');
+    state.posts = data.posts || [];
+    list.innerHTML = '';
+    if (!state.posts.length) {
+      list.textContent = 'no board messages yet';
+      autoScroll();
+      return;
+    }
+    state.posts.forEach((post, index) => {
+      const row = document.createElement('button');
+      row.className = 'board-row';
+      row.type = 'button';
+      row.textContent = `${index + 1}) ${boardSummary(post)}`;
+      row.addEventListener('click', () => openBoardThread(post.post_id, row));
+      list.appendChild(row);
+    });
+    autoScroll();
+  }
+
+  async function openBoardThread(postId, row) {
+    if (!postId) return;
+    const existing = state.boardElement && state.boardElement.querySelector('.board-thread-detail');
+    if (existing) existing.remove();
+    const detail = document.createElement('div');
+    detail.className = 'board-thread-detail';
+    detail.textContent = 'opening thread...';
+    row.insertAdjacentElement('afterend', detail);
+    try {
+      const data = await api(`/api/board/thread?post_id=${encodeURIComponent(postId)}`);
+      const post = data.post || {};
+      const replies = Array.isArray(data.replies) ? data.replies : [];
+      detail.innerHTML = '';
+      const root = document.createElement('div');
+      root.className = 'board-thread-root';
+      root.textContent = `${post.display_name || post.username || 'user'}: ${post.text || '[file]'}`;
+      detail.appendChild(root);
+      await fetchBoardImage(post, root);
+      if (replies.length) {
+        replies.forEach((reply) => {
+          const replyRow = document.createElement('div');
+          replyRow.className = 'board-reply';
+          replyRow.textContent = `${reply.display_name || reply.username || 'user'}: ${reply.text || '[file]'}`;
+          detail.appendChild(replyRow);
+          void fetchBoardImage(reply, replyRow);
+        });
+      } else {
+        const empty = document.createElement('div');
+        empty.className = 'line hint';
+        empty.textContent = 'no replies yet';
+        detail.appendChild(empty);
+      }
+      detail.appendChild(inlineButton('reply', () => replyToBoardThread(postId)));
+      detail.appendChild(inlineButton('close thread', () => detail.remove()));
+      autoScroll();
+    } catch (error) {
+      detail.textContent = error.message || 'thread unavailable';
+      detail.classList.add('error');
+    }
+  }
+
+  async function postBoardMessage() {
     if (!requireAccount()) return;
     try {
-      state.boardOpen = true;
-      const data = await api('/api/board/posts?limit=80');
-      state.posts = data.posts || [];
-      write(`Message board: ${state.posts.length} entries`);
-      state.posts.forEach((post) => {
-        const row = document.createElement('div');
-        row.className = 'board-row';
-        row.textContent = `${post.display_name || post.username || 'user'}: ${post.text || '[file]'}`;
-        screen.appendChild(row);
-      });
-      const text = await promptLine('post to board, or leave blank to cancel:');
+      const text = await promptLine('new board post, or leave blank to cancel:');
+      const key = commandKey(text);
       if (!text.trim()) {
         write('board post canceled');
-        closeBoard();
         return;
       }
-      if (commandKey(text) === 'closeboard') {
+      if (key === 'closeboard' || key === 'boardclose') {
         closeBoard();
         return;
       }
@@ -490,6 +592,55 @@
         body: JSON.stringify({ category: 'General', text })
       });
       write('posted');
+      await refreshBoardPanel();
+    } catch (error) {
+      write(error.message || 'post failed', 'error');
+    }
+  }
+
+  async function replyToBoardThread(postId) {
+    try {
+      const text = await promptLine('reply text, or leave blank to cancel:');
+      const key = commandKey(text);
+      if (!text.trim()) {
+        write('reply canceled');
+        return;
+      }
+      if (key === 'closeboard' || key === 'boardclose') {
+        closeBoard();
+        return;
+      }
+      await api('/api/board/replies', {
+        method: 'POST',
+        body: JSON.stringify({ post_id: postId, text })
+      });
+      write('reply posted');
+      await refreshBoardPanel();
+    } catch (error) {
+      write(error.message || 'reply failed', 'error');
+    }
+  }
+
+  async function board() {
+    if (!requireAccount()) return;
+    try {
+      state.boardOpen = true;
+      clearBoardElement();
+      const panel = document.createElement('div');
+      panel.className = 'board-panel';
+      const header = document.createElement('div');
+      header.className = 'board-panel-header';
+      header.textContent = 'Message board';
+      header.appendChild(inlineButton('post', () => postBoardMessage()));
+      header.appendChild(inlineButton('refresh', () => refreshBoardPanel().catch((error) => write(error.message, 'error'))));
+      header.appendChild(inlineButton('close board', () => closeBoard()));
+      panel.appendChild(header);
+      const list = document.createElement('div');
+      list.className = 'board-panel-list';
+      panel.appendChild(list);
+      screen.appendChild(panel);
+      state.boardElement = panel;
+      await refreshBoardPanel();
     } catch (error) {
       write(error.message || 'board unavailable', 'error');
     }
@@ -497,6 +648,7 @@
 
   function closeBoard() {
     state.boardOpen = false;
+    clearBoardElement();
     write('board closed');
   }
 
@@ -556,6 +708,7 @@
     else if (command === 'mydatabase' || command === 'database' || command === 'uploaded-files' || command === 'files' || command === '2') void myDatabase();
     else if (command === 'camera' || command === 'use camera' || command === '3') void camera();
     else if (command === 'board' || command === 'message board' || command === '4') void board();
+    else if (key === 'postboard' || key === 'boardpost') void postBoardMessage();
     else if (key === 'closeboard' || key === 'boardclose') closeBoard();
     else if (['logout', 'signout', 'logoff'].includes(key) || command === '5') logout();
     else if (command === 'clear') clear();

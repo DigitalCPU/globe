@@ -225,8 +225,56 @@ body.terminal-closed .terminal {
   background: rgba(0, 24, 5, 0.22);
 }
 
+.board-panel {
+  margin: 10px 0;
+  padding: 8px;
+  border: 1px solid var(--green-faint);
+}
+
+.board-panel-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.board-row {
+  display: block;
+  width: 100%;
+  color: var(--green);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.board-row:hover,
+.board-row:focus {
+  color: #b8ffc5;
+  border-color: var(--green);
+  outline: 0;
+}
+
+.board-thread-detail {
+  margin: 0 0 10px 12px;
+  padding: 8px 0 8px 10px;
+  border-left: 1px solid var(--green-faint);
+}
+
+.board-thread-root,
+.board-reply {
+  margin: 6px 0;
+}
+
+.board-reply {
+  padding-left: 10px;
+  border-left: 1px solid var(--green-faint);
+}
+
 .file-row img,
-.board-row img {
+.board-row img,
+.board-thread-root img,
+.board-reply img {
   display: block;
   max-width: min(260px, 100%);
   max-height: 180px;
