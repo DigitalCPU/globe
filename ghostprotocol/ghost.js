@@ -428,6 +428,62 @@
     setTimeout(() => URL.revokeObjectURL(url), 5000);
   }
 
+  function isImageFile(file) {
+    const type = String(file.content_type || '').toLowerCase();
+    const name = String(file.name || file.stored_name || '').toLowerCase();
+    return type.startsWith('image/') || /\.(avif|bmp|gif|jpe?g|png|webp)$/.test(name);
+  }
+
+  async function viewFile(file, row) {
+    if (!isImageFile(file)) {
+      write('preview is available for images. use download for this file.', 'error');
+      return;
+    }
+    const existing = row.querySelector('.file-preview');
+    if (existing) {
+      existing.remove();
+      return;
+    }
+    try {
+      const response = await fetch(`${API_BASE}/api/id/file?file_id=${encodeURIComponent(file.file_id)}`, {
+        headers: { 'X-ID-Session': token(), 'X-Device-ID': deviceId() }
+      });
+      if (!response.ok) throw new Error(`preview failed: ${response.status}`);
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const wrap = document.createElement('div');
+      wrap.className = 'file-preview';
+      const image = document.createElement('img');
+      image.src = url;
+      image.alt = file.name || file.stored_name || 'image preview';
+      image.addEventListener('load', () => URL.revokeObjectURL(url), { once: true });
+      wrap.appendChild(image);
+      row.appendChild(wrap);
+      autoScroll();
+    } catch (error) {
+      write(error.message || 'preview failed', 'error');
+    }
+  }
+
+  async function renameFile(file) {
+    const current = file.name || file.stored_name || '';
+    const nextName = await promptLine(`rename ${current} to:`);
+    if (!nextName.trim()) {
+      write('rename canceled');
+      return;
+    }
+    try {
+      const result = await api('/api/id/files/rename', {
+        method: 'POST',
+        body: JSON.stringify({ file_id: file.file_id, name: nextName })
+      });
+      write(`renamed: ${result.file.name || result.file.stored_name}`);
+      await myDatabase();
+    } catch (error) {
+      write(error.message || 'rename failed', 'error');
+    }
+  }
+
   async function sendFileToBoard(file) {
     await api('/api/board/posts', {
       method: 'POST',
@@ -479,13 +535,29 @@
         row.className = 'file-row';
         row.textContent = `${index + 1}) ${file.name || file.stored_name} / ${formatBytes(file.size)} / ${file.folder}`;
         screen.appendChild(row);
+        if (isImageFile(file)) {
+          const view = document.createElement('button');
+          view.className = 'terminal-button';
+          view.type = 'button';
+          view.textContent = 'view';
+          view.addEventListener('click', () => viewFile(file, row));
+          row.appendChild(document.createElement('br'));
+          row.appendChild(view);
+        } else {
+          row.appendChild(document.createElement('br'));
+        }
         const download = document.createElement('button');
         download.className = 'terminal-button';
         download.type = 'button';
         download.textContent = 'download';
         download.addEventListener('click', () => downloadFile(file).catch((error) => write(error.message, 'error')));
-        row.appendChild(document.createElement('br'));
         row.appendChild(download);
+        const rename = document.createElement('button');
+        rename.className = 'terminal-button';
+        rename.type = 'button';
+        rename.textContent = 'rename';
+        rename.addEventListener('click', () => renameFile(file));
+        row.appendChild(rename);
         const board = document.createElement('button');
         board.className = 'terminal-button';
         board.type = 'button';
