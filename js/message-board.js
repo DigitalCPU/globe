@@ -277,7 +277,18 @@
       }
       state.posts.forEach((post) => {
         const item = document.createElement('li');
-        appendPostContents(item, post, true);
+        item.className = 'board-thread-link';
+        item.tabIndex = 0;
+        item.setAttribute('role', 'button');
+        item.setAttribute('aria-label', `Open thread from ${post.display_name || post.username || 'user'}`);
+        item.addEventListener('click', () => openThread(post.post_id));
+        item.addEventListener('keydown', (event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            openThread(post.post_id);
+          }
+        });
+        appendPostContents(item, post, false);
         list.appendChild(item);
       });
     }
