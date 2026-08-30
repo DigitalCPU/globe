@@ -11,6 +11,10 @@
   const cameraInput = document.getElementById('cameraInput');
   const connectionState = document.getElementById('connectionState');
   const sessionState = document.getElementById('sessionState');
+  const windowMinimize = document.getElementById('windowMinimize');
+  const windowRestore = document.getElementById('windowRestore');
+  const windowFullscreen = document.getElementById('windowFullscreen');
+  const windowClose = document.getElementById('windowClose');
 
   const state = {
     account: null,
@@ -18,7 +22,8 @@
     posts: [],
     fullscreenAttempted: false,
     promptHandler: null,
-    controlMode: false
+    controlMode: false,
+    boardOpen: false
   };
 
   function write(text = '', className = '') {
@@ -96,6 +101,7 @@
     button.textContent = label;
     button.addEventListener('click', () => run(command));
     screen.appendChild(button);
+    autoScroll();
   }
 
   function help() {
@@ -112,6 +118,7 @@
       write('  mydatabase     open files stored in your local profile folder');
       write('  camera         use camera and save to your local profile folder');
       write('  board          open the message board');
+      write('  close board    close the message board view');
     } else {
       write('');
       write('Sign in or sign up to access upload, files, camera, and board features.');
@@ -458,6 +465,7 @@
   async function board() {
     if (!requireAccount()) return;
     try {
+      state.boardOpen = true;
       const data = await api('/api/board/posts?limit=80');
       state.posts = data.posts || [];
       write(`Message board: ${state.posts.length} entries`);
@@ -470,6 +478,11 @@
       const text = await promptLine('post to board, or leave blank to cancel:');
       if (!text.trim()) {
         write('board post canceled');
+        closeBoard();
+        return;
+      }
+      if (commandKey(text) === 'closeboard') {
+        closeBoard();
         return;
       }
       await api('/api/board/posts', {
@@ -480,6 +493,11 @@
     } catch (error) {
       write(error.message || 'board unavailable', 'error');
     }
+  }
+
+  function closeBoard() {
+    state.boardOpen = false;
+    write('board closed');
   }
 
   function logout() {
@@ -538,6 +556,7 @@
     else if (command === 'mydatabase' || command === 'database' || command === 'uploaded-files' || command === 'files' || command === '2') void myDatabase();
     else if (command === 'camera' || command === 'use camera' || command === '3') void camera();
     else if (command === 'board' || command === 'message board' || command === '4') void board();
+    else if (key === 'closeboard' || key === 'boardclose') closeBoard();
     else if (['logout', 'signout', 'logoff'].includes(key) || command === '5') logout();
     else if (command === 'clear') clear();
     else if (command === 'full' || command === 'fullscreen' || command === 'immersion') void enterFullscreen();
@@ -546,6 +565,27 @@
 
   document.addEventListener('pointerdown', activateImmersion, { once: true });
   document.addEventListener('keydown', activateImmersion, { once: true });
+
+  windowMinimize?.addEventListener('click', () => {
+    document.body.classList.add('terminal-minimized');
+  });
+
+  windowRestore?.addEventListener('click', () => {
+    document.body.classList.remove('terminal-minimized', 'terminal-closed');
+    if (document.fullscreenElement) void document.exitFullscreen();
+    input.focus();
+  });
+
+  windowFullscreen?.addEventListener('click', () => {
+    document.body.classList.remove('terminal-minimized', 'terminal-closed');
+    void enterFullscreen();
+    input.focus();
+  });
+
+  windowClose?.addEventListener('click', () => {
+    window.close();
+    document.body.classList.add('terminal-closed');
+  });
 
   form.addEventListener('submit', (event) => {
     event.preventDefault();

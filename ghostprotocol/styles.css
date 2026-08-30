@@ -63,6 +63,38 @@ body {
   white-space: nowrap;
 }
 
+.terminal-session {
+  display: grid;
+  justify-items: end;
+  gap: 4px;
+  min-width: 0;
+}
+
+.terminal-window-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.terminal-window-controls button {
+  min-width: 24px;
+  min-height: 18px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--green);
+  font: inherit;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.terminal-window-controls button:hover,
+.terminal-window-controls button:focus {
+  color: #b8ffc5;
+  outline: 0;
+  text-decoration: underline;
+}
+
 .terminal-header span,
 .muted {
   color: var(--green-dim);
@@ -80,6 +112,21 @@ body {
   padding: 14px 4px;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+}
+
+body.terminal-minimized .terminal {
+  grid-template-rows: auto;
+  height: auto;
+  min-height: 0;
+}
+
+body.terminal-minimized .terminal-screen,
+body.terminal-minimized .terminal-input {
+  display: none;
+}
+
+body.terminal-closed .terminal {
+  display: none;
 }
 
 .terminal-screen::-webkit-scrollbar {
