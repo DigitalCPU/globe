@@ -501,7 +501,7 @@
     const fileId = imageInfo && (imageInfo.image_file_id || imageInfo.file_id);
     if (!fileId) return;
     try {
-      const response = await fetch(`${API_BASE}/api/board/image?file_id=${encodeURIComponent(fileId)}`, {
+      const response = await fetch(`${API_BASE}/api/board/image?file_id=${encodeURIComponent(fileId)}&fx=1`, {
         headers: { 'X-ID-Session': token(), 'X-Device-ID': deviceId() }
       });
       if (!response.ok) throw new Error(`image unavailable: ${response.status}`);
