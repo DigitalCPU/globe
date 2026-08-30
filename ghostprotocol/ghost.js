@@ -445,7 +445,7 @@
       return;
     }
     try {
-      const response = await fetch(`${API_BASE}/api/id/file?file_id=${encodeURIComponent(file.file_id)}`, {
+      const response = await fetch(`${API_BASE}/api/id/file/fx?file_id=${encodeURIComponent(file.file_id)}`, {
         headers: { 'X-ID-Session': token(), 'X-Device-ID': deviceId() }
       });
       if (!response.ok) throw new Error(`preview failed: ${response.status}`);
