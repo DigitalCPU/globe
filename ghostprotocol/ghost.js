@@ -114,6 +114,12 @@
     return button;
   }
 
+  function deleteButton(label, handler) {
+    const button = inlineButton(label, handler);
+    button.classList.add('board-delete-item');
+    return button;
+  }
+
   function help() {
     write('help');
     write('Terminal portal commands:');
@@ -169,6 +175,10 @@
     if (state.account) return true;
     write('No active session. Use sign-in.', 'error');
     return false;
+  }
+
+  function isOwner() {
+    return String(state.account?.role || '').toLowerCase() === 'owner';
   }
 
   function writeControlCommands() {
@@ -600,6 +610,7 @@
       const row = document.createElement('button');
       row.className = 'board-row';
       row.type = 'button';
+      row.dataset.postId = post.post_id;
       row.textContent = `${index + 1}) ${boardSummary(post)}`;
       row.addEventListener('click', () => openBoardThread(post.post_id, row));
       list.appendChild(row);
@@ -625,6 +636,9 @@
       root.textContent = `${post.display_name || post.username || 'user'}: ${post.text || '[file]'}`;
       detail.appendChild(root);
       await fetchBoardImage(post, root);
+      if (isOwner()) {
+        root.appendChild(deleteButton('delete thread', () => deleteBoardThread(postId)));
+      }
       if (replies.length) {
         replies.forEach((reply) => {
           const replyRow = document.createElement('div');
@@ -632,6 +646,9 @@
           replyRow.textContent = `${reply.display_name || reply.username || 'user'}: ${reply.text || '[file]'}`;
           detail.appendChild(replyRow);
           void fetchBoardImage(reply, replyRow);
+          if (isOwner()) {
+            replyRow.appendChild(deleteButton('delete reply', () => deleteBoardReply(reply.reply_id, postId)));
+          }
         });
       } else {
         const empty = document.createElement('div');
@@ -645,6 +662,38 @@
     } catch (error) {
       detail.textContent = error.message || 'thread unavailable';
       detail.classList.add('error');
+    }
+  }
+
+  async function deleteBoardThread(postId) {
+    if (!isOwner() || !postId) return;
+    if (!window.confirm('Delete this board thread and its replies?')) return;
+    try {
+      await api('/api/board/posts', {
+        method: 'DELETE',
+        body: JSON.stringify({ post_id: postId })
+      });
+      write('thread deleted');
+      await refreshBoardPanel();
+    } catch (error) {
+      write(error.message || 'delete failed', 'error');
+    }
+  }
+
+  async function deleteBoardReply(replyId, postId) {
+    if (!isOwner() || !replyId) return;
+    if (!window.confirm('Delete this reply?')) return;
+    try {
+      await api('/api/board/replies', {
+        method: 'DELETE',
+        body: JSON.stringify({ reply_id: replyId })
+      });
+      write('reply deleted');
+      await refreshBoardPanel();
+      const postRow = state.boardElement?.querySelector(`.board-row[data-post-id="${postId}"]`);
+      if (postRow) await openBoardThread(postId, postRow);
+    } catch (error) {
+      write(error.message || 'delete failed', 'error');
     }
   }
 

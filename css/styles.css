@@ -1151,6 +1151,21 @@
       font-size: 11px;
     }
 
+    .board-delete-item {
+      justify-self: end;
+      min-height: 26px;
+      padding: 0 8px;
+      border-color: rgba(255, 84, 132, 0.5);
+      color: rgba(255, 155, 185, 0.96);
+      font-size: 11px;
+    }
+
+    .board-delete-item:hover,
+    .board-delete-item:focus {
+      border-color: rgba(255, 84, 132, 0.82);
+      color: #ffd4df;
+    }
+
     .board-post-meta {
       overflow: hidden;
       color: rgba(137, 239, 255, 0.78);

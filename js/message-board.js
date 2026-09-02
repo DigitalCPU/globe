@@ -135,12 +135,22 @@
       images: [],
       imageUrls: [],
       cameraFileId: '',
-      activePostId: ''
+      activePostId: '',
+      isOwner: false
     };
 
     function setStatus(message, isError = false) {
       status.textContent = message;
       status.classList.toggle('is-error', Boolean(isError));
+    }
+
+    async function refreshIdentity() {
+      try {
+        const data = await api('/api/id/me');
+        state.isOwner = String(data.account?.role || '').toLowerCase() === 'owner';
+      } catch (error) {
+        state.isOwner = false;
+      }
     }
 
     function applyOpacity(value) {
@@ -237,6 +247,19 @@
       }
     }
 
+    function appendOwnerDeleteButton(container, label, handler) {
+      if (!state.isOwner) return;
+      const button = document.createElement('button');
+      button.className = 'board-delete-item';
+      button.type = 'button';
+      button.textContent = label;
+      button.addEventListener('click', (event) => {
+        event.stopPropagation();
+        handler();
+      });
+      container.appendChild(button);
+    }
+
     function renderReplies(replies) {
       const rows = Array.isArray(replies) ? replies : [];
       replyList.innerHTML = '';
@@ -258,6 +281,7 @@
           item.appendChild(body);
         }
         appendEntryImage(item, reply);
+        appendOwnerDeleteButton(item, 'Delete Reply', () => deleteReply(reply.reply_id));
         replyList.appendChild(item);
       });
     }
@@ -377,6 +401,7 @@
         if (threadRoot) {
           threadRoot.innerHTML = '';
           appendPostContents(threadRoot, data.post || {}, false);
+          appendOwnerDeleteButton(threadRoot, 'Delete Thread', () => deleteThread(state.activePostId));
         }
         renderReplies(data.replies || []);
         if (threadStatus) {
@@ -416,6 +441,40 @@
         if (threadStatus) threadStatus.textContent = error.message || 'reply failed';
       } finally {
         if (replyButton) replyButton.disabled = false;
+      }
+    }
+
+    async function deleteThread(postId) {
+      if (!state.isOwner || !postId) return;
+      if (!confirm('Delete this board thread and its replies?')) return;
+      if (threadStatus) threadStatus.textContent = 'deleting thread...';
+      try {
+        await api('/api/board/posts', {
+          method: 'DELETE',
+          body: JSON.stringify({ post_id: postId })
+        });
+        showThreadView(false);
+        await refreshBoard();
+        setStatus('thread deleted');
+      } catch (error) {
+        if (threadStatus) threadStatus.textContent = error.message || 'delete failed';
+      }
+    }
+
+    async function deleteReply(replyId) {
+      if (!state.isOwner || !replyId) return;
+      if (!confirm('Delete this reply?')) return;
+      if (threadStatus) threadStatus.textContent = 'deleting reply...';
+      try {
+        const postId = state.activePostId;
+        await api('/api/board/replies', {
+          method: 'DELETE',
+          body: JSON.stringify({ reply_id: replyId })
+        });
+        await refreshBoard();
+        await openThread(postId);
+      } catch (error) {
+        if (threadStatus) threadStatus.textContent = error.message || 'delete failed';
       }
     }
 
@@ -463,7 +522,9 @@
       }
     });
 
-    refreshCategories()
+    refreshIdentity()
+      .catch(() => {})
+      .then(refreshCategories)
       .then(refreshImages)
       .then(refreshBoard)
       .catch((error) => {

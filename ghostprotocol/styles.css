@@ -271,6 +271,11 @@ body.terminal-closed .terminal {
   border-left: 1px solid var(--green-faint);
 }
 
+.board-delete-item {
+  color: #8cff9f;
+  text-decoration: underline;
+}
+
 .file-row img,
 .board-row img,
 .board-thread-root img,

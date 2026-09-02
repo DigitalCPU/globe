@@ -1,5 +1,6 @@
 const ALLOWED_ORIGINS = new Set([
   'https://livesatellite.netlify.app',
+  'https://hypertextghostprotocol.netlify.app',
   'https://digitalcpu.github.io',
   'http://127.0.0.1:8019',
   'http://localhost:8019'
@@ -12,7 +13,7 @@ function corsHeaders(request) {
   const allowOrigin = ALLOWED_ORIGINS.has(origin) ? origin : 'https://livesatellite.netlify.app';
   return {
     'Access-Control-Allow-Origin': allowOrigin,
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-ID-Session, X-Update-Secret, X-Admin-Secret, X-Globe-User',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-ID-Session, X-Device-ID, X-Update-Secret, X-Admin-Secret, X-Globe-User',
     'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
     'Vary': 'Origin'
   };
@@ -311,16 +312,33 @@ export default {
     if (url.pathname === '/api/id/status' && request.method === 'GET') return proxyToTunnel(request, env, '/api/id/status');
     if (url.pathname === '/api/id/me' && request.method === 'GET') return proxyToTunnel(request, env, '/api/id/me');
     if (url.pathname === '/api/id/files' && request.method === 'GET') return proxyToTunnel(request, env, `/api/id/files${url.search}`);
+    if (url.pathname === '/api/id/file/fx' && request.method === 'GET') return proxyToTunnel(request, env, `/api/id/file/fx${url.search}`);
     if (url.pathname === '/api/id/file' && request.method === 'GET') return proxyToTunnel(request, env, `/api/id/file${url.search}`);
     if (url.pathname === '/api/id/register' && request.method === 'POST') return proxyToTunnel(request, env, '/api/id/register');
     if (url.pathname === '/api/id/login' && request.method === 'POST') return proxyToTunnel(request, env, '/api/id/login');
     if (url.pathname === '/api/id/logout' && request.method === 'POST') return proxyToTunnel(request, env, '/api/id/logout');
+    if (url.pathname === '/api/id/password' && request.method === 'POST') return proxyToTunnel(request, env, '/api/id/password');
+    if (url.pathname === '/api/id/email' && request.method === 'POST') return proxyToTunnel(request, env, '/api/id/email');
+    if (url.pathname === '/api/id/delete-account' && request.method === 'POST') return proxyToTunnel(request, env, '/api/id/delete-account');
+    if (url.pathname === '/api/ghost/register' && request.method === 'POST') return proxyToTunnel(request, env, '/api/ghost/register');
+    if (url.pathname === '/api/ghost/login' && request.method === 'POST') return proxyToTunnel(request, env, '/api/ghost/login');
+    if (url.pathname === '/api/ghost/control/status' && request.method === 'GET') return proxyToTunnel(request, env, '/api/ghost/control/status');
+    if (url.pathname === '/api/ghost/control/command' && request.method === 'POST') return proxyToTunnel(request, env, '/api/ghost/control/command');
     if (url.pathname === '/api/id/files/upload/start' && request.method === 'POST') return proxyToTunnel(request, env, '/api/id/files/upload/start');
     if (url.pathname === '/api/id/files/upload/chunk' && request.method === 'POST') return proxyToTunnel(request, env, `/api/id/files/upload/chunk${url.search}`);
     if (url.pathname === '/api/id/files/upload/finish' && request.method === 'POST') return proxyToTunnel(request, env, '/api/id/files/upload/finish');
     if (url.pathname === '/api/id/files/upload/cancel' && request.method === 'POST') return proxyToTunnel(request, env, '/api/id/files/upload/cancel');
     if (url.pathname === '/api/id/files/upload' && request.method === 'POST') return proxyToTunnel(request, env, '/api/id/files/upload');
     if (url.pathname === '/api/id/files/delete' && request.method === 'POST') return proxyToTunnel(request, env, '/api/id/files/delete');
+    if (url.pathname === '/api/board/categories' && request.method === 'GET') return proxyToTunnel(request, env, '/api/board/categories');
+    if (url.pathname === '/api/board/posts' && request.method === 'GET') return proxyToTunnel(request, env, `/api/board/posts${url.search}`);
+    if (url.pathname === '/api/board/posts' && request.method === 'POST') return proxyToTunnel(request, env, '/api/board/posts');
+    if (url.pathname === '/api/board/posts' && request.method === 'DELETE') return proxyToTunnel(request, env, '/api/board/posts');
+    if (url.pathname === '/api/board/thread' && request.method === 'GET') return proxyToTunnel(request, env, `/api/board/thread${url.search}`);
+    if (url.pathname === '/api/board/replies' && request.method === 'POST') return proxyToTunnel(request, env, '/api/board/replies');
+    if (url.pathname === '/api/board/replies' && request.method === 'DELETE') return proxyToTunnel(request, env, '/api/board/replies');
+    if (url.pathname === '/api/board/images' && request.method === 'GET') return proxyToTunnel(request, env, '/api/board/images');
+    if (url.pathname === '/api/board/image' && request.method === 'GET') return proxyToTunnel(request, env, `/api/board/image${url.search}`);
     if (url.pathname === '/api/news' && request.method === 'GET') return proxyToTunnel(request, env, `/api/news${url.search}`);
     if (url.pathname === '/api/geocode' && request.method === 'GET') return proxyToTunnel(request, env, `/api/geocode${url.search}`);
     if (url.pathname === '/api/geo' && request.method === 'POST') return proxyToTunnel(request, env, '/api/geo');
