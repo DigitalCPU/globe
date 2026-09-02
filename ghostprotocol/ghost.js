@@ -669,8 +669,8 @@
     if (!isOwner() || !postId) return;
     if (!window.confirm('Delete this board thread and its replies?')) return;
     try {
-      await api('/api/board/posts', {
-        method: 'DELETE',
+      await api('/api/board/posts/delete', {
+        method: 'POST',
         body: JSON.stringify({ post_id: postId })
       });
       write('thread deleted');
@@ -684,8 +684,8 @@
     if (!isOwner() || !replyId) return;
     if (!window.confirm('Delete this reply?')) return;
     try {
-      await api('/api/board/replies', {
-        method: 'DELETE',
+      await api('/api/board/replies/delete', {
+        method: 'POST',
         body: JSON.stringify({ reply_id: replyId })
       });
       write('reply deleted');

@@ -334,9 +334,11 @@ export default {
     if (url.pathname === '/api/board/posts' && request.method === 'GET') return proxyToTunnel(request, env, `/api/board/posts${url.search}`);
     if (url.pathname === '/api/board/posts' && request.method === 'POST') return proxyToTunnel(request, env, '/api/board/posts');
     if (url.pathname === '/api/board/posts' && request.method === 'DELETE') return proxyToTunnel(request, env, '/api/board/posts');
+    if (url.pathname === '/api/board/posts/delete' && request.method === 'POST') return proxyToTunnel(request, env, '/api/board/posts/delete');
     if (url.pathname === '/api/board/thread' && request.method === 'GET') return proxyToTunnel(request, env, `/api/board/thread${url.search}`);
     if (url.pathname === '/api/board/replies' && request.method === 'POST') return proxyToTunnel(request, env, '/api/board/replies');
     if (url.pathname === '/api/board/replies' && request.method === 'DELETE') return proxyToTunnel(request, env, '/api/board/replies');
+    if (url.pathname === '/api/board/replies/delete' && request.method === 'POST') return proxyToTunnel(request, env, '/api/board/replies/delete');
     if (url.pathname === '/api/board/images' && request.method === 'GET') return proxyToTunnel(request, env, '/api/board/images');
     if (url.pathname === '/api/board/image' && request.method === 'GET') return proxyToTunnel(request, env, `/api/board/image${url.search}`);
     if (url.pathname === '/api/news' && request.method === 'GET') return proxyToTunnel(request, env, `/api/news${url.search}`);

@@ -449,8 +449,8 @@
       if (!confirm('Delete this board thread and its replies?')) return;
       if (threadStatus) threadStatus.textContent = 'deleting thread...';
       try {
-        await api('/api/board/posts', {
-          method: 'DELETE',
+        await api('/api/board/posts/delete', {
+          method: 'POST',
           body: JSON.stringify({ post_id: postId })
         });
         showThreadView(false);
@@ -467,8 +467,8 @@
       if (threadStatus) threadStatus.textContent = 'deleting reply...';
       try {
         const postId = state.activePostId;
-        await api('/api/board/replies', {
-          method: 'DELETE',
+        await api('/api/board/replies/delete', {
+          method: 'POST',
           body: JSON.stringify({ reply_id: replyId })
         });
         await refreshBoard();
