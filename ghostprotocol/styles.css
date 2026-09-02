@@ -225,6 +225,57 @@ body.terminal-closed .terminal {
   background: rgba(0, 24, 5, 0.22);
 }
 
+.database-panel {
+  display: grid;
+  gap: 8px;
+  margin: 10px 0;
+}
+
+.database-section {
+  border: 1px solid var(--green-faint);
+  background: rgba(0, 24, 5, 0.18);
+}
+
+.database-section-toggle {
+  display: block;
+  width: 100%;
+  min-height: 38px;
+  padding: 8px;
+  border: 0;
+  background: transparent;
+  color: var(--green);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.database-section-toggle::before {
+  content: '> ';
+}
+
+.database-section-toggle:hover,
+.database-section-toggle:focus {
+  color: #b8ffc5;
+  outline: 0;
+  text-decoration: underline;
+}
+
+.database-section-body {
+  padding: 0 8px 8px;
+}
+
+.document-preview {
+  max-height: 320px;
+  overflow: auto;
+  margin: 8px 0 0;
+  padding: 8px;
+  border: 1px solid var(--green-faint);
+  color: var(--green);
+  background: #000;
+  font: inherit;
+  white-space: pre-wrap;
+}
+
 .board-panel {
   margin: 10px 0;
   padding: 8px;
