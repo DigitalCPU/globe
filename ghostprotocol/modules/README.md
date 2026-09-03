@@ -8,6 +8,7 @@ GhostProtocol is loaded directly by `ghostprotocol/index.html`; there is no buil
 - `auth.js` holds sign-up, sign-in, sign-out, and session refresh.
 - `files.js` holds uploads, camera upload, MyDatabase, categorized file sections, image gallery previews, text document reading, rename, download, and send-to-board actions.
 - `board.js` holds the message board, thread view, replies, and owner delete controls.
+- `chat.js` holds GhostProtocol terminal AI chat and Votronix voice playback through the existing LiveSatellite backend routes.
 - `app.js` wires commands, form submission, window controls, fullscreen behavior, and startup.
 
 Keep backend-only logic in the local Python project. Public browser code should call backend API endpoints rather than storing private data here.

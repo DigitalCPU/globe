@@ -12,6 +12,7 @@
       GP.write('  mydatabase     open files stored in your local profile folder');
       GP.write('  camera         use camera and save to your local profile folder');
       GP.write('  board          open the message board');
+      GP.write('  chat           open AI terminal chat with voice output');
       GP.write('  post board     write a new message board post');
       GP.write('  close board    close the message board view');
     } else {
@@ -39,11 +40,13 @@
     GP.write('2) my database');
     GP.write('3) use camera');
     GP.write('4) message board');
-    GP.write('5) sign out');
+    GP.write('5) AI chat');
+    GP.write('6) sign out');
     GP.commandButton('upload', 'upload');
     GP.commandButton('mydatabase', 'mydatabase');
     GP.commandButton('camera', 'camera');
     GP.commandButton('board', 'board');
+    GP.commandButton('chat', 'chat');
     GP.commandButton('post board', 'post-board');
     GP.commandButton('sign out', 'sign-out');
     GP.write('');

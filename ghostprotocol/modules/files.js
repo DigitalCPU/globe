@@ -116,6 +116,10 @@
     return type.startsWith('text/') || /\.(css|csv|html?|js|json|log|md|py|txt|xml|yaml|yml)$/.test(name);
   }
 
+  function isDb3Document(file) {
+    return /\.(db|db3|sqlite|sqlite3)$/.test(fileName(file).toLowerCase());
+  }
+
   function categorizedFiles(files) {
     return {
       images: files.filter((file) => fileType(file) === 'images'),
@@ -266,6 +270,28 @@
     }
   }
 
+  async function inspectDb3File(file, row) {
+    if (!isDb3Document(file)) {
+      GP.write('database preview is available for .db, .db3, .sqlite, and .sqlite3 files only.', 'error');
+      return;
+    }
+    const existing = row.querySelector('.document-preview');
+    if (existing) {
+      existing.remove();
+      return;
+    }
+    try {
+      const data = await GP.api(`/api/id/file/db3?file_id=${encodeURIComponent(file.file_id)}`);
+      const preview = document.createElement('pre');
+      preview.className = 'document-preview';
+      preview.textContent = data.preview || 'No database preview available.';
+      row.appendChild(preview);
+      GP.autoScroll();
+    } catch (error) {
+      GP.write(error.message || 'database inspect failed', 'error');
+    }
+  }
+
   function renderFileRows(files, sectionBody, options = {}) {
     files.forEach((file, index) => {
       const row = document.createElement('div');
@@ -278,6 +304,9 @@
       }
       if (options.read && isTextDocument(file)) {
         row.appendChild(actionButton('read', () => readTextFile(file, row)));
+      }
+      if (options.inspectDb && isDb3Document(file)) {
+        row.appendChild(actionButton('inspect db3', () => inspectDb3File(file, row)));
       }
       row.appendChild(actionButton('download', () => downloadFile(file).catch((error) => GP.write(error.message, 'error'))));
       row.appendChild(actionButton('rename', () => renameFile(file)));
@@ -397,7 +426,7 @@
       database.appendChild(databaseSection('Images', groups.images, renderImageModes));
       database.appendChild(databaseSection('Audio', groups.audio, (files, body) => renderFileRows(files, body)));
       database.appendChild(databaseSection('Video', groups.video, (files, body) => renderFileRows(files, body)));
-      database.appendChild(databaseSection('Documents', groups.documents, (files, body) => renderFileRows(files, body, { read: true })));
+      database.appendChild(databaseSection('Documents', groups.documents, (files, body) => renderFileRows(files, body, { read: true, inspectDb: true })));
       GP.dom.screen.appendChild(database);
       GP.dom.screen.scrollTop = GP.dom.screen.scrollHeight;
     } catch (error) {

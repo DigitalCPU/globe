@@ -3,6 +3,7 @@
   const API_BASE = ['127.0.0.1', 'localhost'].includes(window.location.hostname) ? '' : RELAY_BASE;
   const sessionKey = 'ghostprotocol:session:v1';
   const deviceKey = 'ghostprotocol:device-id:v1';
+  const voiceEnabledKey = 'ghostprotocol:voice-enabled:v1';
 
   const dom = {
     screen: document.getElementById('screen'),
@@ -24,6 +25,10 @@
     posts: [],
     fullscreenAttempted: false,
     promptHandler: null,
+    chatMode: false,
+    chatMessages: [],
+    activeVoiceAudio: null,
+    voiceOutputEnabled: localStorage.getItem(voiceEnabledKey) !== 'off',
     controlMode: false,
     boardOpen: false,
     boardElement: null
@@ -167,6 +172,7 @@
   window.GhostProtocol = {
     API_BASE,
     sessionKey,
+    voiceEnabledKey,
     dom,
     state,
     write,

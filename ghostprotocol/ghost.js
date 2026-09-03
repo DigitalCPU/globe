@@ -6,13 +6,14 @@
     'modules/auth.js',
     'modules/files.js',
     'modules/board.js',
+    'modules/chat.js',
     'modules/app.js'
   ];
 
   function loadNext(index) {
     if (index >= modules.length) return;
     const script = document.createElement('script');
-    script.src = `${modules[index]}?v=ghost20`;
+    script.src = `${modules[index]}?v=ghost22`;
     script.onload = () => loadNext(index + 1);
     script.onerror = () => console.error(`GhostProtocol module failed: ${modules[index]}`);
     document.body.appendChild(script);

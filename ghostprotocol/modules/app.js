@@ -15,6 +15,14 @@
     const command = rawCommand.toLowerCase();
     const key = GP.commandKey(rawCommand);
     if (!command) return;
+    if (GP.state.chatMode) {
+      if (key === 'exitchat' || key === 'exit' || key === 'quit') {
+        GP.exitChat();
+      } else {
+        void GP.sendChat(rawCommand);
+      }
+      return;
+    }
     GP.write(`> ${rawCommand}`);
     if (command === 'access control panel ui') {
       void GP.accessControlPanelUi();
@@ -32,9 +40,10 @@
     else if (command === 'mydatabase' || command === 'database' || command === 'uploaded-files' || command === 'files' || command === '2') void GP.myDatabase();
     else if (command === 'camera' || command === 'use camera' || command === '3') void GP.camera();
     else if (command === 'board' || command === 'message board' || command === '4') void GP.board();
+    else if (command === 'chat' || command === 'ai' || command === '5') GP.enterChat();
     else if (key === 'postboard' || key === 'boardpost') void GP.postBoardMessage();
     else if (key === 'closeboard' || key === 'boardclose') GP.closeBoard();
-    else if (['logout', 'signout', 'logoff'].includes(key) || command === '5') GP.logout();
+    else if (['logout', 'signout', 'logoff'].includes(key) || command === '6') GP.logout();
     else if (command === 'clear') GP.clear();
     else if (command === 'full' || command === 'fullscreen' || command === 'immersion') void GP.enterFullscreen();
     else GP.write('unknown command. type help.', 'error');
