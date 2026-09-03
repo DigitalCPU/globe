@@ -188,6 +188,21 @@
     }
   }
 
+  async function deleteFile(file) {
+    const name = fileName(file);
+    if (!window.confirm(`Delete ${name}?`)) return;
+    try {
+      await GP.api('/api/id/files/delete', {
+        method: 'POST',
+        body: JSON.stringify({ file_id: file.file_id })
+      });
+      GP.write(`deleted: ${name}`);
+      await myDatabase();
+    } catch (error) {
+      GP.write(error.message || 'delete failed', 'error');
+    }
+  }
+
   async function sendFileToBoard(file) {
     await GP.api('/api/board/posts', {
       method: 'POST',
@@ -266,10 +281,78 @@
       }
       row.appendChild(actionButton('download', () => downloadFile(file).catch((error) => GP.write(error.message, 'error'))));
       row.appendChild(actionButton('rename', () => renameFile(file)));
+      row.appendChild(actionButton('delete', () => deleteFile(file)));
       if (options.board) {
         row.appendChild(actionButton('send to board', () => sendFileToBoard(file).catch((error) => GP.write(error.message, 'error'))));
       }
     });
+  }
+
+  function renderImageModes(files, sectionBody) {
+    const controls = document.createElement('div');
+    controls.className = 'image-mode-controls';
+    const content = document.createElement('div');
+    content.className = 'image-mode-content';
+
+    function renderList() {
+      content.innerHTML = '';
+      renderFileRows(files, content, { view: true, board: true });
+      GP.autoScroll();
+    }
+
+    function renderGallery() {
+      content.innerHTML = '';
+      const gallery = document.createElement('div');
+      gallery.className = 'image-gallery-grid';
+      const preview = document.createElement('div');
+      preview.className = 'image-gallery-preview';
+      preview.hidden = true;
+      const slots = 20;
+
+      for (let index = 0; index < slots; index += 1) {
+        const file = files[index];
+        const slot = document.createElement(file ? 'button' : 'div');
+        slot.className = 'image-gallery-slot';
+        if (!file) {
+          slot.setAttribute('aria-hidden', 'true');
+          gallery.appendChild(slot);
+          continue;
+        }
+        slot.type = 'button';
+        slot.setAttribute('aria-label', `open ${fileName(file)}`);
+        fetch(`${GP.API_BASE}/api/id/file/fx?file_id=${encodeURIComponent(file.file_id)}`, {
+          headers: { 'X-ID-Session': GP.token(), 'X-Device-ID': GP.deviceId() }
+        }).then((response) => {
+          if (!response.ok) throw new Error(`preview failed: ${response.status}`);
+          return response.blob();
+        }).then((blob) => {
+          const url = URL.createObjectURL(blob);
+          const image = document.createElement('img');
+          image.src = url;
+          image.alt = fileName(file);
+          image.addEventListener('load', () => URL.revokeObjectURL(url), { once: true });
+          slot.appendChild(image);
+        }).catch(() => {
+          slot.classList.add('is-unavailable');
+        });
+        slot.addEventListener('click', () => {
+          preview.hidden = false;
+          preview.innerHTML = '';
+          void viewFile(file, preview);
+        });
+        gallery.appendChild(slot);
+      }
+
+      content.appendChild(gallery);
+      content.appendChild(preview);
+      GP.autoScroll();
+    }
+
+    controls.appendChild(actionButton('gallery', renderGallery));
+    controls.appendChild(actionButton('list', renderList));
+    sectionBody.appendChild(controls);
+    sectionBody.appendChild(content);
+    renderList();
   }
 
   function databaseSection(label, files, renderer) {
@@ -307,9 +390,11 @@
         return;
       }
       const groups = categorizedFiles(GP.state.files);
+      if (GP.state.databaseElement) GP.state.databaseElement.remove();
       const database = document.createElement('div');
       database.className = 'database-panel';
-      database.appendChild(databaseSection('Images', groups.images, (files, body) => renderFileRows(files, body, { view: true, board: true })));
+      GP.state.databaseElement = database;
+      database.appendChild(databaseSection('Images', groups.images, renderImageModes));
       database.appendChild(databaseSection('Audio', groups.audio, (files, body) => renderFileRows(files, body)));
       database.appendChild(databaseSection('Video', groups.video, (files, body) => renderFileRows(files, body)));
       database.appendChild(databaseSection('Documents', groups.documents, (files, body) => renderFileRows(files, body, { read: true })));
