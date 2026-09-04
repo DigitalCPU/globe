@@ -152,6 +152,7 @@
       existing.remove();
       return;
     }
+    const reviewing = GP.animatedStatusLine ? GP.animatedStatusLine('reviewing image') : null;
     try {
       const response = await fetch(`${GP.API_BASE}/api/id/file/fx?file_id=${encodeURIComponent(file.file_id)}`, {
         headers: { 'X-ID-Session': GP.token(), 'X-Device-ID': GP.deviceId() }
@@ -167,10 +168,28 @@
       image.addEventListener('load', () => URL.revokeObjectURL(url), { once: true });
       wrap.appendChild(image);
       row.appendChild(wrap);
+      if (reviewing) reviewing.remove();
       GP.autoScroll();
     } catch (error) {
+      if (reviewing) reviewing.remove();
       GP.write(error.message || 'preview failed', 'error');
     }
+  }
+
+  async function loadFxImage(file, container, className = '') {
+    const response = await fetch(`${GP.API_BASE}/api/id/file/fx?file_id=${encodeURIComponent(file.file_id)}`, {
+      headers: { 'X-ID-Session': GP.token(), 'X-Device-ID': GP.deviceId() }
+    });
+    if (!response.ok) throw new Error(`preview failed: ${response.status}`);
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const image = document.createElement('img');
+    image.className = className;
+    image.src = url;
+    image.alt = fileName(file);
+    image.addEventListener('load', () => URL.revokeObjectURL(url), { once: true });
+    container.appendChild(image);
+    return image;
   }
 
   async function renameFile(file) {
@@ -292,6 +311,108 @@
     }
   }
 
+  async function askAiAboutFile(file, row) {
+    let reviewing = null;
+    try {
+      const question = await GP.promptLine(`ask AI about ${fileName(file)}:`);
+      reviewing = GP.animatedStatusLine ? GP.animatedStatusLine(isImageFile(file) ? 'reviewing image' : 'AI thinking') : null;
+      const data = await GP.api('/api/id/file/explain', {
+        method: 'POST',
+        body: JSON.stringify({
+          file_id: file.file_id,
+          question: question.trim() || 'Tell me what this file is.'
+        })
+      });
+      if (reviewing) reviewing.remove();
+      const reply = String(data.reply || '').trim();
+      if (!reply) throw new Error('empty AI reply');
+      if (GP.writeAiReply) GP.writeAiReply(reply);
+      else GP.write(`ai> ${reply}`);
+      if (GP.state.chatMessages) {
+        GP.state.chatMessages.push({ role: 'user', content: `[MyDatabase file: ${fileName(file)}] ${question.trim() || 'Tell me what this file is.'}` });
+        GP.state.chatMessages.push({ role: 'assistant', content: reply });
+      }
+      GP.autoScroll();
+    } catch (error) {
+      if (reviewing) reviewing.remove();
+      GP.write(error.message || 'file interpretation failed', 'error');
+    }
+  }
+
+  function formatVisionAnalysis(data) {
+    const analysis = data.analysis || {};
+    const lines = ['AI image notes'];
+    if (data.analyzer) {
+      lines.push(`local only: ${data.analyzer.local_only ? 'yes' : 'no'}`);
+      lines.push(`model: ${data.analyzer.model || 'local-qwen-vl'}`);
+    }
+    if (data.analyzed_at) lines.push(`analyzed: ${data.analyzed_at}`);
+    lines.push('');
+    lines.push(`caption: ${analysis.caption || 'no caption available'}`);
+    if (Array.isArray(analysis.visible_text) && analysis.visible_text.length) {
+      lines.push(`visible text: ${analysis.visible_text.join(' | ')}`);
+    }
+    if (Array.isArray(analysis.objects) && analysis.objects.length) {
+      lines.push(`objects: ${analysis.objects.map((item) => (
+        typeof item === 'string' ? item : (item.label || JSON.stringify(item))
+      )).join(', ')}`);
+    }
+    if (analysis.people_count !== undefined && analysis.people_count !== null) {
+      lines.push(`people count: ${analysis.people_count}`);
+    }
+    if (analysis.safe_person_notes) lines.push(`person notes: ${analysis.safe_person_notes}`);
+    if (Array.isArray(analysis.warnings) && analysis.warnings.length) {
+      lines.push(`warnings: ${analysis.warnings.join(' | ')}`);
+    }
+    if (analysis.confidence) lines.push(`confidence: ${analysis.confidence}`);
+    if (analysis.metadata) {
+      const width = analysis.metadata.width || '?';
+      const height = analysis.metadata.height || '?';
+      lines.push(`metadata: ${width}x${height} ${analysis.metadata.format || ''}`.trim());
+    }
+    if (analysis.raw_output) {
+      lines.push('', 'raw output:', String(analysis.raw_output).slice(0, 4000));
+    }
+    return lines.join('\n');
+  }
+
+  async function showImageAnalysis(file, row) {
+    const existing = row.querySelector('.vision-preview');
+    if (existing) {
+      existing.remove();
+      return;
+    }
+    try {
+      const data = await GP.api(`/api/id/file/analysis?file_id=${encodeURIComponent(file.file_id)}`);
+      const preview = document.createElement('pre');
+      preview.className = 'document-preview vision-preview';
+      preview.textContent = formatVisionAnalysis(data);
+      row.appendChild(preview);
+      GP.autoScroll();
+    } catch (error) {
+      GP.write(error.message || 'no image notes saved yet', 'error');
+    }
+  }
+
+  async function analyzeImage(file, row) {
+    const reviewing = GP.animatedStatusLine ? GP.animatedStatusLine('reviewing image') : null;
+    try {
+      const data = await GP.api(`/api/id/file/analyze?file_id=${encodeURIComponent(file.file_id)}`, { method: 'POST' });
+      const existing = row.querySelector('.vision-preview');
+      if (existing) existing.remove();
+      const preview = document.createElement('pre');
+      preview.className = 'document-preview vision-preview';
+      preview.textContent = formatVisionAnalysis(data);
+      row.appendChild(preview);
+      if (reviewing) reviewing.remove();
+      GP.write(`image notes saved: ${fileName(file)}`);
+      GP.autoScroll();
+    } catch (error) {
+      if (reviewing) reviewing.remove();
+      GP.write(error.message || 'image analysis failed', 'error');
+    }
+  }
+
   function renderFileRows(files, sectionBody, options = {}) {
     files.forEach((file, index) => {
       const row = document.createElement('div');
@@ -302,11 +423,18 @@
       if (options.view && isImageFile(file)) {
         row.appendChild(actionButton('view', () => viewFile(file, row)));
       }
+      if (options.analyze && isImageFile(file)) {
+        row.appendChild(actionButton('analyze', () => analyzeImage(file, row)));
+        row.appendChild(actionButton('notes', () => showImageAnalysis(file, row)));
+      }
       if (options.read && isTextDocument(file)) {
         row.appendChild(actionButton('read', () => readTextFile(file, row)));
       }
       if (options.inspectDb && isDb3Document(file)) {
         row.appendChild(actionButton('inspect db3', () => inspectDb3File(file, row)));
+      }
+      if (GP.state.chatMode) {
+        row.appendChild(actionButton('ask ai', () => askAiAboutFile(file, row)));
       }
       row.appendChild(actionButton('download', () => downloadFile(file).catch((error) => GP.write(error.message, 'error'))));
       row.appendChild(actionButton('rename', () => renameFile(file)));
@@ -325,7 +453,7 @@
 
     function renderList() {
       content.innerHTML = '';
-      renderFileRows(files, content, { view: true, board: true });
+      renderFileRows(files, content, { view: true, analyze: true, board: true });
       GP.autoScroll();
     }
 
@@ -377,7 +505,72 @@
       GP.autoScroll();
     }
 
+    function renderScroller() {
+      content.innerHTML = '';
+      if (!files.length) {
+        content.textContent = 'empty';
+        return;
+      }
+
+      let activeIndex = 0;
+      const viewer = document.createElement('div');
+      viewer.className = 'image-loop-viewer';
+      const controlsRow = document.createElement('div');
+      controlsRow.className = 'image-loop-controls';
+      const counter = document.createElement('span');
+      counter.className = 'image-loop-counter';
+      const strip = document.createElement('div');
+      strip.className = 'image-loop-strip';
+      const large = document.createElement('div');
+      large.className = 'image-loop-large';
+
+      function setActive(index) {
+        activeIndex = (index + files.length) % files.length;
+        counter.textContent = `${activeIndex + 1}/${files.length} ${fileName(files[activeIndex])}`;
+        [...strip.querySelectorAll('.image-loop-thumb')].forEach((button, thumbIndex) => {
+          button.classList.toggle('is-active', thumbIndex === activeIndex);
+        });
+        const activeThumb = strip.querySelector(`[data-index="${activeIndex}"]`);
+        if (activeThumb) activeThumb.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+        large.innerHTML = '';
+        loadFxImage(files[activeIndex], large, 'image-loop-large-image').catch((error) => {
+          large.textContent = error.message || 'image preview failed';
+        });
+      }
+
+      controlsRow.appendChild(actionButton('<', () => setActive(activeIndex - 1)));
+      controlsRow.appendChild(counter);
+      controlsRow.appendChild(actionButton('>', () => setActive(activeIndex + 1)));
+
+      files.forEach((file, index) => {
+        const thumb = document.createElement('button');
+        thumb.className = 'image-loop-thumb';
+        thumb.type = 'button';
+        thumb.dataset.index = String(index);
+        thumb.setAttribute('aria-label', `open ${fileName(file)}`);
+        thumb.addEventListener('click', () => setActive(index));
+        loadFxImage(file, thumb, 'image-loop-thumb-image').catch(() => {
+          thumb.classList.add('is-unavailable');
+        });
+        strip.appendChild(thumb);
+      });
+
+      strip.addEventListener('wheel', (event) => {
+        if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
+        event.preventDefault();
+        strip.scrollLeft += event.deltaY;
+      }, { passive: false });
+
+      viewer.appendChild(controlsRow);
+      viewer.appendChild(strip);
+      viewer.appendChild(large);
+      content.appendChild(viewer);
+      setActive(0);
+      GP.autoScroll();
+    }
+
     controls.appendChild(actionButton('gallery', renderGallery));
+    controls.appendChild(actionButton('scroll', renderScroller));
     controls.appendChild(actionButton('list', renderList));
     sectionBody.appendChild(controls);
     sectionBody.appendChild(content);
@@ -435,6 +628,12 @@
   }
 
   GP.upload = upload;
+  GP.uploadFile = uploadFile;
+  GP.chooseFile = chooseFile;
+  GP.fileName = fileName;
+  GP.fileMeta = fileMeta;
+  GP.isImageFile = isImageFile;
+  GP.isTextDocument = isTextDocument;
   GP.camera = camera;
   GP.myDatabase = myDatabase;
   GP.fetchBoardImage = fetchBoardImage;

@@ -2,7 +2,8 @@
   const CHAT_OPENING = [
     'You are speaking through GhostProtocol.',
     'Answer as a concise terminal assistant.',
-    'Help with public GhostProtocol features: sign-in, upload, MyDatabase, camera, message board, and chat.',
+    'Help with public GhostProtocol features: sign-in, upload, MyDatabase, camera, message board, chat, and local image interpretation.',
+    'When the user asks about pictures or images, explain that GhostProtocol can review uploaded images with the local Qwen vision model.',
     'Do not reveal backend paths, hidden commands, tokens, server internals, admin controls, or private implementation details.',
     'Do not use emojis or emoticons because voice output may pronounce them poorly.'
   ].join(' ');
@@ -18,26 +19,19 @@
     if (!GP.requireAccount()) return;
     GP.state.chatMode = true;
     GP.state.chatMessages = [];
-    GP.write('AI session opened.');
-    GP.write('type exit chat to return to terminal.');
+    if (GP.dom.appTitle) GP.dom.appTitle.textContent = 'Ghost Protocol / AI session opened';
+    if (GP.dom.terminalHint) GP.dom.terminalHint.textContent = 'type exit chat to return to terminal';
+    GP.commandButton('files', 'files');
     GP.commandButton('voice options', 'voice options');
     GP.commandButton('AI options', 'AI options');
-    GP.commandButton('voice on', 'voice on');
-    GP.commandButton('voice off', 'voice off');
     GP.write('');
   }
 
   function exitChat() {
     GP.state.chatMode = false;
+    if (GP.dom.appTitle) GP.dom.appTitle.textContent = 'Ghost Protocol';
+    if (GP.dom.terminalHint) GP.dom.terminalHint.textContent = "type 'help' to access terminal";
     GP.write('AI session closed.');
-  }
-
-  function audioButton(label, handler) {
-    const button = GP.inlineButton(label, handler);
-    button.classList.add('voice-playback-button');
-    GP.dom.screen.appendChild(button);
-    GP.autoScroll();
-    return button;
   }
 
   function animatedStatusLine(text) {
@@ -70,11 +64,21 @@
     GP.write(`voice output: ${enabled ? 'on' : 'off'}`);
   }
 
+  function setVoiceAutoplay(enabled) {
+    GP.state.voiceAutoplayEnabled = Boolean(enabled);
+    localStorage.setItem(GP.voiceAutoplayKey, enabled ? 'on' : 'off');
+    GP.write(`voice auto play: ${enabled ? 'on' : 'off'}`);
+  }
+
   async function showVoiceOptions() {
     GP.write('voice options');
     writeOptionValue('chat voice output', GP.state.voiceOutputEnabled ? 'on' : 'off');
+    writeOptionValue('auto play', GP.state.voiceAutoplayEnabled ? 'on' : 'off');
     GP.commandButton('voice on', 'voice on');
     GP.commandButton('voice off', 'voice off');
+    GP.commandButton('auto play', 'auto play');
+    GP.commandButton('auto play on', 'auto play on');
+    GP.commandButton('auto play off', 'auto play off');
     try {
       const data = await GP.api('/api/voice/status');
       writeOptionValue('voice enabled', data.voice_enabled ? 'yes' : 'no');
@@ -94,6 +98,9 @@
       const data = await GP.api('/api/status');
       writeOptionValue('backend', data.ready ? 'ready' : 'not ready');
       writeOptionValue('model', data.model);
+      if (data.vision) {
+        writeOptionValue('vision', data.vision.enabled ? data.vision.model : 'off');
+      }
       if (data.host && data.port) writeOptionValue('local endpoint', `${data.host}:${data.port}`);
     } catch (error) {
       GP.write(`AI options unavailable: ${error.message}`, 'error');
@@ -108,22 +115,172 @@
     return URL.createObjectURL(await response.blob());
   }
 
-  async function playAudioUrl(url, button) {
+  function stopActiveVoice() {
     if (GP.state.activeVoiceAudio) {
       GP.state.activeVoiceAudio.pause();
+      GP.state.activeVoiceAudio.currentTime = 0;
       GP.state.activeVoiceAudio = null;
     }
-    const audio = new Audio(url);
-    GP.state.activeVoiceAudio = audio;
-    audio.addEventListener('ended', () => {
-      if (button) button.textContent = 'replay voice';
-      if (GP.state.activeVoiceAudio === audio) GP.state.activeVoiceAudio = null;
-    }, { once: true });
-    await audio.play();
-    if (button) button.textContent = 'playing voice';
+    if (GP.state.activeVoiceReply) {
+      GP.state.activeVoiceReply.classList.remove('is-voice-playing');
+      GP.state.activeVoiceReply = null;
+    }
   }
 
-  async function speakReply(text) {
+  function writeAiReply(reply) {
+    const wrap = document.createElement('button');
+    wrap.type = 'button';
+    wrap.className = 'ai-reply';
+    wrap.setAttribute('aria-label', 'Play or stop AI voice reply');
+
+    const label = document.createElement('span');
+    label.className = 'ai-reply-label';
+    label.textContent = 'ai>';
+
+    const body = document.createElement('span');
+    body.className = 'ai-reply-body';
+    body.textContent = reply;
+
+    wrap.append(label, body);
+    wrap.addEventListener('click', () => {
+      if (!GP.state.voiceOutputEnabled) {
+        GP.write('voice output is off.', 'hint');
+        return;
+      }
+      toggleReplyVoice(wrap, reply).catch((error) => GP.write(`voice unavailable: ${error.message}`, 'error'));
+    });
+    GP.dom.screen.appendChild(wrap);
+    GP.autoScroll();
+    if (GP.state.voiceOutputEnabled && GP.state.voiceAutoplayEnabled) {
+      void toggleReplyVoice(wrap, reply);
+    }
+    return wrap;
+  }
+
+  function showFilesOptions() {
+    GP.write('files');
+    GP.commandButton('upload', 'upload');
+    GP.commandButton('mydatabase', 'mydatabase');
+    GP.commandButton('camera', 'camera');
+    GP.commandButton('upload/local', 'upload/local');
+  }
+
+  async function askAboutStoredFile(stored, defaultQuestion = 'Tell me what this file is.') {
+    const question = await GP.promptLine('ask AI about this file:');
+    const thinking = animatedStatusLine(GP.isImageFile?.(stored) ? 'reviewing image' : 'AI thinking');
+    try {
+      const data = await GP.api('/api/id/file/explain', {
+        method: 'POST',
+        body: JSON.stringify({
+          file_id: stored.file_id,
+          question: question.trim() || defaultQuestion
+        })
+      });
+      thinking.remove();
+      const reply = String(data.reply || '').trim();
+      if (!reply) throw new Error('empty AI reply');
+      const userText = question.trim() || defaultQuestion;
+      GP.state.chatMessages.push({ role: 'user', content: `[attached file: ${stored.name || stored.stored_name}] ${userText}` });
+      GP.state.chatMessages.push({ role: 'assistant', content: reply });
+      writeAiReply(reply);
+    } catch (error) {
+      thinking.remove();
+      throw error;
+    }
+  }
+
+  async function attachFileToChat(inputElement = GP.dom.fileInput, folder = 'ghost', label = 'file') {
+    if (!GP.requireAccount()) return;
+    const file = await GP.chooseFile(inputElement);
+    if (!file) {
+      GP.write(`${label} upload canceled`);
+      return;
+    }
+    const uploading = animatedStatusLine('uploading file');
+    try {
+      const result = await GP.uploadFile(file, folder);
+      const stored = result.file;
+      uploading.remove();
+      GP.write(`attached> ${stored.name || stored.stored_name} (${GP.formatBytes(stored.size)})`);
+      await askAboutStoredFile(stored);
+    } catch (error) {
+      uploading.remove();
+      GP.write(error.message || 'file chat upload failed', 'error');
+    }
+  }
+
+  async function attachLocalFileToChat() {
+    if (!GP.requireAccount()) return;
+    if (GP.API_BASE) {
+      GP.write('upload/local requires the local GhostProtocol page, not the relay.', 'error');
+      return;
+    }
+    const file = await GP.chooseFile(GP.dom.fileInput);
+    if (!file) {
+      GP.write('local upload canceled');
+      return;
+    }
+    const question = await GP.promptLine('ask AI about this local file:');
+    const thinking = animatedStatusLine(GP.isImageFile?.(file) ? 'reviewing image' : 'AI thinking');
+    try {
+      const params = new URLSearchParams({
+        filename: file.name || 'local-upload.bin',
+        content_type: file.type || 'application/octet-stream',
+        question: question.trim() || 'Tell me what this file is.'
+      });
+      const data = await GP.api(`/api/id/file/explain-local?${params.toString()}`, {
+        method: 'POST',
+        headers: { 'Content-Type': file.type || 'application/octet-stream' },
+        body: file
+      });
+      thinking.remove();
+      const reply = String(data.reply || '').trim();
+      if (!reply) throw new Error('empty AI reply');
+      const userText = question.trim() || 'Tell me what this file is.';
+      GP.write(`local file> ${file.name || 'local upload'} (${GP.formatBytes(file.size)})`);
+      GP.state.chatMessages.push({ role: 'user', content: `[local unsaved file: ${file.name || 'file'}] ${userText}` });
+      GP.state.chatMessages.push({ role: 'assistant', content: reply });
+      writeAiReply(reply);
+    } catch (error) {
+      thinking.remove();
+      GP.write(error.message || 'local file chat failed', 'error');
+    }
+  }
+
+  async function playAudioUrl(url, replyElement) {
+    stopActiveVoice();
+    const audio = new Audio(url);
+    GP.state.activeVoiceAudio = audio;
+    GP.state.activeVoiceReply = replyElement || null;
+    if (replyElement) replyElement.classList.add('is-voice-playing');
+    audio.addEventListener('ended', () => {
+      if (GP.state.activeVoiceAudio === audio) {
+        GP.state.activeVoiceAudio = null;
+        GP.state.activeVoiceReply = null;
+      }
+      if (replyElement) replyElement.classList.remove('is-voice-playing');
+    }, { once: true });
+    try {
+      await audio.play();
+    } catch (error) {
+      if (GP.state.activeVoiceAudio === audio) {
+        GP.state.activeVoiceAudio = null;
+        GP.state.activeVoiceReply = null;
+      }
+      if (replyElement) replyElement.classList.remove('is-voice-playing');
+      throw error;
+    }
+  }
+
+  async function toggleReplyVoice(replyElement, text) {
+    if (GP.state.activeVoiceReply === replyElement && GP.state.activeVoiceAudio) {
+      stopActiveVoice();
+      return;
+    }
+    if (replyElement.dataset.audioUrl) {
+      await playAudioUrl(replyElement.dataset.audioUrl, replyElement);
+      return;
+    }
     const rendering = animatedStatusLine('voice rendering');
     try {
       const data = await GP.api('/api/voice/tts', {
@@ -131,19 +288,12 @@
         body: JSON.stringify({ text })
       });
       const url = await fetchVoiceAudioBlob(data.audio_url || '/api/voice/last.wav');
+      replyElement.dataset.audioUrl = url;
       rendering.remove();
-      const play = audioButton('play voice', () => {
-        playAudioUrl(url, play).catch((error) => GP.write(`voice playback blocked: ${error.message}`, 'error'));
-      });
-      try {
-        await playAudioUrl(url, play);
-      } catch (error) {
-        play.textContent = 'tap to play voice';
-        GP.write('voice ready. tap play voice if the browser blocked autoplay.');
-      }
+      await playAudioUrl(url, replyElement);
     } catch (error) {
       rendering.remove();
-      GP.write(`voice unavailable: ${error.message}`, 'error');
+      throw error;
     }
   }
 
@@ -151,6 +301,34 @@
     const prompt = String(text || '').trim();
     if (!prompt) return;
     const key = GP.commandKey(prompt);
+    const wantsToSendFile = /\b(send|upload|attach|show)\b/i.test(prompt)
+      && /\b(file|image|picture|photo|camera)\b/i.test(prompt);
+    if (key === 'files') {
+      showFilesOptions();
+      return;
+    }
+    if (wantsToSendFile && !['upload', 'camera'].includes(key)) {
+      GP.write(`you> ${prompt}`);
+      showFilesOptions();
+      return;
+    }
+    if (['upload', 'uploadfile', 'attachfile', 'attach', 'file'].includes(key)) {
+      await attachFileToChat();
+      return;
+    }
+    if (['mydatabase', 'database', 'uploadedfiles'].includes(key)) {
+      await GP.myDatabase();
+      GP.write('Use ask ai on a saved file, or choose upload/local for a temporary file.');
+      return;
+    }
+    if (key === 'camera') {
+      await attachFileToChat(GP.dom.cameraInput, 'camera', 'camera');
+      return;
+    }
+    if (key === 'uploadlocal' || key === 'localupload') {
+      await attachLocalFileToChat();
+      return;
+    }
     if (key === 'voiceoptions') {
       await showVoiceOptions();
       return;
@@ -161,6 +339,18 @@
     }
     if (key === 'voiceoff') {
       setVoiceOutput(false);
+      return;
+    }
+    if (key === 'autoplayon') {
+      setVoiceAutoplay(true);
+      return;
+    }
+    if (key === 'autoplayoff') {
+      setVoiceAutoplay(false);
+      return;
+    }
+    if (key === 'autoplay') {
+      setVoiceAutoplay(!GP.state.voiceAutoplayEnabled);
       return;
     }
     if (key === 'aioptions') {
@@ -184,12 +374,7 @@
       GP.state.chatMessages.push({ role: 'user', content: prompt });
       GP.state.chatMessages.push({ role: 'assistant', content: reply });
       thinking.remove();
-      GP.write(`ai> ${reply}`);
-      if (GP.state.voiceOutputEnabled) {
-        void speakReply(reply);
-      } else {
-        GP.write('voice output is off.', 'hint');
-      }
+      writeAiReply(reply);
     } catch (error) {
       thinking.remove();
       GP.write(`chat failed: ${error.message}`, 'error');
@@ -202,4 +387,7 @@
   GP.showVoiceOptions = showVoiceOptions;
   GP.showAiOptions = showAiOptions;
   GP.setVoiceOutput = setVoiceOutput;
+  GP.setVoiceAutoplay = setVoiceAutoplay;
+  GP.animatedStatusLine = animatedStatusLine;
+  GP.writeAiReply = writeAiReply;
 })(window.GhostProtocol);

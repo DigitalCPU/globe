@@ -4,9 +4,12 @@
   const sessionKey = 'ghostprotocol:session:v1';
   const deviceKey = 'ghostprotocol:device-id:v1';
   const voiceEnabledKey = 'ghostprotocol:voice-enabled:v1';
+  const voiceAutoplayKey = 'ghostprotocol:voice-autoplay:v1';
 
   const dom = {
     screen: document.getElementById('screen'),
+    appTitle: document.getElementById('appTitle'),
+    terminalHint: document.getElementById('terminalHint'),
     form: document.getElementById('commandForm'),
     input: document.getElementById('commandInput'),
     fileInput: document.getElementById('fileInput'),
@@ -28,7 +31,9 @@
     chatMode: false,
     chatMessages: [],
     activeVoiceAudio: null,
+    activeVoiceReply: null,
     voiceOutputEnabled: localStorage.getItem(voiceEnabledKey) !== 'off',
+    voiceAutoplayEnabled: localStorage.getItem(voiceAutoplayKey) === 'on',
     controlMode: false,
     boardOpen: false,
     boardElement: null
@@ -173,6 +178,7 @@
     API_BASE,
     sessionKey,
     voiceEnabledKey,
+    voiceAutoplayKey,
     dom,
     state,
     write,
