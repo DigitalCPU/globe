@@ -101,10 +101,25 @@
     const type = response.headers.get('Content-Type') || '';
     const payload = type.includes('application/json') ? await response.json() : await response.text();
     if (!response.ok) {
-      const message = payload && typeof payload === 'object' ? payload.error : payload;
+      const message = friendlyApiError(response, payload);
       throw new Error(message || `Request failed: ${response.status}`);
     }
     return payload;
+  }
+
+  function friendlyApiError(response, payload) {
+    if (payload && typeof payload === 'object') {
+      return payload.error || payload.message || '';
+    }
+    const text = String(payload || '').trim();
+    if (!text) return '';
+    const lower = text.toLowerCase();
+    if (lower.includes('<!doctype') || lower.includes('<html') || lower.includes('cloudflare')) {
+      const title = text.match(/<title>(.*?)<\/title>/i);
+      const titleText = title ? title[1].replace(/\s+/g, ' ').trim() : '';
+      return `backend offline through relay${response.status ? ` (${response.status})` : ''}${titleText ? `: ${titleText}` : ''}`;
+    }
+    return text.length > 300 ? `${text.slice(0, 300)}...` : text;
   }
 
   function commandButton(label, command) {

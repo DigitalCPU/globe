@@ -19,18 +19,35 @@
     if (!GP.requireAccount()) return;
     GP.state.chatMode = true;
     GP.state.chatMessages = [];
-    if (GP.dom.appTitle) GP.dom.appTitle.textContent = 'Ghost Protocol / AI session opened';
-    if (GP.dom.terminalHint) GP.dom.terminalHint.textContent = 'type exit chat to return to terminal';
-    GP.commandButton('files', 'files');
-    GP.commandButton('voice options', 'voice options');
-    GP.commandButton('AI options', 'AI options');
+    if (GP.dom.appTitle) GP.dom.appTitle.textContent = 'Ghost Protocol / AI session opened /type exit chat to return to terminal';
+    renderChatHeaderLinks();
     GP.write('');
+  }
+
+  function renderChatHeaderLinks() {
+    if (!GP.dom.terminalHint) return;
+    GP.dom.terminalHint.innerHTML = '';
+    GP.dom.terminalHint.classList.add('chat-header-links');
+    [
+      ['files', 'files'],
+      ['voice options', 'voice options'],
+      ['AI options', 'AI options']
+    ].forEach(([label, command]) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.textContent = label;
+      button.addEventListener('click', () => GP.run(command));
+      GP.dom.terminalHint.appendChild(button);
+    });
   }
 
   function exitChat() {
     GP.state.chatMode = false;
     if (GP.dom.appTitle) GP.dom.appTitle.textContent = 'Ghost Protocol';
-    if (GP.dom.terminalHint) GP.dom.terminalHint.textContent = "type 'help' to access terminal";
+    if (GP.dom.terminalHint) {
+      GP.dom.terminalHint.classList.remove('chat-header-links');
+      GP.dom.terminalHint.textContent = "type 'help' to access terminal";
+    }
     GP.write('AI session closed.');
   }
 
@@ -127,7 +144,7 @@
     }
   }
 
-  function writeAiReply(reply) {
+  function writeAiReply(reply, target = GP.dom.screen) {
     const wrap = document.createElement('button');
     wrap.type = 'button';
     wrap.className = 'ai-reply';
@@ -149,8 +166,9 @@
       }
       toggleReplyVoice(wrap, reply).catch((error) => GP.write(`voice unavailable: ${error.message}`, 'error'));
     });
-    GP.dom.screen.appendChild(wrap);
-    GP.autoScroll();
+    target.appendChild(wrap);
+    if (target === GP.dom.screen) GP.autoScroll();
+    else target.scrollTop = target.scrollHeight;
     if (GP.state.voiceOutputEnabled && GP.state.voiceAutoplayEnabled) {
       void toggleReplyVoice(wrap, reply);
     }

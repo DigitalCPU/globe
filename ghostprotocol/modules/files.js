@@ -226,16 +226,211 @@
     }
   }
 
-  async function sendFileToBoard(file) {
+  async function sendFileToBoard(file, text = '') {
     await GP.api('/api/board/posts', {
       method: 'POST',
       body: JSON.stringify({
         category: 'General',
-        text: `GhostProtocol file: ${file.name || file.stored_name}`,
+        text: text || `GhostProtocol file: ${file.name || file.stored_name}`,
         image_file_id: file.file_id
       })
     });
     GP.write(`sent to board: ${file.name || file.stored_name}`);
+  }
+
+  function chatConversationText(file, history = GP.state.chatMessages) {
+    const lines = [`GhostProtocol chat image post: ${fileName(file)}`];
+    const messages = Array.isArray(history) ? history.slice(-12) : [];
+    if (messages.length) {
+      lines.push('', 'conversation:');
+      messages.forEach((message) => {
+        lines.push(`${message.role}: ${message.content}`);
+      });
+    }
+    return lines.join('\n');
+  }
+
+  async function sendChatImageToBoard(file, history) {
+    await sendFileToBoard(file, chatConversationText(file, history));
+  }
+
+  async function openChatImage(file, files = []) {
+    const imageFile = isImageFile(file);
+    const subject = imageFile ? 'image' : 'document';
+    const panel = document.createElement('div');
+    panel.className = 'chat-image-container';
+    const history = [];
+    const request = new AbortController();
+    let busy = false;
+
+    const header = document.createElement('div');
+    header.className = 'chat-image-header';
+    const title = document.createElement('span');
+    title.textContent = fileName(file);
+    header.appendChild(title);
+    const observe = actionButton(imageFile ? 'observe image' : 'summarize', () => submitQuestion(imageFile ? 'Describe what you see in this image.' : 'Summarize this document.'));
+    header.appendChild(observe);
+    if (imageFile) header.appendChild(actionButton('send to board', () => sendChatImageToBoard(file, history).catch((error) => appendLine(error.message, 'error'))));
+    header.appendChild(actionButton('close', () => {
+      request.abort();
+      panel.remove();
+    }));
+    panel.appendChild(header);
+
+    const stage = document.createElement('div');
+    stage.className = 'chat-image-stage';
+    const layout = document.createElement('div');
+    layout.className = 'chat-image-layout';
+    const conversation = document.createElement('section');
+    conversation.className = 'chat-image-conversation';
+    conversation.setAttribute('aria-label', `Chat about ${fileName(file)}`);
+    const messages = document.createElement('div');
+    messages.className = 'chat-image-messages';
+    messages.setAttribute('role', 'log');
+    messages.setAttribute('aria-live', 'polite');
+    const status = document.createElement('div');
+    status.className = 'chat-image-status hint';
+    status.setAttribute('role', 'status');
+    const form = document.createElement('form');
+    form.className = 'chat-image-compose';
+    const input = document.createElement('textarea');
+    input.rows = 2;
+    input.maxLength = 2000;
+    input.placeholder = `Ask about this ${subject}...`;
+    input.setAttribute('aria-label', `Question about ${fileName(file)}`);
+    const send = document.createElement('button');
+    send.type = 'submit';
+    send.textContent = 'send';
+    form.append(input, send);
+    conversation.append(messages, status, form);
+    layout.append(stage, conversation);
+    panel.appendChild(layout);
+
+    function appendLine(text, kind = '') {
+      const line = document.createElement('div');
+      line.className = `line ${kind}`;
+      line.textContent = text;
+      messages.appendChild(line);
+      messages.scrollTop = messages.scrollHeight;
+    }
+
+    async function submitQuestion(value) {
+      const question = value.trim();
+      if (!question || busy || !GP.requireAccount()) return;
+      busy = true;
+      send.disabled = observe.disabled = true;
+      input.value = '';
+      appendLine(`you> ${question}`);
+      status.textContent = `reviewing ${subject}...`;
+      status.classList.add('terminal-pulse');
+      try {
+        const context = history.slice(-8).map((message) => ({
+          role: message.role, content: message.content.slice(0, 1200)
+        }));
+        const data = await GP.api('/api/id/file/explain', {
+          method: 'POST',
+          signal: request.signal,
+          body: JSON.stringify({
+            file_id: file.file_id,
+            question: context.length
+              ? `Previous conversation about this ${subject} (JSON): ${JSON.stringify(context)}\n\nCurrent question: ${question}`
+              : question
+          })
+        });
+        if (!panel.isConnected) return;
+        const reply = String(data.reply || '').trim();
+        if (!reply) throw new Error('empty AI reply');
+        history.push({ role: 'user', content: question }, { role: 'assistant', content: reply });
+        GP.writeAiReply(reply, messages);
+      } catch (error) {
+        if (!request.signal.aborted && panel.isConnected) {
+          appendLine(error.message || 'image chat failed', 'error');
+          if (!input.value) input.value = question;
+        }
+      } finally {
+        busy = false;
+        send.disabled = observe.disabled = false;
+        status.textContent = '';
+        status.classList.remove('terminal-pulse');
+      }
+    }
+    form.addEventListener('submit', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      void submitQuestion(input.value);
+    });
+    input.addEventListener('keydown', (event) => {
+      event.stopPropagation();
+      if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {
+        event.preventDefault();
+        form.requestSubmit();
+      }
+    });
+
+    if (files.length > 1) {
+      const strip = document.createElement('div');
+      strip.className = 'chat-image-strip';
+      files.forEach((item) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'chat-image-strip-item';
+        button.textContent = fileName(item);
+        button.addEventListener('click', () => openChatImage(item, files));
+        strip.appendChild(button);
+      });
+      panel.appendChild(strip);
+    }
+
+    GP.dom.screen.appendChild(panel);
+    const reviewing = GP.animatedStatusLine ? GP.animatedStatusLine('loading image') : null;
+    try {
+      if (imageFile) await loadFxImage(file, stage, 'chat-image-large');
+      else if (isTextDocument(file)) await readTextFile(file, stage);
+      else stage.textContent = 'Content interpretation is not available for this format yet. Questions use file details only.';
+      if (reviewing) reviewing.remove();
+      GP.autoScroll();
+    } catch (error) {
+      if (reviewing) reviewing.remove();
+      stage.textContent = error.message || 'image preview failed';
+    }
+  }
+
+  function renderChatImageDatabase(files) {
+    const groups = categorizedFiles(files);
+    if (GP.state.databaseElement) GP.state.databaseElement.remove();
+    GP.write(`MyDatabase: ${files.length} files`);
+    const panel = document.createElement('div');
+    panel.className = 'database-panel';
+    GP.state.databaseElement = panel;
+    function renderLinks(items, body) {
+      items.forEach((file, index) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'chat-image-link';
+      button.textContent = `${index + 1}) ${fileName(file)}`;
+      button.addEventListener('click', () => openChatImage(file, isImageFile(file) ? groups.images : []));
+      body.appendChild(button);
+      });
+    }
+    panel.appendChild(databaseSection('Images', groups.images, renderLinks));
+    ['Audio', 'Video'].forEach((label) => {
+      panel.appendChild(databaseSection(label, groups[label.toLowerCase()], (items, body) => {
+        const note = document.createElement('div');
+        note.className = 'hint';
+        note.textContent = `${label} interpretation is not available yet.`;
+        body.appendChild(note);
+        items.forEach((file) => {
+          const row = document.createElement('div');
+          row.className = 'line';
+          row.textContent = fileName(file);
+          row.appendChild(actionButton('download', () => downloadFile(file).catch(error => GP.write(error.message, 'error'))));
+          body.appendChild(row);
+        });
+      }));
+    });
+    panel.appendChild(databaseSection('Documents', groups.documents, renderLinks));
+    GP.dom.screen.appendChild(panel);
+    GP.autoScroll();
   }
 
   async function fetchBoardImage(entry, container) {
@@ -606,6 +801,10 @@
     try {
       const data = await GP.api('/api/id/files');
       GP.state.files = data.files || [];
+      if (GP.state.chatMode) {
+        renderChatImageDatabase(GP.state.files);
+        return;
+      }
       GP.write(`MyDatabase: ${GP.state.files.length} files`);
       if (!GP.state.files.length) {
         GP.write('empty');
@@ -636,5 +835,8 @@
   GP.isTextDocument = isTextDocument;
   GP.camera = camera;
   GP.myDatabase = myDatabase;
+  GP.sendFileToBoard = sendFileToBoard;
+  GP.sendChatImageToBoard = sendChatImageToBoard;
+  GP.openChatImage = openChatImage;
   GP.fetchBoardImage = fetchBoardImage;
 })(window.GhostProtocol);
