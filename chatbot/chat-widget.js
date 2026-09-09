@@ -69,12 +69,13 @@
       const widgetUrl = new URL('widget.html?v=voice4', script ? script.src : window.location.href);
       const response = await fetch(widgetUrl);
       if (!response.ok) throw new Error(`Widget markup failed: ${response.status}`);
-      const host = document.body;
+      const host = document.getElementById('container') || document.body;
       host.insertAdjacentHTML('beforeend', await response.text());
       return true;
     } catch (error) {
       console.warn('Using embedded chat widget markup fallback.', error);
-      document.body.insertAdjacentHTML('beforeend', fallbackMarkup);
+      const host = document.getElementById('container') || document.body;
+      host.insertAdjacentHTML('beforeend', fallbackMarkup);
       return true;
     }
   }
