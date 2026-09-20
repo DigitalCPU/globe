@@ -169,7 +169,12 @@
       dom.sessionState.textContent = 'guest';
       return;
     }
-    dom.sessionState.textContent = state.account.display_name || state.account.username;
+    dom.sessionState.replaceChildren();
+    const link = document.createElement('button');
+    link.type = 'button'; link.className = 'profile-session-link';
+    link.textContent = state.account.display_name || state.account.username;
+    link.addEventListener('click', () => window.GhostProtocol.showProfile(state.account?.username));
+    dom.sessionState.appendChild(link);
   }
 
   function promptLine(question, type = 'text') {

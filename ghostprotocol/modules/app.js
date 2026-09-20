@@ -1,4 +1,46 @@
 (function (GP) {
+  const PUBLIC_COMMANDS = [
+    ['help'], ['lobby', 'public lobby'], ['close lobby'], ['profile'], ['edit profile'],
+    ['sign-in', 'login', 'logon'], ['sign-up', 'register', 'create account', 'create profile'],
+    ['sign-out', 'logout', 'logoff'], ['menu'], ['upload'],
+    ['mydatabase', 'my database', 'database', 'uploaded-files', 'files'],
+    ['camera', 'use camera'], ['board', 'message board'], ['chat', 'ai'],
+    ['post board', 'board post'], ['close board', 'board close'],
+    ['clear'], ['fullscreen', 'full', 'immersion']
+  ];
+
+  function commandDistance(a, b) {
+    const rows = Array.from({ length: a.length + 1 }, (_, i) => [i]);
+    for (let j = 0; j <= b.length; j++) rows[0][j] = j;
+    for (let i = 1; i <= a.length; i++) {
+      for (let j = 1; j <= b.length; j++) {
+        rows[i][j] = Math.min(rows[i - 1][j] + 1, rows[i][j - 1] + 1,
+          rows[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+        if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) {
+          rows[i][j] = Math.min(rows[i][j], rows[i - 2][j - 2] + 1);
+        }
+      }
+    }
+    return rows[a.length][b.length];
+  }
+
+  function suggestCommand(raw) {
+    const key = GP.commandKey(raw);
+    const matches = key.length >= 3 && key.length <= 40 ? PUBLIC_COMMANDS.map(([command, ...aliases]) => {
+      const distance = Math.min(...[command, ...aliases].map(alias => commandDistance(key, GP.commandKey(alias))));
+      return { command, distance };
+    }).filter(match => match.distance <= (key.length > 7 ? 3 : key.length > 4 ? 2 : 1))
+      .sort((a, b) => a.distance - b.distance || a.command.localeCompare(b.command)) : [];
+    if (!matches.length) {
+      GP.write('unknown command. type help.', 'error');
+      GP.commandButton('help', 'help');
+      return;
+    }
+    const closest = matches.filter(match => match.distance === matches[0].distance).slice(0, 3);
+    GP.write(`unknown command. did you mean to type ${closest.map(match => `"${match.command}"`).join(' or ')}?`, 'hint');
+    closest.forEach(match => GP.commandButton(match.command, match.command));
+  }
+
   async function status() {
     try {
       await GP.api('/api/status');
@@ -15,6 +57,10 @@
     const command = rawCommand.toLowerCase();
     const key = GP.commandKey(rawCommand);
     if (!command) return;
+    if (key === 'editprofile') { void GP.editProfile(); return; }
+    if (command === 'profile' || command.startsWith('profile ')) { void GP.showProfile(rawCommand.slice(7).trim() || undefined); return; }
+    if (key === 'lobby' || key === 'publiclobby') { GP.lobby(); return; }
+    if (key === 'closelobby') { GP.closeLobby(); return; }
     if (GP.state.chatMode) {
       if (key === 'exitchat' || key === 'exit' || key === 'quit') {
         GP.exitChat();
@@ -46,7 +92,7 @@
     else if (['logout', 'signout', 'logoff'].includes(key) || command === '6') GP.logout();
     else if (command === 'clear') GP.clear();
     else if (command === 'full' || command === 'fullscreen' || command === 'immersion') void GP.enterFullscreen();
-    else GP.write('unknown command. type help.', 'error');
+    else suggestCommand(rawCommand);
   }
 
   function bindWindowControls() {

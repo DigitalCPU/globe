@@ -53,6 +53,7 @@
       root.className = 'board-thread-root';
       root.textContent = `${post.display_name || post.username || 'user'}: ${post.text || '[file]'}`;
       detail.appendChild(root);
+      if (post.username) root.appendChild(GP.inlineButton('view profile', () => GP.showProfile(post.username)));
       await GP.fetchBoardImage(post, root);
       if (GP.isOwner()) {
         root.appendChild(GP.deleteButton('delete thread', () => deleteBoardThread(postId)));
@@ -74,7 +75,7 @@
         empty.textContent = 'no replies yet';
         detail.appendChild(empty);
       }
-      detail.appendChild(GP.inlineButton('reply', () => replyToBoardThread(postId)));
+      if (GP.state.account) detail.appendChild(GP.inlineButton('reply', () => replyToBoardThread(postId)));
       detail.appendChild(GP.inlineButton('close thread', () => detail.remove()));
       GP.autoScroll();
     } catch (error) {
@@ -140,6 +141,7 @@
   }
 
   async function replyToBoardThread(postId) {
+    if (!GP.requireAccount()) return;
     try {
       const text = await GP.promptLine('reply text, or leave blank to cancel:');
       const key = GP.commandKey(text);
@@ -162,8 +164,7 @@
     }
   }
 
-  async function board() {
-    if (!GP.requireAccount()) return;
+  async function board(host = GP.dom.screen) {
     try {
       GP.state.boardOpen = true;
       clearBoardElement();
@@ -172,14 +173,14 @@
       const header = document.createElement('div');
       header.className = 'board-panel-header';
       header.textContent = 'Message board';
-      header.appendChild(GP.inlineButton('post', () => postBoardMessage()));
+      if (GP.state.account) header.appendChild(GP.inlineButton('post', () => postBoardMessage()));
       header.appendChild(GP.inlineButton('refresh', () => refreshBoardPanel().catch((error) => GP.write(error.message, 'error'))));
       header.appendChild(GP.inlineButton('close board', () => closeBoard()));
       panel.appendChild(header);
       const list = document.createElement('div');
       list.className = 'board-panel-list';
       panel.appendChild(list);
-      GP.dom.screen.appendChild(panel);
+      host.appendChild(panel);
       GP.state.boardElement = panel;
       await refreshBoardPanel();
     } catch (error) {

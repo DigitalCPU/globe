@@ -584,6 +584,40 @@ body.terminal-closed .terminal {
   outline: 0;
 }
 
+.profile-panel { border: 1px solid var(--green-faint); padding: 12px; margin: 12px 0; overflow-wrap: anywhere; }
+.profile-header, .profile-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.profile-header strong { flex: 1; }
+.profile-info { display: flex; flex-wrap: wrap; gap: 16px; margin: 12px 0; }
+.profile-info > div { flex: 1; min-width: 180px; }
+.profile-avatar { width: 96px; height: 96px; object-fit: cover; }
+.profile-form { display: grid; gap: 12px; margin: 12px 0; max-width: 640px; }
+.profile-form label { display: grid; gap: 6px; }
+.profile-form input:not([type="file"]), .profile-form textarea, .profile-form select {
+  box-sizing: border-box; width: 100%; min-width: 0; background: #000; color: var(--green);
+  border: 1px solid var(--green-faint); padding: 8px; font: inherit;
+}
+.profile-form textarea { resize: vertical; }
+.profile-panel button, .profile-session-link { border: 0; background: transparent; color: var(--green); font: inherit; cursor: pointer; text-decoration: underline; padding: 5px 0; }
+.profile-panel button:disabled { opacity: 0.5; cursor: wait; }
+.profile-post { border-top: 1px solid var(--green-faint); padding: 12px 0; }
+.profile-post p, .profile-info p { white-space: pre-wrap; }
+
+.lobby-panel {
+  border: 1px solid var(--green-faint);
+  padding: 12px;
+  margin: 12px 0;
+  min-width: 0;
+}
+.lobby-header, .lobby-tabs, .lobby-compose { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.lobby-header strong { flex: 1; }
+.lobby-tabs { border-bottom: 1px solid var(--green-faint); margin: 12px 0; padding-bottom: 8px; }
+.lobby-panel button { background: transparent; color: var(--green); border: 0; font: inherit; cursor: pointer; min-height: 36px; }
+.lobby-tabs [aria-selected="true"] { text-decoration: underline; color: #b8ffc5; }
+.lobby-body { min-height: 180px; overflow-wrap: anywhere; }
+.lobby-messages { height: 260px; max-height: 45dvh; overflow-y: auto; scrollbar-color: var(--green) #000; }
+.lobby-compose input { flex: 1; min-width: 0; background: #000; color: var(--green); border: 1px solid var(--green-faint); padding: 8px; font: inherit; }
+.lobby-compose button:disabled { opacity: 0.5; }
+
 .chat-image-list {
   display: grid;
   gap: 6px;
