@@ -165,6 +165,7 @@
   }
 
   function updateSession() {
+    window.GhostProtocol?.mailSessionChanged?.();
     if (!state.account) {
       dom.sessionState.textContent = 'guest';
       return;

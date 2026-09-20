@@ -1,5 +1,6 @@
 (function (GP) {
   const PUBLIC_COMMANDS = [
+    ['inbox', 'mail', 'messages', 'messeges', 'message'],
     ['help'], ['lobby', 'public lobby'], ['close lobby'], ['profile'], ['edit profile'],
     ['sign-in', 'login', 'logon'], ['sign-up', 'register', 'create account', 'create profile'],
     ['sign-out', 'logout', 'logoff'], ['menu'], ['upload'],
@@ -57,6 +58,8 @@
     const command = rawCommand.toLowerCase();
     const key = GP.commandKey(rawCommand);
     if (!command) return;
+    if (!GP.state.controlMode && ['inbox','mail','messages','messeges','message'].includes(key)) { void GP.inbox(); return; }
+    if (!GP.state.controlMode && /^mail\s+\S/i.test(rawCommand)) { void GP.composeMail(rawCommand.slice(5).trim()); return; }
     if (key === 'editprofile') { void GP.editProfile(); return; }
     if (command === 'profile' || command.startsWith('profile ')) { void GP.showProfile(rawCommand.slice(7).trim() || undefined); return; }
     if (key === 'lobby' || key === 'publiclobby') { GP.lobby(); return; }
@@ -78,6 +81,7 @@
       void GP.runControlCommand(rawCommand);
       return;
     }
+    if (/^.+\s+(add|remove)$/i.test(rawCommand)) { void GP.connectionCommand(rawCommand); return; }
     if (command === 'help') GP.help();
     else if (['signin', 'login', 'logon'].includes(key)) void GP.signIn();
     else if (['signup', 'register', 'createaccount', 'createprofile'].includes(key)) void GP.signUp();
@@ -96,9 +100,10 @@
   }
 
   function bindWindowControls() {
-    GP.dom.windowMinimize?.addEventListener('click', () => {
-      document.body.classList.add('terminal-minimized');
-    });
+    if (GP.dom.windowMinimize) {
+      GP.dom.windowMinimize.disabled = true;
+      GP.dom.windowMinimize.title = 'Browser minimization is unavailable to websites';
+    }
 
     GP.dom.windowRestore?.addEventListener('click', () => {
       document.body.classList.remove('terminal-minimized', 'terminal-closed');
@@ -113,8 +118,12 @@
     });
 
     GP.dom.windowClose?.addEventListener('click', () => {
-      window.close();
-      document.body.classList.add('terminal-closed');
+      try { window.close(); } catch (_) { /* Some browsers reject script closing. */ }
+      window.setTimeout(() => {
+        if (window.closed) return;
+        if (document.fullscreenElement) void document.exitFullscreen().catch(() => {});
+        GP.dom.windowClose.title = 'This browser blocked closing the tab from the website';
+      }, 200);
     });
   }
 

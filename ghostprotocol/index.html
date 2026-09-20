@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>GhostProtocol</title>
-  <link rel="stylesheet" href="styles.css?v=profiles1">
+  <link rel="stylesheet" href="styles.css?v=mail1">
 </head>
 <body>
   <main class="terminal" aria-label="GhostProtocol terminal">
@@ -16,10 +16,10 @@
       </div>
       <div class="terminal-session">
         <div class="terminal-window-controls" aria-label="Terminal window controls">
-          <button id="windowMinimize" type="button" aria-label="Minimize">_</button>
+          <button id="windowMinimize" type="button" aria-label="Minimize (unavailable in browser)" title="Browser minimization is unavailable to websites" disabled>_</button>
           <button id="windowRestore" type="button" aria-label="Windowed">[ ]</button>
           <button id="windowFullscreen" type="button" aria-label="Full immersion">[o]</button>
-          <button id="windowClose" type="button" aria-label="Close">[x]</button>
+          <button id="windowClose" type="button" aria-label="Close tab" title="Close tab (when permitted by the browser)">[x]</button>
         </div>
         <span id="sessionState">guest</span>
       </div>
@@ -33,15 +33,16 @@
   </main>
   <input id="fileInput" type="file" hidden>
   <input id="cameraInput" type="file" accept="image/*" capture="environment" hidden>
-  <script src="modules/core.js?v=profiles1"></script>
-  <script src="modules/ui.js?v=profiles1"></script>
+  <script src="modules/core.js?v=mail1"></script>
+  <script src="modules/ui.js?v=mail1"></script>
   <script src="modules/control.js?v=ghost29"></script>
   <script src="modules/auth.js?v=ghost29"></script>
   <script src="modules/files.js?v=ghost31"></script>
   <script src="modules/board.js?v=profiles1"></script>
-  <script src="modules/chat.js?v=ghost30"></script>
+  <script src="modules/chat.js?v=mail1"></script>
   <script src="modules/lobby.js?v=lobby1"></script>
-  <script src="modules/profiles.js?v=profiles-fx2"></script>
-  <script src="modules/app.js?v=profiles1"></script>
+  <script src="modules/profiles.js?v=connections1"></script>
+  <script src="modules/mail.js?v=mail1"></script>
+  <script src="modules/app.js?v=mail1"></script>
 </body>
 </html>

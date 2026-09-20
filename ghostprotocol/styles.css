@@ -114,19 +114,9 @@ body {
   overflow-wrap: anywhere;
 }
 
-body.terminal-minimized .terminal {
-  grid-template-rows: auto;
-  height: auto;
-  min-height: 0;
-}
-
-body.terminal-minimized .terminal-screen,
-body.terminal-minimized .terminal-input {
-  display: none;
-}
-
-body.terminal-closed .terminal {
-  display: none;
+.terminal-window-controls button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 .terminal-screen::-webkit-scrollbar {
@@ -590,6 +580,21 @@ body.terminal-closed .terminal {
 .profile-info { display: flex; flex-wrap: wrap; gap: 16px; margin: 12px 0; }
 .profile-info > div { flex: 1; min-width: 180px; }
 .profile-avatar { width: 96px; height: 96px; object-fit: cover; }
+.mail-panel { border-top: 1px solid var(--green-faint); padding: 12px 0; margin: 12px 0; overflow-wrap: anywhere; }
+.mail-panel button, .mail-alert { border: 0; background: transparent; color: var(--green); font: inherit; text-decoration: underline; cursor: pointer; padding: 5px; }
+.mail-alert { font-weight: bold; }
+.mail-entry { border-top: 1px solid var(--green-faint); padding: 8px 0; }
+.mail-entry > button { text-align: left; max-width: 100%; overflow-wrap: anywhere; }
+.mail-entry p { white-space: pre-wrap; }
+.mail-panel button:disabled { opacity: 0.5; cursor: wait; }
+.profile-connections { border-top: 1px solid var(--green-faint); margin-top: 16px; padding-top: 8px; }
+.connection-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 12px; margin: 12px 0; }
+.profile-panel .connection-link { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; min-width: 0; text-align: left; overflow-wrap: anywhere; }
+.connection-avatar { display: block; width: 56px; height: 56px; flex: 0 0 56px; background: #000; }
+.connection-avatar img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.connections-visibility { display: flex; align-items: center; gap: 8px; }
+.connection-command { display: flex; flex-wrap: wrap; gap: 10px; margin: 12px 0; }
+.connection-command input { flex: 1 1 180px; min-width: 0; background: #000; color: var(--green); border: 1px solid var(--green-faint); font: inherit; padding: 8px; }
 .profile-form { display: grid; gap: 12px; margin: 12px 0; max-width: 640px; }
 .profile-form label { display: grid; gap: 6px; }
 .profile-form input:not([type="file"]), .profile-form textarea, .profile-form select {

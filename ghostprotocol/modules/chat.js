@@ -39,6 +39,7 @@
       button.addEventListener('click', () => GP.run(command));
       GP.dom.terminalHint.appendChild(button);
     });
+    GP.renderMailHint?.();
   }
 
   function exitChat() {
@@ -48,6 +49,7 @@
       GP.dom.terminalHint.classList.remove('chat-header-links');
       GP.dom.terminalHint.textContent = "type 'help' to access terminal";
     }
+    GP.renderMailHint?.();
     GP.write('AI session closed.');
   }
 

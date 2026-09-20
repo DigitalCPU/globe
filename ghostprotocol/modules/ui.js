@@ -12,6 +12,8 @@
     if (GP.state.account) {
       GP.write('  menu           show terminal features');
       GP.write('  edit profile   edit your public profile and avatar');
+      GP.write('  inbox / mail / messages / messeges  check private messages');
+      GP.write('  mail <username>  compose a private message');
       GP.write('  upload         upload files to your local profile folder');
       GP.write('  mydatabase     open files stored in your local profile folder');
       GP.write('  camera         use camera and save to your local profile folder');
@@ -43,6 +45,7 @@
     GP.write(`terminal access granted: ${GP.state.account.display_name || GP.state.account.username}`);
     GP.commandButton('my profile', 'profile');
     GP.commandButton('edit profile', 'edit profile');
+    GP.commandButton('inbox', 'inbox');
     GP.write('1) upload files');
     GP.write('2) my database');
     GP.write('3) use camera');
