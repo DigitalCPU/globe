@@ -1,8 +1,25 @@
 (function (GP) {
+  GP.renderSessionLinks = function () {
+    const hint = GP.dom.terminalHint;
+    if (!hint || !GP.state.account || GP.state.chatMode || GP.state.headerHint === '') return false;
+    hint.replaceChildren();
+    const links = document.createElement('nav');
+    links.className = 'session-shortcuts';
+    links.setAttribute('aria-label', 'Account shortcuts');
+    for (const [label, command] of [
+      ['my profile', 'profile'], ['inbox', 'inbox'],
+      ['upload', 'upload'], ['mydatabase', 'mydatabase'], ['camera', 'camera'],
+      ['board', 'board'], ['chat', 'chat'], ['post board', 'post-board'], ['sign out', 'sign-out']
+    ]) GP.commandButton(label, command, links);
+    hint.appendChild(links);
+    return true;
+  };
   function help() {
-    GP.write('help');
+    GP.closeLobby?.();
+    GP.closeBoard?.(true);
+    GP.state.headerHint = GP.state.account ? undefined : 'Sign in or sign up to upload, access personal files, chat, and post.';
+    GP.renderMailHint?.();
     GP.write('Terminal portal commands:');
-    GP.write('  help');
     GP.write('  lobby          open the public lobby (guests view only)');
     GP.write('  close lobby    close the public lobby');
     GP.write('  profile <username>  view a public profile and personal board');
@@ -21,18 +38,19 @@
       GP.write('  chat           open AI terminal chat with voice output');
       GP.write('  post board     write a new message board post');
       GP.write('  close board    close the message board view');
-    } else {
-      GP.write('');
-      GP.write('Sign in or sign up to upload, access personal files, chat, and post.');
     }
     GP.write('');
-    GP.commandButton('sign-in', 'sign-in');
-    GP.commandButton('lobby', 'lobby');
-    GP.commandButton('sign-up', 'sign-up');
+    const links = document.createElement('nav');
+    links.className = 'help-links';
+    links.setAttribute('aria-label', 'Terminal shortcuts');
+    GP.dom.screen.appendChild(links);
+    GP.commandButton('sign-in', 'sign-in', links);
+    GP.commandButton('lobby', 'lobby', links);
+    GP.commandButton('sign-up', 'sign-up', links);
     if (GP.state.account) {
-      GP.commandButton('menu', 'menu');
-      GP.commandButton('mydatabase', 'mydatabase');
-      GP.commandButton('board', 'board');
+      GP.commandButton('menu', 'menu', links);
+      GP.commandButton('mydatabase', 'mydatabase', links);
+      GP.commandButton('board', 'board', links);
     }
     GP.write('');
   }
@@ -43,22 +61,13 @@
       return;
     }
     GP.write(`terminal access granted: ${GP.state.account.display_name || GP.state.account.username}`);
-    GP.commandButton('my profile', 'profile');
-    GP.commandButton('edit profile', 'edit profile');
-    GP.commandButton('inbox', 'inbox');
+    GP.renderMailHint?.();
     GP.write('1) upload files');
     GP.write('2) my database');
     GP.write('3) use camera');
     GP.write('4) message board');
     GP.write('5) AI chat');
     GP.write('6) sign out');
-    GP.commandButton('upload', 'upload');
-    GP.commandButton('mydatabase', 'mydatabase');
-    GP.commandButton('camera', 'camera');
-    GP.commandButton('board', 'board');
-    GP.commandButton('chat', 'chat');
-    GP.commandButton('post board', 'post-board');
-    GP.commandButton('sign out', 'sign-out');
     GP.write('');
   }
 

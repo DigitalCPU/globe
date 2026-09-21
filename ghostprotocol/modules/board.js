@@ -2,11 +2,31 @@
   function clearBoardElement() {
     if (GP.state.boardElement) GP.state.boardElement.remove();
     GP.state.boardElement = null;
+    GP.state.boardHeaderActive = false;
   }
+
+  GP.renderBoardHeader = function () {
+    if (!GP.state.boardHeaderActive || !GP.state.boardElement?.isConnected) return false;
+    const hint = GP.dom.terminalHint;
+    if (!hint) return false;
+    hint.replaceChildren();
+    const header = document.createElement('nav');
+    header.className = 'board-panel-header board-header-links';
+    header.setAttribute('aria-label', 'Message board controls');
+    header.appendChild(document.createTextNode('Message board'));
+    if (GP.state.account) header.appendChild(GP.inlineButton('post', () => postBoardMessage()));
+    header.appendChild(GP.inlineButton('refresh', () => refreshBoardPanel().catch(error => GP.write(error.message, 'error'))));
+    header.appendChild(GP.inlineButton('close board', () => closeBoard()));
+    hint.appendChild(header);
+    return true;
+  };
 
   function boardSummary(post) {
     const name = post.display_name || post.username || 'user';
-    const text = post.text || '[file]';
+    const fullText = post.text || '[file]';
+    const conversation = fullText.split(/\bconversation:\s*/i).pop().replace(/^user:\s*/i, '');
+    const words = conversation.trim().split(/\s+/);
+    const text = words.slice(0, 16).join(' ') + (words.length > 16 ? '...' : '');
     const replies = Number(post.reply_count || 0);
     const replyText = replies === 1 ? '1 reply' : `${replies} replies`;
     return `${name}: ${text} (${replyText})`;
@@ -17,6 +37,7 @@
     const list = GP.state.boardElement.querySelector('.board-panel-list');
     list.textContent = 'loading board...';
     const data = await GP.api('/api/board/posts?limit=80');
+    if (!list.isConnected) return;
     GP.state.posts = data.posts || [];
     list.innerHTML = '';
     if (!GP.state.posts.length) {
@@ -25,13 +46,20 @@
       return;
     }
     GP.state.posts.forEach((post, index) => {
+      const card = document.createElement('article');
+      card.className = 'board-post';
       const row = document.createElement('button');
       row.className = 'board-row';
       row.type = 'button';
       row.dataset.postId = post.post_id;
-      row.textContent = `${index + 1}) ${boardSummary(post)}`;
+      const summary = document.createElement('span');
+      summary.textContent = `${index + 1}) ${boardSummary(post)}`;
+      row.appendChild(summary);
+      row.setAttribute('aria-expanded', 'false');
       row.addEventListener('click', () => openBoardThread(post.post_id, row));
-      list.appendChild(row);
+      card.appendChild(row);
+      list.appendChild(card);
+      void GP.fetchBoardImage(post, row);
     });
     GP.autoScroll();
   }
@@ -39,13 +67,18 @@
   async function openBoardThread(postId, row) {
     if (!postId) return;
     const existing = GP.state.boardElement && GP.state.boardElement.querySelector('.board-thread-detail');
+    const wasOpen = row.getAttribute('aria-expanded') === 'true';
     if (existing) existing.remove();
+    GP.state.boardElement?.querySelectorAll('.board-row').forEach(button => button.setAttribute('aria-expanded', 'false'));
+    if (wasOpen) return;
+    row.setAttribute('aria-expanded', 'true');
     const detail = document.createElement('div');
     detail.className = 'board-thread-detail';
     detail.textContent = 'opening thread...';
     row.insertAdjacentElement('afterend', detail);
     try {
       const data = await GP.api(`/api/board/thread?post_id=${encodeURIComponent(postId)}`);
+      if (!detail.isConnected) return;
       const post = data.post || {};
       const replies = Array.isArray(data.replies) ? data.replies : [];
       detail.innerHTML = '';
@@ -76,7 +109,7 @@
         detail.appendChild(empty);
       }
       if (GP.state.account) detail.appendChild(GP.inlineButton('reply', () => replyToBoardThread(postId)));
-      detail.appendChild(GP.inlineButton('close thread', () => detail.remove()));
+      detail.appendChild(GP.inlineButton('close thread', () => { detail.remove(); row.setAttribute('aria-expanded', 'false'); }));
       GP.autoScroll();
     } catch (error) {
       detail.textContent = error.message || 'thread unavailable';
@@ -164,34 +197,41 @@
     }
   }
 
-  async function board(host = GP.dom.screen) {
+  async function board(host = GP.dom.screen, actions = null) {
     try {
+      if (!actions) {
+        GP.closeLobby?.();
+        if (GP.state.chatMode) GP.exitChat();
+      }
       GP.state.boardOpen = true;
       clearBoardElement();
       const panel = document.createElement('div');
       panel.className = 'board-panel';
       const header = document.createElement('div');
       header.className = 'board-panel-header';
-      header.textContent = 'Message board';
+      if (!actions) header.textContent = 'Message board';
       if (GP.state.account) header.appendChild(GP.inlineButton('post', () => postBoardMessage()));
       header.appendChild(GP.inlineButton('refresh', () => refreshBoardPanel().catch((error) => GP.write(error.message, 'error'))));
-      header.appendChild(GP.inlineButton('close board', () => closeBoard()));
-      panel.appendChild(header);
+      if (!actions) header.appendChild(GP.inlineButton('close board', () => closeBoard()));
+      if (actions) actions.appendChild(header);
       const list = document.createElement('div');
       list.className = 'board-panel-list';
       panel.appendChild(list);
       host.appendChild(panel);
       GP.state.boardElement = panel;
+      GP.state.boardHeaderActive = !actions;
+      GP.renderMailHint?.();
       await refreshBoardPanel();
     } catch (error) {
       GP.write(error.message || 'board unavailable', 'error');
     }
   }
 
-  function closeBoard() {
+  function closeBoard(silent = false) {
     GP.state.boardOpen = false;
     clearBoardElement();
-    GP.write('board closed');
+    GP.renderMailHint?.();
+    if (!silent) GP.write('board closed');
   }
 
   GP.board = board;

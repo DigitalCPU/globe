@@ -45,6 +45,8 @@ body {
 }
 
 .terminal-header {
+  flex-wrap: wrap;
+  align-items: flex-start;
   z-index: 4;
   justify-content: space-between;
   background: #000;
@@ -622,6 +624,40 @@ body {
 .lobby-messages { height: 260px; max-height: 45dvh; overflow-y: auto; scrollbar-color: var(--green) #000; }
 .lobby-compose input { flex: 1; min-width: 0; background: #000; color: var(--green); border: 1px solid var(--green-faint); padding: 8px; font: inherit; }
 .lobby-compose button:disabled { opacity: 0.5; }
+
+.terminal-header > div:first-child { flex: 1 1 160px; min-width: 0; overflow-wrap: anywhere; }
+.help-links, .lobby-navigation {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border: 1px solid var(--green-faint);
+}
+.lobby-navigation { flex: 1 0 100%; min-width: 0; }
+.session-shortcuts { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; }
+.profile-post-image { display: block; max-width: 100%; max-height: 420px; object-fit: contain; margin: 8px 0; }
+.profile-post a { color: var(--green); overflow-wrap: anywhere; }
+.board-header-links { margin: 0; color: var(--green); flex-wrap: wrap; }
+.board-header-links button { color: var(--green); background: transparent; font: inherit; border: 0; padding: 4px 8px; min-height: 32px; cursor: pointer; }
+.board-header-links button:hover, .board-header-links button:focus-visible { text-decoration: underline; }
+.terminal-header #connectionState, .terminal-header .chat-session-status { display: inline; }
+.voice-option-switches { display: flex; flex-wrap: wrap; gap: 12px 24px; border: 1px solid var(--green-faint); padding: 8px 12px; margin: 4px 0 12px; }
+.voice-option-switches label { display: flex; gap: 8px; align-items: center; min-height: 32px; cursor: pointer; }
+.voice-option-switches input { accent-color: var(--green); width: 16px; height: 16px; margin: 0; }
+.session-shortcuts .terminal-button { margin: 0; padding: 4px 0; min-height: 32px; }
+.lobby-navigation .lobby-tabs { margin: 0; padding: 0; border: 0; flex: 1 1 auto; gap: 8px; }
+.lobby-navigation button { background: transparent; color: var(--green); border: 0; font: inherit; cursor: pointer; min-height: 32px; }
+.lobby-navigation .board-panel-header { margin: 0; }
+.lobby-panel { border: 0; padding: 0; }
+.lobby-body > .board-panel { border: 0; padding: 0; }
+.board-post { border: 1px solid var(--green-faint); margin: 8px 0; overflow-wrap: anywhere; }
+.board-post .board-row { display: flex; align-items: center; gap: 10px; padding: 10px; background: #000; border: 0; }
+.board-row > span { flex: 1; min-width: 0; }
+.board-post .board-row img { order: -1; flex: 0 0 48px; width: 48px; height: 40px; max-width: 48px; margin: 0; object-fit: cover; }
+.board-post .board-row:focus-visible { outline: 1px solid var(--green); outline-offset: -2px; }
+.board-thread-root, .board-reply { white-space: pre-wrap; overflow-wrap: anywhere; }
+.board-thread-root img, .board-reply img { max-width: 100%; max-height: 65dvh; }
 
 .chat-image-list {
   display: grid;

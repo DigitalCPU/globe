@@ -48,6 +48,10 @@
   }
 
   function clear() {
+    window.GhostProtocol.closeLobby?.();
+    window.GhostProtocol.closeBoard?.(true);
+    state.headerHint = undefined;
+    window.GhostProtocol.renderMailHint?.();
     dom.screen.innerHTML = '';
   }
 
@@ -122,14 +126,14 @@
     return text.length > 300 ? `${text.slice(0, 300)}...` : text;
   }
 
-  function commandButton(label, command) {
+  function commandButton(label, command, host = dom.screen) {
     const button = document.createElement('button');
     button.className = 'terminal-button';
     button.type = 'button';
     button.textContent = label;
     button.addEventListener('click', () => window.GhostProtocol.run(command));
-    dom.screen.appendChild(button);
-    autoScroll();
+    host.appendChild(button);
+    if (host === dom.screen) autoScroll();
   }
 
   function inlineButton(label, handler) {
@@ -165,7 +169,9 @@
   }
 
   function updateSession() {
+    if (state.headerHint !== '') state.headerHint = undefined;
     window.GhostProtocol?.mailSessionChanged?.();
+    window.GhostProtocol?.renderMailHint?.();
     if (!state.account) {
       dom.sessionState.textContent = 'guest';
       return;

@@ -11,7 +11,7 @@
   GP.renderMailHint=function () {
     const hint=GP.dom.terminalHint;if(!hint)return;
     hint.querySelector('.mail-alert')?.remove();
-    if(!GP.state.chatMode)hint.textContent=unread ? '' : "type 'help' to access terminal";
+    if(!GP.state.chatMode && !GP.renderBoardHeader?.() && !GP.renderSessionLinks?.())hint.textContent=GP.state.headerHint ?? (unread ? '' : "type 'help' to access terminal");
     if(unread && GP.state.account) {
       const alert=button('New Message',()=>void GP.inbox());alert.className='mail-alert';
       alert.setAttribute('aria-label',`New Message (${unread} unread)`);hint.append(alert);

@@ -17,9 +17,17 @@
 
   function enterChat() {
     if (!GP.requireAccount()) return;
+    GP.closeLobby?.();
+    GP.closeBoard?.(true);
+    GP.state.headerHint = undefined;
     GP.state.chatMode = true;
     GP.state.chatMessages = [];
-    if (GP.dom.appTitle) GP.dom.appTitle.textContent = 'Ghost Protocol / AI session opened /type exit chat to return to terminal';
+    if (GP.dom.appTitle) GP.dom.appTitle.textContent = 'Ghost Protocol';
+    document.querySelector('.chat-session-status')?.remove();
+    const sessionStatus = document.createElement('span');
+    sessionStatus.className = 'chat-session-status';
+    sessionStatus.textContent = ' / AI session opened';
+    GP.dom.connectionState?.insertAdjacentElement('afterend', sessionStatus);
     renderChatHeaderLinks();
     GP.write('');
   }
@@ -31,7 +39,8 @@
     [
       ['files', 'files'],
       ['voice options', 'voice options'],
-      ['AI options', 'AI options']
+      ['AI options', 'AI options'],
+      ['exit chat', 'exit chat']
     ].forEach(([label, command]) => {
       const button = document.createElement('button');
       button.type = 'button';
@@ -44,6 +53,7 @@
 
   function exitChat() {
     GP.state.chatMode = false;
+    document.querySelector('.chat-session-status')?.remove();
     if (GP.dom.appTitle) GP.dom.appTitle.textContent = 'Ghost Protocol';
     if (GP.dom.terminalHint) {
       GP.dom.terminalHint.classList.remove('chat-header-links');
@@ -80,24 +90,38 @@
   function setVoiceOutput(enabled) {
     GP.state.voiceOutputEnabled = Boolean(enabled);
     localStorage.setItem(GP.voiceEnabledKey, enabled ? 'on' : 'off');
+    document.querySelectorAll('[data-voice-setting="output"]').forEach(input => { input.checked = Boolean(enabled); });
     GP.write(`voice output: ${enabled ? 'on' : 'off'}`);
   }
 
   function setVoiceAutoplay(enabled) {
     GP.state.voiceAutoplayEnabled = Boolean(enabled);
     localStorage.setItem(GP.voiceAutoplayKey, enabled ? 'on' : 'off');
+    document.querySelectorAll('[data-voice-setting="autoplay"]').forEach(input => { input.checked = Boolean(enabled); });
     GP.write(`voice auto play: ${enabled ? 'on' : 'off'}`);
   }
 
   async function showVoiceOptions() {
     GP.write('voice options');
-    writeOptionValue('chat voice output', GP.state.voiceOutputEnabled ? 'on' : 'off');
-    writeOptionValue('auto play', GP.state.voiceAutoplayEnabled ? 'on' : 'off');
-    GP.commandButton('voice on', 'voice on');
-    GP.commandButton('voice off', 'voice off');
-    GP.commandButton('auto play', 'auto play');
-    GP.commandButton('auto play on', 'auto play on');
-    GP.commandButton('auto play off', 'auto play off');
+    const controls = document.createElement('div');
+    controls.className = 'voice-option-switches';
+    controls.setAttribute('role', 'group');
+    controls.setAttribute('aria-label', 'Voice options');
+    for (const [name, labelText, checked, change] of [
+      ['output', 'voice output', GP.state.voiceOutputEnabled, setVoiceOutput],
+      ['autoplay', 'auto play', GP.state.voiceAutoplayEnabled, setVoiceAutoplay]
+    ]) {
+      const label = document.createElement('label');
+      const input = document.createElement('input');
+      input.type = 'checkbox';
+      input.dataset.voiceSetting = name;
+      input.checked = checked;
+      input.addEventListener('change', () => change(input.checked));
+      label.append(input, document.createTextNode(labelText));
+      controls.appendChild(label);
+    }
+    GP.dom.screen.appendChild(controls);
+    GP.autoScroll();
     try {
       const data = await GP.api('/api/voice/status');
       writeOptionValue('voice enabled', data.voice_enabled ? 'yes' : 'no');

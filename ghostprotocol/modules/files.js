@@ -443,11 +443,13 @@
       });
       if (!response.ok) throw new Error(`image unavailable: ${response.status}`);
       const blob = await response.blob();
+      if (!container.isConnected) return;
       const url = URL.createObjectURL(blob);
       const image = document.createElement('img');
       image.src = url;
       image.alt = imageInfo.image_name || imageInfo.file_name || imageInfo.name || 'board image';
       image.addEventListener('load', () => URL.revokeObjectURL(url), { once: true });
+      image.addEventListener('error', () => URL.revokeObjectURL(url), { once: true });
       container.appendChild(image);
     } catch (error) {
       const failed = document.createElement('div');
@@ -769,10 +771,9 @@
     controls.appendChild(actionButton('list', renderList));
     sectionBody.appendChild(controls);
     sectionBody.appendChild(content);
-    renderList();
   }
 
-  function databaseSection(label, files, renderer) {
+  function databaseSection(label, files, renderer, resetOnClose = false) {
     const section = document.createElement('div');
     section.className = 'database-section';
     const toggle = document.createElement('button');
@@ -784,6 +785,10 @@
     body.hidden = true;
     toggle.addEventListener('click', () => {
       body.hidden = !body.hidden;
+      if (body.hidden && resetOnClose) {
+        body.replaceChildren();
+        delete body.dataset.rendered;
+      }
       if (!body.hidden && !body.dataset.rendered) {
         body.dataset.rendered = '1';
         if (files.length) renderer(files, body);
@@ -815,7 +820,7 @@
       const database = document.createElement('div');
       database.className = 'database-panel';
       GP.state.databaseElement = database;
-      database.appendChild(databaseSection('Images', groups.images, renderImageModes));
+      database.appendChild(databaseSection('Images', groups.images, renderImageModes, true));
       database.appendChild(databaseSection('Audio', groups.audio, (files, body) => renderFileRows(files, body)));
       database.appendChild(databaseSection('Video', groups.video, (files, body) => renderFileRows(files, body)));
       database.appendChild(databaseSection('Documents', groups.documents, (files, body) => renderFileRows(files, body, { read: true, inspectDb: true })));

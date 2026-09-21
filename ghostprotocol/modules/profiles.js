@@ -108,21 +108,47 @@
         if (profile[key]) details.append(node('p', `${label}: ${profile[key]}`));
       }
       info.append(details); target.append(info);
-      if (own) target.append(button('edit profile', () => GP.editProfile()));
+      if (own) {
+        const header = target.querySelector('.profile-header');
+        header.insertBefore(button('edit profile', () => GP.editProfile()), header.lastElementChild);
+      }
       target.append(connectionsSection(profile));
       target.append(node('h3', 'Personal board'));
       if (own) {
         const form = node('form', '', 'profile-form');
         const input = node('textarea'); input.maxLength = 2000; input.rows = 3;
         input.placeholder = 'Write a public post'; input.setAttribute('aria-label','Public board post');
-        const send = node('button','publish'); send.type = 'submit'; form.append(input, send);
+        let attachmentId = '', uploading = false;
+        const attachmentStatus = node('div', '', 'hint');
+        attachmentStatus.setAttribute('role', 'status');
+        const picker = node('input'); picker.type = 'file'; picker.hidden = true;
+        const upload = button('upload', () => { picker.value = ''; picker.click(); });
+        const remove = button('remove attachment', () => { attachmentId = ''; attachmentStatus.textContent = ''; remove.hidden = true; });
+        remove.hidden = true;
+        const send = node('button','publish'); send.type = 'submit';
+        picker.addEventListener('change', async () => {
+          const file = picker.files[0];
+          if (!file || uploading || !GP.requireAccount()) return;
+          uploading = true; upload.disabled = send.disabled = remove.disabled = true;
+          attachmentStatus.textContent = 'Uploading...';
+          try {
+            const result = await GP.uploadFile(file, 'profile');
+            attachmentId = result.file.file_id;
+            attachmentStatus.textContent = `${GP.fileName(result.file)} - publish to make this attachment public.`;
+            remove.hidden = false;
+          } catch (error) { attachmentStatus.textContent = error.message; }
+          finally { uploading = false; upload.disabled = send.disabled = remove.disabled = false; }
+        });
+        const actions = node('div', '', 'profile-actions');
+        actions.append(upload, remove, send);
+        form.append(input, picker, attachmentStatus, actions);
         form.addEventListener('keydown', event => event.stopPropagation());
         form.addEventListener('submit', async event => {
           event.preventDefault(); event.stopPropagation();
-          if (!GP.requireAccount() || !input.value.trim() || send.disabled) return;
+          if (!GP.requireAccount() || (!input.value.trim() && !attachmentId) || send.disabled || uploading) return;
           send.disabled = true;
           try {
-            await GP.api('/api/profile/posts', {method:'POST',body:JSON.stringify({text:input.value})});
+            await GP.api('/api/profile/posts', {method:'POST',body:JSON.stringify({text:input.value, file_id:attachmentId})});
             await GP.showProfile(username);
           } catch(error) { status.textContent = error.message; send.disabled = false; }
         });
@@ -132,6 +158,20 @@
       for (const post of profile.posts) {
         const entry = node('article','', 'profile-post');
         entry.append(node('div',new Date(post.created * 1000).toLocaleString(),'hint'), node('p',post.text));
+        if (post.attachment) {
+          const url = `${GP.API_BASE}/api/profile?username=${encodeURIComponent(profile.username)}&attachment=${encodeURIComponent(post.id)}`;
+          if (post.attachment.is_image) {
+            const image = node('img', '', 'profile-post-image');
+            image.src = `${url}&preview=1`; image.alt = post.attachment.name; image.loading = 'lazy';
+            image.addEventListener('error', () => {
+              image.replaceWith(node('div', 'Image preview unavailable.', 'hint'));
+            }, {once: true});
+            entry.append(image);
+          }
+          const download = node('a', `download ${post.attachment.name}`);
+          download.href = url; download.download = post.attachment.name;
+          entry.append(download);
+        }
         if (own) entry.append(button('delete post', async () => {
           if (!window.confirm('Delete this post?')) return;
           try {

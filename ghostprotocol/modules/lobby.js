@@ -2,6 +2,10 @@
   let closeCurrent = null;
   GP.lobby = function () {
     if (closeCurrent) closeCurrent();
+    GP.closeBoard?.(true);
+    if (GP.state.chatMode) GP.exitChat();
+    GP.state.headerHint = '';
+    GP.renderMailHint?.();
     const panel = document.createElement('section');
     panel.className = 'lobby-panel';
     panel.setAttribute('aria-label', 'Public lobby');
@@ -11,14 +15,21 @@
     title.textContent = 'Public lobby';
     const close = document.createElement('button');
     close.type = 'button'; close.textContent = 'close lobby';
-    header.append(title, close);
+    header.append(title);
+    const navigation = document.createElement('nav');
+    navigation.className = 'lobby-navigation';
+    navigation.setAttribute('aria-label', 'Public lobby navigation');
+    const actions = document.createElement('div');
+    actions.className = 'lobby-actions';
     const tabs = document.createElement('div');
     tabs.className = 'lobby-tabs'; tabs.setAttribute('role', 'tablist');
     const body = document.createElement('div');
     body.className = 'lobby-body'; body.setAttribute('role', 'tabpanel');
     const status = document.createElement('div');
     status.className = 'hint'; status.setAttribute('role', 'status');
-    panel.append(header, tabs, status, body);
+    navigation.append(tabs, actions, close);
+    document.querySelector('.terminal-header').appendChild(navigation);
+    panel.append(header, status, body);
     GP.dom.screen.appendChild(panel);
     let active = 'Board', data = {messages: [], users: []}, busy = false;
     let list = null, users = null, form = null, accountId = '', lastPresence = 0;
@@ -26,6 +37,9 @@
     const buttons = new Map();
     function cleanup() {
       clearInterval(timer); controller.abort(); panel.remove();
+      navigation.remove();
+      GP.state.headerHint = undefined;
+      GP.renderMailHint?.();
       if (GP.state.boardElement && !GP.state.boardElement.isConnected) {
         GP.state.boardElement = null; GP.state.boardOpen = false;
       }
@@ -62,7 +76,7 @@
           lastPresence = Date.now();
         }
         data = await GP.api('/api/lobby', {signal:controller.signal});
-        status.textContent = GP.state.account ? 'Public lobby' : 'Guest - view only';
+        status.textContent = GP.state.account ? '' : 'Guest - view only';
         const current = GP.state.account?.account_id || '';
         if (current !== accountId) { accountId = current; select(active); }
         renderData();
@@ -72,9 +86,10 @@
     }
     function select(name) {
       active = name; list = users = form = null;
+      actions.replaceChildren();
       body.replaceChildren();
       buttons.forEach((button, label) => button.setAttribute('aria-selected', String(label === name)));
-      if (name === 'Board') { void GP.board(body); return; }
+      if (name === 'Board') { void GP.board(body, actions); return; }
       if (name === 'Users Online') {
         const note = document.createElement('div'); note.className = 'hint';
         note.textContent = 'Active in this lobby within the last 90 seconds.';
