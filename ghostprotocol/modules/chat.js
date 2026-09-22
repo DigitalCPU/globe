@@ -411,7 +411,7 @@
       ];
       const data = await GP.api('/api/chat', {
         method: 'POST',
-        body: JSON.stringify({ messages })
+        body: JSON.stringify({ messages, app: 'ghostprotocol' })
       });
       const reply = String(data.reply || data.choices?.[0]?.message?.content || '').trim();
       if (!reply) throw new Error('empty AI reply');

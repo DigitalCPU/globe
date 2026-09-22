@@ -7,9 +7,8 @@
     links.className = 'session-shortcuts';
     links.setAttribute('aria-label', 'Account shortcuts');
     for (const [label, command] of [
-      ['my profile', 'profile'], ['inbox', 'inbox'],
-      ['upload', 'upload'], ['mydatabase', 'mydatabase'], ['camera', 'camera'],
-      ['board', 'board'], ['chat', 'chat'], ['post board', 'post-board'], ['sign out', 'sign-out']
+      ['inbox', 'inbox'], ['mydatabase', 'mydatabase'],
+      ['board', 'board'], ['chat', 'chat'], ['sign out', 'sign-out']
     ]) GP.commandButton(label, command, links);
     hint.appendChild(links);
     return true;

@@ -26,12 +26,13 @@
       if (profile) { GP.write('Connections updated.'); await GP.showProfile(profile.username); }
     } catch (error) { GP.write(error.message, 'error'); }
   };
-  function connectionsSection(profile, editable=false) {
-    const section=node('section','', 'profile-connections');
-    const heading=node('h3','Connections');
+  function connectionsSection(profile, editable=false, publicView=false) {
+    const own=!publicView && GP.state.account?.username.toLowerCase()===profile.username.toLowerCase();
+    const section=node(own ? 'section' : 'details','', 'profile-connections');
+    const heading=node(own ? 'h3' : 'summary','Connections');
     const list=node('div','', 'connection-list');
+    if (!own) { list.classList.add('connection-strip'); list.tabIndex=0; list.setAttribute('aria-label','Connections'); }
     const status=node('div','', 'hint'); status.setAttribute('role','status');
-    const own=GP.state.account?.username.toLowerCase()===profile.username.toLowerCase();
     function render(next) {
       profile=next; list.replaceChildren();
       const entries=profile.connections || [];
@@ -88,7 +89,7 @@
     current.append(header); GP.dom.screen.append(current); GP.autoScroll();
     return current;
   }
-  GP.showProfile = async function (username = GP.state.account?.username) {
+  GP.showProfile = async function (username = GP.state.account?.username, publicView = false) {
     if (!username) { GP.write('Use profile <username> to view a public profile.'); return; }
     const target = panel('Profile');
     const status = node('div', 'loading...', 'hint'); target.append(status);
@@ -96,7 +97,7 @@
       const {profile} = await GP.api(`/api/profile?username=${encodeURIComponent(username)}`);
       if (!target.isConnected) return;
       status.textContent = '';
-      const own = GP.state.account?.username.toLowerCase() === profile.username.toLowerCase();
+      const own = !publicView && GP.state.account?.username.toLowerCase() === profile.username.toLowerCase();
       const info = node('div', '', 'profile-info');
       if (profile.has_avatar) {
         const image = node('img', '', 'profile-avatar'); image.src = avatarUrl(profile);
@@ -112,7 +113,7 @@
         const header = target.querySelector('.profile-header');
         header.insertBefore(button('edit profile', () => GP.editProfile()), header.lastElementChild);
       }
-      target.append(connectionsSection(profile));
+      target.append(connectionsSection(profile, false, publicView));
       target.append(node('h3', 'Personal board'));
       if (own) {
         const form = node('form', '', 'profile-form');
@@ -122,26 +123,56 @@
         const attachmentStatus = node('div', '', 'hint');
         attachmentStatus.setAttribute('role', 'status');
         const picker = node('input'); picker.type = 'file'; picker.hidden = true;
+        const cameraPicker = node('input'); cameraPicker.type = 'file'; cameraPicker.hidden = true;
+        cameraPicker.accept = 'image/*'; cameraPicker.setAttribute('capture', 'environment');
         const upload = button('upload', () => { picker.value = ''; picker.click(); });
+        const camera = button('camera', () => { cameraPicker.value = ''; cameraPicker.click(); });
+        const select = node('select'); select.hidden = true;
+        select.setAttribute('aria-label', 'Personal board attachment from MyDatabase');
+        const database = button('MyDatabase', async () => {
+          if (!select.hidden) { select.hidden = true; return; }
+          database.disabled = send.disabled = true;
+          try {
+            const {files = []} = await GP.api('/api/id/files');
+            if (!target.isConnected) return;
+            select.replaceChildren();
+            const empty = node('option', files.length ? 'Choose a file' : 'No files available'); empty.value = ''; select.append(empty);
+            for (const file of files) {
+              const option = node('option', GP.fileName(file)); option.value = file.file_id; select.append(option);
+            }
+            select.hidden = false; select.focus();
+          } catch (error) { attachmentStatus.textContent = error.message; }
+          finally { database.disabled = false; send.disabled = uploading; }
+        });
+        function chooseAttachment(id, name) {
+          attachmentId = id;
+          attachmentStatus.textContent = `${name} - publish to make this attachment public.`;
+          remove.hidden = false;
+        }
+        select.addEventListener('change', () => {
+          if (!select.value || uploading) return;
+          chooseAttachment(select.value, select.selectedOptions[0].textContent);
+          select.hidden = true;
+        });
         const remove = button('remove attachment', () => { attachmentId = ''; attachmentStatus.textContent = ''; remove.hidden = true; });
         remove.hidden = true;
         const send = node('button','publish'); send.type = 'submit';
-        picker.addEventListener('change', async () => {
-          const file = picker.files[0];
+        async function attachUpload(file) {
           if (!file || uploading || !GP.requireAccount()) return;
-          uploading = true; upload.disabled = send.disabled = remove.disabled = true;
+          uploading = true; upload.disabled = camera.disabled = database.disabled = select.disabled = send.disabled = remove.disabled = true;
           attachmentStatus.textContent = 'Uploading...';
           try {
             const result = await GP.uploadFile(file, 'profile');
-            attachmentId = result.file.file_id;
-            attachmentStatus.textContent = `${GP.fileName(result.file)} - publish to make this attachment public.`;
-            remove.hidden = false;
+            chooseAttachment(result.file.file_id, GP.fileName(result.file));
           } catch (error) { attachmentStatus.textContent = error.message; }
-          finally { uploading = false; upload.disabled = send.disabled = remove.disabled = false; }
-        });
-        const actions = node('div', '', 'profile-actions');
-        actions.append(upload, remove, send);
-        form.append(input, picker, attachmentStatus, actions);
+          finally { uploading = false; upload.disabled = camera.disabled = database.disabled = select.disabled = send.disabled = remove.disabled = false; }
+        }
+        picker.addEventListener('change', () => void attachUpload(picker.files[0]));
+        cameraPicker.addEventListener('change', () => void attachUpload(cameraPicker.files[0]));
+        const actions = node('div', '', 'profile-actions personal-board-actions');
+        send.className = 'profile-publish';
+        actions.append(upload, database, camera, send);
+        form.append(input, picker, cameraPicker, actions, select, attachmentStatus, remove);
         form.addEventListener('keydown', event => event.stopPropagation());
         form.addEventListener('submit', async event => {
           event.preventDefault(); event.stopPropagation();
@@ -154,7 +185,10 @@
         });
         target.append(form);
       }
-      if (!profile.posts.length) target.append(node('div','No posts yet.','hint'));
+      const boardPosts = node('div', '', own ? 'personal-board-posts' : 'personal-board-posts public-board-scroll');
+      if (!own) { boardPosts.tabIndex=0; boardPosts.setAttribute('aria-label', 'Personal board posts'); }
+      target.append(boardPosts);
+      if (!profile.posts.length) boardPosts.append(node('div','No posts yet.','hint'));
       for (const post of profile.posts) {
         const entry = node('article','', 'profile-post');
         entry.append(node('div',new Date(post.created * 1000).toLocaleString(),'hint'), node('p',post.text));
@@ -179,7 +213,28 @@
             entry.remove();
           } catch(error) {status.textContent=error.message;}
         }));
-        target.append(entry);
+        if (own) {
+          boardPosts.append(entry);
+        } else {
+          const thread = node('details', '', 'profile-post-thread');
+          const summary = node('summary', '', 'profile-post-summary');
+          const date = node('time', new Date(post.created * 1000).toLocaleString(), 'hint');
+          date.dateTime = new Date(post.created * 1000).toISOString();
+          summary.append(date);
+          if (post.attachment?.is_image) {
+            const thumbnail = node('img', '', 'profile-post-thumb');
+            thumbnail.src = `${GP.API_BASE}/api/profile?username=${encodeURIComponent(profile.username)}&attachment=${encodeURIComponent(post.id)}&preview=1`;
+            thumbnail.alt = post.attachment.name; thumbnail.loading = 'lazy';
+            thumbnail.addEventListener('error', () => thumbnail.replaceWith(node('span', 'Image unavailable', 'hint')), {once:true});
+            summary.append(thumbnail);
+          } else {
+            const words = (post.text || post.attachment?.name || '').trim().split(/\s+/);
+            summary.append(node('span', words.slice(0,12).join(' ') + (words.length > 12 ? '...' : '')));
+          }
+          entry.classList.add('profile-post-expanded');
+          entry.tabIndex=0; entry.setAttribute('aria-label','Opened personal board post');
+          thread.append(summary, entry); boardPosts.append(thread);
+        }
       }
     } catch(error) {status.textContent=error.message;}
   };

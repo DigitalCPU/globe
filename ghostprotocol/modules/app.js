@@ -61,7 +61,7 @@
     if (!GP.state.controlMode && ['inbox','mail','messages','messeges','message'].includes(key)) { void GP.inbox(); return; }
     if (!GP.state.controlMode && /^mail\s+\S/i.test(rawCommand)) { void GP.composeMail(rawCommand.slice(5).trim()); return; }
     if (key === 'editprofile') { void GP.editProfile(); return; }
-    if (command === 'profile' || command.startsWith('profile ')) { void GP.showProfile(rawCommand.slice(7).trim() || undefined); return; }
+    if (command === 'profile' || command.startsWith('profile ')) { void GP.showProfile(rawCommand.slice(7).trim() || undefined, true); return; }
     if (key === 'lobby' || key === 'publiclobby') { GP.lobby(); return; }
     if (key === 'closelobby') { GP.closeLobby(); return; }
     if (GP.state.chatMode) {

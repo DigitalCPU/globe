@@ -604,6 +604,8 @@ body {
   border: 1px solid var(--green-faint); padding: 8px; font: inherit;
 }
 .profile-form textarea { resize: vertical; }
+.personal-board-actions { gap: 6px 12px; }
+.personal-board-actions .profile-publish { margin-left: auto; }
 .profile-panel button, .profile-session-link { border: 0; background: transparent; color: var(--green); font: inherit; cursor: pointer; text-decoration: underline; padding: 5px 0; }
 .profile-panel button:disabled { opacity: 0.5; cursor: wait; }
 .profile-post { border-top: 1px solid var(--green-faint); padding: 12px 0; }
@@ -638,6 +640,16 @@ body {
 .session-shortcuts { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; }
 .profile-post-image { display: block; max-width: 100%; max-height: 420px; object-fit: contain; margin: 8px 0; }
 .profile-post a { color: var(--green); overflow-wrap: anywhere; }
+.profile-connections > summary { cursor: pointer; padding: 12px 0; font-weight: bold; }
+.profile-panel, .profile-connections { min-width: 0; max-width: 100%; }
+.connection-list.connection-strip { display: flex; overflow-x: auto; flex-wrap: nowrap; scrollbar-color: var(--green) #000; padding-bottom: 8px; min-width: 0; max-width: 100%; }
+.connection-strip .connection-link { flex: 0 0 100px; }
+.public-board-scroll { max-height: 60dvh; overflow-y: auto; scrollbar-color: var(--green) #000; overscroll-behavior: contain; }
+.profile-post-thread { border: 1px solid var(--green-faint); margin: 8px 0; }
+.profile-post-summary { cursor: pointer; padding: 10px; overflow-wrap: anywhere; }
+.profile-post-summary time { margin-right: 12px; }
+.profile-post-thumb { display: inline-block; width: 56px; height: 40px; object-fit: cover; vertical-align: middle; }
+.profile-post-expanded { max-height: 45dvh; overflow-y: auto; scrollbar-color: var(--green) #000; padding: 10px; overscroll-behavior: contain; }
 .board-header-links { margin: 0; color: var(--green); flex-wrap: wrap; }
 .board-header-links button { color: var(--green); background: transparent; font: inherit; border: 0; padding: 4px 8px; min-height: 32px; cursor: pointer; }
 .board-header-links button:hover, .board-header-links button:focus-visible { text-decoration: underline; }
