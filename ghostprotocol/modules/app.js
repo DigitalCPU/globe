@@ -7,6 +7,7 @@
     ['mydatabase', 'my database', 'database', 'uploaded-files', 'files'],
     ['camera', 'use camera'], ['board', 'message board'], ['chat', 'ai'],
     ['post board', 'board post'], ['close board', 'board close'],
+    ['eva'], ['eva status'], ['eva security'], ['eva events'], ['close eva'],
     ['clear'], ['fullscreen', 'full', 'immersion']
   ];
 
@@ -58,6 +59,16 @@
     const command = rawCommand.toLowerCase();
     const key = GP.commandKey(rawCommand);
     if (!command) return;
+    if (!GP.state.controlMode && ['eva','evastatus','evasecurity','evaevents','closeeva','exiteva'].includes(key)) {
+      GP.evaCommand(key); return;
+    }
+    if (GP.state.evaMode) {
+      if (['exit','quit'].includes(key)) GP.closeEva();
+      else if (['signout','logout','logoff'].includes(key)) { GP.closeEva(); GP.logout(); }
+      else if (key === 'help') GP.write('eva status | eva security | eva events | close eva');
+      else void GP.sendEva(rawCommand);
+      return;
+    }
     if (!GP.state.controlMode && ['inbox','mail','messages','messeges','message'].includes(key)) { void GP.inbox(); return; }
     if (!GP.state.controlMode && /^mail\s+\S/i.test(rawCommand)) { void GP.composeMail(rawCommand.slice(5).trim()); return; }
     if (key === 'editprofile') { void GP.editProfile(); return; }

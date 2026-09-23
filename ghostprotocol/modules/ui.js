@@ -1,5 +1,6 @@
 (function (GP) {
   GP.renderSessionLinks = function () {
+    if (GP.state.evaMode) return GP.renderEvaHeader?.() || false;
     const hint = GP.dom.terminalHint;
     if (!hint || !GP.state.account || GP.state.chatMode || GP.state.headerHint === '') return false;
     hint.replaceChildren();
@@ -8,7 +9,7 @@
     links.setAttribute('aria-label', 'Account shortcuts');
     for (const [label, command] of [
       ['inbox', 'inbox'], ['mydatabase', 'mydatabase'],
-      ['board', 'board'], ['chat', 'chat'], ['sign out', 'sign-out']
+      ['board', 'board'], ['chat', 'chat'], ['eva', 'eva'], ['sign out', 'sign-out']
     ]) GP.commandButton(label, command, links);
     hint.appendChild(links);
     return true;
@@ -35,6 +36,10 @@
       GP.write('  camera         use camera and save to your local profile folder');
       GP.write('  board          open the message board');
       GP.write('  chat           open AI terminal chat with voice output');
+      GP.write('  eva            open Agent EVA-0');
+      GP.write('  eva status     show EVA service status');
+      GP.write('  eva security / eva events  trusted-owner observations');
+      GP.write('  close eva      return to the terminal');
       GP.write('  post board     write a new message board post');
       GP.write('  close board    close the message board view');
     }
