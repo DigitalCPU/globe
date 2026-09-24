@@ -657,6 +657,16 @@ body {
 .voice-option-switches { display: flex; flex-wrap: wrap; gap: 12px 24px; border: 1px solid var(--green-faint); padding: 8px 12px; margin: 4px 0 12px; }
 .voice-option-switches label { display: flex; gap: 8px; align-items: center; min-height: 32px; cursor: pointer; }
 .voice-option-switches input { accent-color: var(--green); width: 16px; height: 16px; margin: 0; }
+.voice-preset-picker { align-items: center; }
+.voice-preset-picker select {
+  min-width: min(260px, 75vw);
+  background: #000;
+  color: var(--green);
+  border: 1px solid var(--green-faint);
+  padding: 6px 8px;
+  font: inherit;
+}
+.voice-preset-picker .hint { opacity: 0.8; }
 .session-shortcuts .terminal-button { margin: 0; padding: 4px 0; min-height: 32px; }
 .lobby-navigation .lobby-tabs { margin: 0; padding: 0; border: 0; flex: 1 1 auto; gap: 8px; }
 .lobby-navigation button { background: transparent; color: var(--green); border: 0; font: inherit; cursor: pointer; min-height: 32px; }
@@ -822,3 +832,4 @@ body {
   color: #b8ffc5;
   outline: 0;
 }
+

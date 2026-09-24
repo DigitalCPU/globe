@@ -67,7 +67,14 @@
       const data = await GP.api(`/api/eva/v1/${path}`, {...options, signal: controller.signal});
       if (version !== currentVersion || key !== accountKey() || !panel?.isConnected) return;
       pending.remove();
-      if (path === 'chat') line(`eva> ${data.reply}`, 'eva-reply');
+      if (path === 'chat') {
+        if (GP.writeAiReply) {
+          const reply = GP.writeAiReply(String(data.reply || ''), output, 'eva_0');
+          reply.classList.add('eva-reply');
+        } else {
+          line(`eva> ${data.reply}`, 'eva-reply');
+        }
+      }
       else line(JSON.stringify(data.status || data, null, 2), 'eva-status');
     } catch (error) {
       if (version === currentVersion && key === accountKey() && panel?.isConnected) {
@@ -100,3 +107,4 @@
     return updateSession.apply(this, arguments);
   };
 })(window.GhostProtocol);
+

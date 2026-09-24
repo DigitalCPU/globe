@@ -130,11 +130,71 @@
       writeOptionValue('provider', data.default_tts_provider);
       writeOptionValue('voice', data.default_voice_id);
       if (data.gpu?.label) writeOptionValue('gpu', data.gpu.label);
+      await renderHostPresetSelector();
     } catch (error) {
       GP.write(`voice options unavailable: ${error.message}`, 'error');
     }
   }
 
+  async function renderHostPresetSelector() {
+    let presetsData;
+    let resolvedData;
+    try {
+      [presetsData, resolvedData] = await Promise.all([
+        GP.api('/api/voice/presets'),
+        GP.api('/api/voice/resolve?agent_id=ghost_host')
+      ]);
+    } catch (error) {
+      GP.write(`character presets unavailable: ${error.message}`, 'hint');
+      return;
+    }
+    const presets = Array.isArray(presetsData.presets) ? presetsData.presets : [];
+    const resolved = resolvedData.voice || {};
+    const panel = document.createElement('div');
+    panel.className = 'voice-option-switches voice-preset-picker';
+    const label = document.createElement('label');
+    label.textContent = 'Host preset ';
+    const select = document.createElement('select');
+    const empty = document.createElement('option');
+    empty.value = '';
+    empty.textContent = presets.length ? 'application default' : 'no saved character presets';
+    select.appendChild(empty);
+    for (const preset of presets) {
+      const option = document.createElement('option');
+      option.value = preset.preset_id || '';
+      option.textContent = preset.name || preset.preset_id || 'unnamed preset';
+      if (option.value && option.value === resolved.preset_id) option.selected = true;
+      select.appendChild(option);
+    }
+    select.disabled = presets.length === 0;
+    select.addEventListener('change', async () => {
+      try {
+        const result = await GP.api('/api/voice/assign', {
+          method: 'POST',
+          body: JSON.stringify({
+            agent_id: 'ghost_host',
+            display_name: 'Host Assistant',
+            preset_id: select.value,
+            voice_enabled: true
+          })
+        });
+        const voice = result.voice || {};
+        GP.write(`host preset: ${voice.preset_name || 'application default'}`);
+      } catch (error) {
+        GP.write(`preset update failed: ${error.message}`, 'error');
+      }
+    });
+    label.appendChild(select);
+    panel.appendChild(label);
+    if (resolved.preset_name || resolved.fallback_reason) {
+      const note = document.createElement('span');
+      note.className = 'hint';
+      note.textContent = ` current: ${resolved.preset_name || resolved.fallback_reason}`;
+      panel.appendChild(note);
+    }
+    GP.dom.screen.appendChild(panel);
+    GP.autoScroll();
+  }
   async function showAiOptions() {
     GP.write('AI options');
     try {
@@ -170,11 +230,12 @@
     }
   }
 
-  function writeAiReply(reply, target = GP.dom.screen) {
+  function writeAiReply(reply, target = GP.dom.screen, agentId = 'ghost_host') {
     const wrap = document.createElement('button');
     wrap.type = 'button';
     wrap.className = 'ai-reply';
     wrap.setAttribute('aria-label', 'Play or stop AI voice reply');
+    wrap.dataset.agentId = agentId;
 
     const label = document.createElement('span');
     label.className = 'ai-reply-label';
@@ -329,7 +390,7 @@
     try {
       const data = await GP.api('/api/voice/tts', {
         method: 'POST',
-        body: JSON.stringify({ text })
+        body: JSON.stringify({ text, agent_id: replyElement?.dataset.agentId || 'ghost_host' })
       });
       const url = await fetchVoiceAudioBlob(data.audio_url || '/api/voice/last.wav');
       replyElement.dataset.audioUrl = url;
@@ -435,3 +496,6 @@
   GP.animatedStatusLine = animatedStatusLine;
   GP.writeAiReply = writeAiReply;
 })(window.GhostProtocol);
+
+
+
