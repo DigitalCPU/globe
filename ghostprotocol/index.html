@@ -4,13 +4,17 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>GhostProtocol</title>
-  <link rel="stylesheet" href="styles.css?v=structure1">
+  <link rel="stylesheet" href="styles.css?v=keyboard1">
+  <link rel="stylesheet" href="keyboard.css?v=keyboard1">
 </head>
 <body>
   <main class="terminal" aria-label="GhostProtocol terminal">
     <header class="terminal-header">
       <div>
-        <strong id="appTitle">Ghost Protocol</strong>
+        <div class="terminal-title">
+          <strong id="appTitle">Ghost Protocol</strong>
+          <button id="keyboardToggle" type="button" aria-label="Toggle keyboard" aria-controls="virtualKeyboard" aria-expanded="false" title="Toggle keyboard">[::::]</button>
+        </div>
         <span id="connectionState">offline</span>
         <span id="terminalHint" class="terminal-hint">type 'help' to access terminal</span>
       </div>
@@ -24,6 +28,7 @@
         <span id="sessionState">guest</span>
       </div>
     </header>
+    <section id="virtualKeyboard" class="virtual-keyboard" aria-label="Virtual keyboard" hidden></section>
     <section class="terminal-screen" id="screen" aria-live="polite"></section>
     <form class="terminal-input" id="commandForm">
       <label for="commandInput">&gt;</label>
@@ -34,6 +39,7 @@
   <input id="fileInput" type="file" hidden>
   <input id="cameraInput" type="file" accept="image/*" capture="environment" hidden>
   <script src="modules/core.js?v=structure1"></script>
+  <script src="modules/keyboard.js?v=keyboard1"></script>
   <script src="modules/ui.js?v=structure1"></script>
   <script src="modules/control.js?v=structure1"></script>
   <script src="modules/auth.js?v=structure1"></script>

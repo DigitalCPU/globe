@@ -833,3 +833,11 @@ body {
   outline: 0;
 }
 
+
+@media (max-width: 820px), (pointer: coarse) {
+  input:not([type="range"]):not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}

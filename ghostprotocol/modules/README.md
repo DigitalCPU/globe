@@ -6,6 +6,7 @@ GhostProtocol is loaded directly by `ghostprotocol/index.html`; there is no buil
 
 - `core.js` holds shared DOM references, app state, storage keys, API calls, terminal output helpers, command normalization, and small utilities.
 - `ui.js` holds visible help/menu text and terminal shortcut buttons.
+- `keyboard.js` handles the optional on-screen keyboard, focused-field editing, and native keyboard handoff. Its layout lives in `../keyboard.css`.
 - `control.js` holds owner/control-panel command access.
 - `auth.js` holds sign-up, sign-in, sign-out, and session refresh.
 - `app.js` wires command routing, form submission, window controls, fullscreen behavior, and startup.
