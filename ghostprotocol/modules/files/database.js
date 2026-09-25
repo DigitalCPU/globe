@@ -14,7 +14,9 @@
         row.appendChild(Files.actionButton('analyze', () => Files.analyzeImage(file, row)));
         row.appendChild(Files.actionButton('notes', () => Files.showImageAnalysis(file, row)));
       }
-      if (options.read && Files.isTextDocument(file)) {
+      if (Files.isAiDocFile && Files.isAiDocFile(file)) {
+        row.appendChild(Files.actionButton('open Ai Doc', () => Files.openAiDoc(file, row)));
+      } else if (options.read && Files.isTextDocument(file)) {
         row.appendChild(Files.actionButton('read', () => Files.readTextFile(file, row)));
       }
       if (options.inspectDb && Files.isDb3Document(file)) {
@@ -228,3 +230,4 @@
 
   GP.myDatabase = myDatabase;
 })(window.GhostProtocol);
+

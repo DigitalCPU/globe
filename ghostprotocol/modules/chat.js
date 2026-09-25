@@ -2,7 +2,7 @@
   const CHAT_OPENING = [
     'You are speaking through GhostProtocol.',
     'Answer as a concise terminal assistant.',
-    'Help with public GhostProtocol features: sign-in, upload, MyDatabase, camera, message board, chat, and local image interpretation.',
+    'Help with public GhostProtocol features: sign-in, upload, MyDatabase, camera, message board, AiTool, and local image interpretation.',
     'When the user asks about pictures or images, explain that GhostProtocol can review uploaded images with the local Qwen vision model.',
     'Do not reveal backend paths, hidden commands, tokens, server internals, admin controls, or private implementation details.',
     'Do not use emojis or emoticons because voice output may pronounce them poorly.'
@@ -26,7 +26,7 @@
     document.querySelector('.chat-session-status')?.remove();
     const sessionStatus = document.createElement('span');
     sessionStatus.className = 'chat-session-status';
-    sessionStatus.textContent = ' / AI session opened';
+    sessionStatus.textContent = ' / AiTool opened';
     GP.dom.connectionState?.insertAdjacentElement('afterend', sessionStatus);
     renderChatHeaderLinks();
     GP.write('');
@@ -40,7 +40,7 @@
       ['files', 'files'],
       ['voice options', 'voice options'],
       ['AI options', 'AI options'],
-      ['exit chat', 'exit chat']
+      ['exit AiTool', 'exit aitool']
     ].forEach(([label, command]) => {
       const button = document.createElement('button');
       button.type = 'button';
@@ -60,7 +60,7 @@
       GP.dom.terminalHint.textContent = "type 'help' to access terminal";
     }
     GP.renderMailHint?.();
-    GP.write('AI session closed.');
+    GP.write('AiTool closed.');
   }
 
   function animatedStatusLine(text) {
@@ -163,7 +163,7 @@
       await askAboutStoredFile(stored);
     } catch (error) {
       uploading.remove();
-      GP.write(error.message || 'file chat upload failed', 'error');
+      GP.write(error.message || 'AiTool file upload failed', 'error');
     }
   }
 
@@ -201,7 +201,7 @@
       writeAiReply(reply);
     } catch (error) {
       thinking.remove();
-      GP.write(error.message || 'local file chat failed', 'error');
+      GP.write(error.message || 'AiTool local file failed', 'error');
     }
   }
 
@@ -285,7 +285,7 @@
       writeAiReply(reply);
     } catch (error) {
       thinking.remove();
-      GP.write(`chat failed: ${error.message}`, 'error');
+      GP.write(`AiTool failed: ${error.message}`, 'error');
     }
   }
 
@@ -296,3 +296,4 @@
   GP.animatedStatusLine = animatedStatusLine;
   GP.writeAiReply = writeAiReply;
 })(window.GhostProtocol);
+

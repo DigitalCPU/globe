@@ -20,7 +20,7 @@ GhostProtocol is loaded directly by `ghostprotocol/index.html`; there is no buil
 - `board.js` holds the public message board, thread view, replies, and owner delete controls.
 - `chat/options.js` holds voice/AI option displays and voice preset assignment.
 - `chat/voice-playback.js` holds TTS audio fetch, playback, stop, and reply voice toggling.
-- `chat.js` holds GhostProtocol terminal AI chat flow and file attachment commands.
+- `chat.js` holds GhostProtocol terminal AiTool flow and file attachment commands.
 - `lobby.js` holds the public lobby.
 - `profiles.js` is now a tiny compatibility shim for the `GP.Profiles` namespace.
 - `profiles/core.js` holds profile DOM helpers, avatar URL helpers, and shared profile panel creation.
@@ -31,4 +31,6 @@ GhostProtocol is loaded directly by `ghostprotocol/index.html`; there is no buil
 - `eva.js` holds Agent EVA-0 panel commands and session header integration.
 
 Backend-only logic remains in Python. Keep secrets, relay config, local storage, and admin-only operations out of this frontend folder unless they are deliberately exposed by a backend route.
+
+
 

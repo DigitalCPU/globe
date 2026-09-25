@@ -63,7 +63,7 @@
         body: JSON.stringify({ file_id: file.file_id, name: nextName })
       });
       GP.write(`renamed: ${result.file.name || result.file.stored_name}`);
-      await myDatabase();
+      await GP.myDatabase();
     } catch (error) {
       GP.write(error.message || 'rename failed', 'error');
     }
@@ -78,7 +78,7 @@
         body: JSON.stringify({ file_id: file.file_id })
       });
       GP.write(`deleted: ${name}`);
-      await myDatabase();
+      await GP.myDatabase();
     } catch (error) {
       GP.write(error.message || 'delete failed', 'error');
     }
@@ -97,7 +97,7 @@
   }
 
   function chatConversationText(file, history = GP.state.chatMessages) {
-    const lines = [`GhostProtocol chat image post: ${Files.fileName(file)}`];
+    const lines = [`GhostProtocol AiTool image post: ${Files.fileName(file)}`];
     const messages = Array.isArray(history) ? history.slice(-12) : [];
     if (messages.length) {
       lines.push('', 'conversation:');
@@ -112,22 +112,64 @@
     await Files.sendFileToBoard(file, chatConversationText(file, history));
   }
 
-  async function openChatImage(file, files = []) {
+  function isAiDocFile(file) {
+    const type = String(file && file.content_type || '').toLowerCase();
+    const name = Files.fileName(file).toLowerCase();
+    return type.includes('ghostprotocol.aitool') || name.endsWith('.aidoc.json');
+  }
+
+  function shouldRescanQuestion(question) {
+    return /\b(scan|rescan|look|observe|analy[sz]e|check|review)\b[\s\S]{0,40}\b(again|fresh|new|recheck|re-scan)\b/i.test(question)
+      || /\b(scan again|look again|rescan|re-scan)\b/i.test(question);
+  }
+
+  async function loadAiDoc(file) {
+    const response = await fetch(`${GP.API_BASE}/api/id/file?file_id=${encodeURIComponent(file.file_id)}`, {
+      headers: { 'X-ID-Session': GP.token(), 'X-Device-ID': GP.deviceId() }
+    });
+    if (!response.ok) throw new Error(`Ai Doc load failed: ${response.status}`);
+    const text = await response.text();
+    const doc = JSON.parse(text);
+    if (!doc || doc.kind !== 'ghostprotocol_aitool_doc') throw new Error('not a GhostProtocol Ai Doc');
+    return doc;
+  }
+
+  async function openAiDoc(file, row) {
+    try {
+      const doc = await loadAiDoc(file);
+      const source = doc.source_file;
+      if (!source || !source.file_id) throw new Error('Ai Doc source file is missing.');
+      await openChatImage(source, Files.isImageFile(source) ? [source] : [], doc);
+    } catch (error) {
+      GP.write(error.message || 'Ai Doc open failed', 'error');
+      if (row) await readTextFile(file, row).catch(() => {});
+    }
+  }
+  async function openChatImage(file, files = [], savedDoc = null) {
     const imageFile = Files.isImageFile(file);
     const subject = imageFile ? 'image' : 'document';
     const panel = document.createElement('div');
     panel.className = 'chat-image-container';
-    const history = [];
+    const history = Array.isArray(savedDoc && savedDoc.messages) ? savedDoc.messages.map((message) => ({
+      role: String(message.role || '').toLowerCase() === 'assistant' ? 'assistant' : 'user',
+      content: String(message.content || '')
+    })).filter((message) => message.content.trim()).slice(-80) : [];
     const request = new AbortController();
     let busy = false;
+    let savedAnalysis = savedDoc && savedDoc.analysis ? savedDoc.analysis : null;
+    let savedDocFile = null;
 
     const header = document.createElement('div');
     header.className = 'chat-image-header';
     const title = document.createElement('span');
-    title.textContent = Files.fileName(file);
+    title.textContent = savedDoc && savedDoc.title ? `${savedDoc.title} / ${Files.fileName(file)}` : Files.fileName(file);
     header.appendChild(title);
     const observe = Files.actionButton(imageFile ? 'observe image' : 'summarize', () => submitQuestion(imageFile ? 'Describe what you see in this image.' : 'Summarize this document.'));
+    const scanAgain = Files.actionButton(imageFile ? 'scan again' : 'read again', () => submitQuestion(imageFile ? 'Scan the image again and describe any updated details.' : 'Read this document again and summarize it.', { rescan: true }));
+    const saveDoc = Files.actionButton('save Ai Doc', () => saveAiDoc().catch((error) => appendLine(error.message || 'save failed', 'error')));
     header.appendChild(observe);
+    header.appendChild(scanAgain);
+    header.appendChild(saveDoc);
     if (imageFile) header.appendChild(Files.actionButton('send to board', () => sendChatImageToBoard(file, history).catch((error) => appendLine(error.message, 'error'))));
     header.appendChild(Files.actionButton('close', () => {
       request.abort();
@@ -141,7 +183,7 @@
     layout.className = 'chat-image-layout';
     const conversation = document.createElement('section');
     conversation.className = 'chat-image-conversation';
-    conversation.setAttribute('aria-label', `Chat about ${Files.fileName(file)}`);
+    conversation.setAttribute('aria-label', `Ask AiTool about ${Files.fileName(file)}`);
     const messages = document.createElement('div');
     messages.className = 'chat-image-messages';
     messages.setAttribute('role', 'log');
@@ -172,42 +214,82 @@
       messages.scrollTop = messages.scrollHeight;
     }
 
-    async function submitQuestion(value) {
-      const question = value.trim();
-      if (!question || busy || !GP.requireAccount()) return;
-      busy = true;
-      send.disabled = observe.disabled = true;
-      input.value = '';
-      appendLine(`you> ${question}`);
-      status.textContent = `reviewing ${subject}...`;
+    function renderSavedHistory() {
+      if (!history.length) return;
+      appendLine('Ai Doc restored. Continuing saved conversation.', 'hint');
+      history.forEach((message) => {
+        if (message.role === 'assistant' && GP.writeAiReply) GP.writeAiReply(message.content, messages);
+        else appendLine(`you> ${message.content}`);
+      });
+      messages.scrollTop = messages.scrollHeight;
+    }
+
+    async function saveAiDoc() {
+      if (!GP.requireAccount()) return;
+      if (!history.length) throw new Error('nothing to save yet');
+      saveDoc.disabled = true;
+      status.textContent = 'saving Ai Doc...';
       status.classList.add('terminal-pulse');
       try {
-        const context = history.slice(-8).map((message) => ({
-          role: message.role, content: message.content.slice(0, 1200)
+        const data = await GP.api('/api/id/aidocs/save', {
+          method: 'POST',
+          body: JSON.stringify({
+            source_file_id: file.file_id,
+            title: `${Files.fileName(file)} AiTool`,
+            messages: history,
+            analysis: savedAnalysis
+          })
+        });
+        savedDocFile = data.file || null;
+        appendLine(`saved Ai Doc: ${savedDocFile ? Files.fileName(savedDocFile) : 'Documents/Ai Docs'}`, 'hint');
+      } finally {
+        saveDoc.disabled = false;
+        status.textContent = '';
+        status.classList.remove('terminal-pulse');
+      }
+    }
+
+    async function submitQuestion(value, options = {}) {
+      const question = value.trim();
+      if (!question || busy || !GP.requireAccount()) return;
+      const rescan = Boolean(options.rescan || shouldRescanQuestion(question) || (imageFile && !savedAnalysis));
+      busy = true;
+      send.disabled = observe.disabled = scanAgain.disabled = saveDoc.disabled = true;
+      input.value = '';
+      appendLine(`you> ${question}`);
+      status.textContent = rescan ? `scanning ${subject}...` : `using saved ${subject} scan...`;
+      status.classList.add('terminal-pulse');
+      try {
+        const conversationMemory = history.slice(-14).map((message) => ({
+          role: message.role,
+          content: message.content.slice(0, 2000)
         }));
         const data = await GP.api('/api/id/file/explain', {
           method: 'POST',
           signal: request.signal,
           body: JSON.stringify({
             file_id: file.file_id,
-            question: context.length
-              ? `Previous conversation about this ${subject} (JSON): ${JSON.stringify(context)}\n\nCurrent question: ${question}`
-              : question
+            question,
+            conversation: conversationMemory,
+            analysis: savedAnalysis,
+            rescan
           })
         });
         if (!panel.isConnected) return;
         const reply = String(data.reply || '').trim();
         if (!reply) throw new Error('empty AI reply');
+        if (data.analysis) savedAnalysis = data.analysis;
         history.push({ role: 'user', content: question }, { role: 'assistant', content: reply });
         GP.writeAiReply(reply, messages);
+        if (imageFile && data.cached_analysis) appendLine('used saved image scan', 'hint');
       } catch (error) {
         if (!request.signal.aborted && panel.isConnected) {
-          appendLine(error.message || 'image chat failed', 'error');
+          appendLine(error.message || 'image AiTool failed', 'error');
           if (!input.value) input.value = question;
         }
       } finally {
         busy = false;
-        send.disabled = observe.disabled = false;
+        send.disabled = observe.disabled = scanAgain.disabled = saveDoc.disabled = false;
         status.textContent = '';
         status.classList.remove('terminal-pulse');
       }
@@ -240,6 +322,7 @@
     }
 
     GP.dom.screen.appendChild(panel);
+    renderSavedHistory();
     const reviewing = GP.animatedStatusLine ? GP.animatedStatusLine('loading image') : null;
     try {
       if (imageFile) await loadFxImage(file, stage, 'chat-image-large');
@@ -252,7 +335,6 @@
       stage.textContent = error.message || 'image preview failed';
     }
   }
-
   function renderChatImageDatabase(files) {
     const groups = Files.categorizedFiles(files);
     if (GP.state.databaseElement) GP.state.databaseElement.remove();
@@ -266,7 +348,10 @@
       button.type = 'button';
       button.className = 'chat-image-link';
       button.textContent = `${index + 1}) ${Files.fileName(file)}`;
-      button.addEventListener('click', () => openChatImage(file, Files.isImageFile(file) ? groups.images : []));
+      button.addEventListener('click', () => {
+        if (Files.isAiDocFile && Files.isAiDocFile(file)) openAiDoc(file, button);
+        else openChatImage(file, Files.isImageFile(file) ? groups.images : []);
+      });
       body.appendChild(button);
       });
     }
@@ -351,6 +436,8 @@
   Files.sendFileToBoard = sendFileToBoard;
   Files.chatConversationText = chatConversationText;
   Files.sendChatImageToBoard = sendChatImageToBoard;
+  Files.isAiDocFile = isAiDocFile;
+  Files.openAiDoc = openAiDoc;
   Files.openChatImage = openChatImage;
   Files.renderChatImageDatabase = renderChatImageDatabase;
   Files.fetchBoardImage = fetchBoardImage;
@@ -361,5 +448,8 @@
   GP.openChatImage = openChatImage;
   GP.fetchBoardImage = fetchBoardImage;
 })(window.GhostProtocol);
+
+
+
 
 

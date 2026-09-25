@@ -95,11 +95,11 @@
         note.textContent = 'Active in this lobby within the last 90 seconds.';
         users = document.createElement('div'); body.append(note, users); renderData(); return;
       }
-      if (name === 'AI Chat') {
+      if (name === 'AiTool') {
         const note = document.createElement('div');
         note.textContent = GP.state.account ? 'Your AI conversation is private.' : 'Sign in to start a private AI conversation.';
         body.appendChild(note);
-        if (GP.state.account) body.appendChild(GP.inlineButton('open AI chat', () => { cleanup(); GP.enterChat(); }));
+        if (GP.state.account) body.appendChild(GP.inlineButton('open AiTool', () => { cleanup(); GP.enterChat(); }));
         return;
       }
       list = document.createElement('div'); list.className = 'lobby-messages';
@@ -123,7 +123,7 @@
         finally { send.disabled = false; }
       });
     }
-    for (const name of ['Board', 'Chat Room', 'AI Chat', 'Users Online']) {
+    for (const name of ['Board', 'Chat Room', 'AiTool', 'Users Online']) {
       const button = document.createElement('button'); button.type = 'button'; button.textContent = name;
       button.setAttribute('role','tab'); button.addEventListener('click', () => select(name));
       buttons.set(name, button); tabs.appendChild(button);
@@ -134,3 +134,4 @@
   };
   GP.closeLobby = () => { if (closeCurrent) closeCurrent(); };
 })(window.GhostProtocol);
+

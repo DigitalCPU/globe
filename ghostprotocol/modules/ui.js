@@ -9,7 +9,7 @@
     links.setAttribute('aria-label', 'Account shortcuts');
     for (const [label, command] of [
       ['inbox', 'inbox'], ['mydatabase', 'mydatabase'],
-      ['board', 'board'], ['chat', 'chat'], ['eva', 'eva'], ['sign out', 'sign-out']
+      ['board', 'board'], ['AiTool', 'aitool'], ['eva', 'eva'], ['sign out', 'sign-out']
     ]) GP.commandButton(label, command, links);
     hint.appendChild(links);
     return true;
@@ -17,7 +17,7 @@
   function help() {
     GP.closeLobby?.();
     GP.closeBoard?.(true);
-    GP.state.headerHint = GP.state.account ? undefined : 'Sign in or sign up to upload, access personal files, chat, and post.';
+    GP.state.headerHint = GP.state.account ? undefined : 'Sign in or sign up to upload, access personal files, AiTool, and post.';
     GP.renderMailHint?.();
     GP.write('Terminal portal commands:');
     GP.write('  lobby          open the public lobby (guests view only)');
@@ -35,7 +35,7 @@
       GP.write('  mydatabase     open files stored in your local profile folder');
       GP.write('  camera         use camera and save to your local profile folder');
       GP.write('  board          open the message board');
-      GP.write('  chat           open AI terminal chat with voice output');
+      GP.write('  AiTool        open the multi-function AI powered tool');
       GP.write('  eva            open Agent EVA-0');
       GP.write('  eva status     show EVA service status');
       GP.write('  eva security / eva events  trusted-owner observations');
@@ -70,7 +70,7 @@
     GP.write('2) my database');
     GP.write('3) use camera');
     GP.write('4) message board');
-    GP.write('5) AI chat');
+    GP.write('5) AiTool');
     GP.write('6) sign out');
     GP.write('');
   }
@@ -78,4 +78,5 @@
   GP.help = help;
   GP.menu = menu;
 })(window.GhostProtocol);
+
 

@@ -5,7 +5,7 @@
     ['sign-in', 'login', 'logon'], ['sign-up', 'register', 'create account', 'create profile'],
     ['sign-out', 'logout', 'logoff'], ['menu'], ['upload'],
     ['mydatabase', 'my database', 'database', 'uploaded-files', 'files'],
-    ['camera', 'use camera'], ['board', 'message board'], ['chat', 'ai'],
+    ['camera', 'use camera'], ['aitool', 'ai tool', 'chat', 'ai'],
     ['post board', 'board post'], ['close board', 'board close'],
     ['eva'], ['eva status'], ['eva security'], ['eva events'], ['close eva'],
     ['clear'], ['fullscreen', 'full', 'immersion']
@@ -76,7 +76,7 @@
     if (key === 'lobby' || key === 'publiclobby') { GP.lobby(); return; }
     if (key === 'closelobby') { GP.closeLobby(); return; }
     if (GP.state.chatMode) {
-      if (key === 'exitchat' || key === 'exit' || key === 'quit') {
+      if (key === 'exitaitool' || key === 'exitchat' || key === 'exit' || key === 'quit') {
         GP.exitChat();
       } else {
         void GP.sendChat(rawCommand);
@@ -101,7 +101,7 @@
     else if (command === 'mydatabase' || command === 'database' || command === 'uploaded-files' || command === 'files' || command === '2') void GP.myDatabase();
     else if (command === 'camera' || command === 'use camera' || command === '3') void GP.camera();
     else if (command === 'board' || command === 'message board' || command === '4') void GP.board();
-    else if (command === 'chat' || command === 'ai' || command === '5') GP.enterChat();
+    else if (['aitool', 'ai tool', 'chat', 'ai'].includes(command) || ['aitool', 'aitools', 'aitoolkit'].includes(key) || command === '5') GP.enterChat();
     else if (key === 'postboard' || key === 'boardpost') void GP.postBoardMessage();
     else if (key === 'closeboard' || key === 'boardclose') GP.closeBoard();
     else if (['logout', 'signout', 'logoff'].includes(key) || command === '6') GP.logout();
@@ -162,4 +162,5 @@
   GP.start = start;
   start();
 })(window.GhostProtocol);
+
 

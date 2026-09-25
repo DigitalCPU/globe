@@ -7,6 +7,12 @@ const ALLOWED_ORIGINS = new Set([
 ]);
 
 const MAX_TEXT_FILE_BYTES = 512 * 1024;
+const EVA_ROUTES = new Map([
+  ['/api/eva/v1/status', 'GET'],
+  ['/api/eva/v1/chat', 'POST'],
+  ['/api/eva/v1/security/status', 'GET'],
+  ['/api/eva/v1/security/events', 'GET']
+]);
 
 function corsHeaders(request) {
   const origin = request.headers.get('Origin') || '';
@@ -308,11 +314,16 @@ export default {
       return handleAdmin(request, env, url);
     }
 
+    if (url.pathname.startsWith('/api/eva/')) {
+      if (url.search || EVA_ROUTES.get(url.pathname) !== request.method) return json({ error: 'Not found.' }, 404, request);
+      return proxyToTunnel(request, env, url.pathname);
+    }
     if (url.pathname === '/api/status' && request.method === 'GET') return proxyToTunnel(request, env, '/api/status');
     if (url.pathname === '/api/id/status' && request.method === 'GET') return proxyToTunnel(request, env, '/api/id/status');
     if (url.pathname === '/api/id/me' && request.method === 'GET') return proxyToTunnel(request, env, '/api/id/me');
     if (url.pathname === '/api/id/files' && request.method === 'GET') return proxyToTunnel(request, env, `/api/id/files${url.search}`);
     if (url.pathname === '/api/id/file/fx' && request.method === 'GET') return proxyToTunnel(request, env, `/api/id/file/fx${url.search}`);
+    if (url.pathname === '/api/id/file/analysis' && request.method === 'GET') return proxyToTunnel(request, env, `/api/id/file/analysis${url.search}`);
     if (url.pathname === '/api/id/file' && request.method === 'GET') return proxyToTunnel(request, env, `/api/id/file${url.search}`);
     if (url.pathname === '/api/id/register' && request.method === 'POST') return proxyToTunnel(request, env, '/api/id/register');
     if (url.pathname === '/api/id/login' && request.method === 'POST') return proxyToTunnel(request, env, '/api/id/login');
@@ -329,7 +340,15 @@ export default {
     if (url.pathname === '/api/id/files/upload/finish' && request.method === 'POST') return proxyToTunnel(request, env, '/api/id/files/upload/finish');
     if (url.pathname === '/api/id/files/upload/cancel' && request.method === 'POST') return proxyToTunnel(request, env, '/api/id/files/upload/cancel');
     if (url.pathname === '/api/id/files/upload' && request.method === 'POST') return proxyToTunnel(request, env, '/api/id/files/upload');
+    if (url.pathname === '/api/id/aidocs/save' && request.method === 'POST') return proxyToTunnel(request, env, '/api/id/aidocs/save');
+    if (url.pathname === '/api/id/file/explain' && request.method === 'POST') return proxyToTunnel(request, env, '/api/id/file/explain');
+    if (url.pathname === '/api/id/file/analyze' && request.method === 'POST') return proxyToTunnel(request, env, `/api/id/file/analyze${url.search}`);
     if (url.pathname === '/api/id/files/delete' && request.method === 'POST') return proxyToTunnel(request, env, '/api/id/files/delete');
+    if ((url.pathname === '/api/profile' && ['GET', 'POST'].includes(request.method)) ||
+        (url.pathname === '/api/profile/avatar' && request.method === 'GET') ||
+        (url.pathname === '/api/profile/posts' && request.method === 'POST')) return proxyToTunnel(request, env, `${url.pathname}${url.search}`);
+    if (url.pathname === '/api/lobby' && ['GET', 'POST'].includes(request.method)) return proxyToTunnel(request, env, '/api/lobby');
+    if (url.pathname === '/api/mail' && ['GET', 'POST'].includes(request.method)) return proxyToTunnel(request, env, `/api/mail${url.search}`);
     if (url.pathname === '/api/board/categories' && request.method === 'GET') return proxyToTunnel(request, env, '/api/board/categories');
     if (url.pathname === '/api/board/posts' && request.method === 'GET') return proxyToTunnel(request, env, `/api/board/posts${url.search}`);
     if (url.pathname === '/api/board/posts' && request.method === 'POST') return proxyToTunnel(request, env, '/api/board/posts');
@@ -370,3 +389,4 @@ export default {
     return json({ error: 'Not found.' }, 404, request);
   }
 };
+
