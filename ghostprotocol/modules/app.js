@@ -139,8 +139,6 @@
   }
 
   function start() {
-    document.addEventListener('pointerdown', GP.activateImmersion, { once: true });
-    document.addEventListener('keydown', GP.activateImmersion, { once: true });
     bindWindowControls();
 
     GP.dom.form.addEventListener('submit', (event) => {
@@ -164,3 +162,4 @@
   GP.start = start;
   start();
 })(window.GhostProtocol);
+
