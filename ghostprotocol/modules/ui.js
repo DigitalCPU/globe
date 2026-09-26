@@ -11,7 +11,7 @@
       ['inbox', 'inbox']
     ] : [
       ['mydatabase', 'mydatabase'],
-      ['board', 'board'], ['AiTool', 'aitool'], ['eva', 'eva'], ['sign out', 'sign-out']
+      ['Lobby', 'lobby'], ['AiTool', 'aitool'], ['eva', 'eva'], ['sign out', 'sign-out']
     ];
     for (const [label, command] of shortcuts) GP.commandButton(label, command, links);
     if (GP.state.databaseOpen) {

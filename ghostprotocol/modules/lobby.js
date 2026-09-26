@@ -31,7 +31,7 @@
     document.querySelector('.terminal-header').appendChild(navigation);
     panel.append(header, status, body);
     GP.dom.screen.appendChild(panel);
-    let active = 'Board', data = {messages: [], users: []}, busy = false;
+    let active = 'Users Online', data = {messages: [], users: []}, busy = false;
     let list = null, users = null, form = null, accountId = '', lastPresence = 0;
     const controller = new AbortController();
     const buttons = new Map();
@@ -88,7 +88,15 @@
       active = name; list = users = form = null;
       actions.replaceChildren();
       body.replaceChildren();
-      buttons.forEach((button, label) => button.setAttribute('aria-selected', String(label === name)));
+      title.textContent = name === 'Board' ? 'Message Board Open' : 'Public lobby';
+      buttons.forEach((button, label) => {
+        const selected = label === name;
+        button.setAttribute('aria-selected', String(selected));
+        if (label === 'Board') {
+          button.textContent = selected ? 'close message board' : 'message board';
+          button.setAttribute('aria-label', selected ? 'Close message board' : 'Open message board');
+        }
+      });
       if (name === 'Board') { void GP.board(body, actions); return; }
       if (name === 'Users Online') {
         const note = document.createElement('div'); note.className = 'hint';
@@ -123,9 +131,10 @@
         finally { send.disabled = false; }
       });
     }
-    for (const name of ['Board', 'Chat Room', 'AiTool', 'Users Online']) {
+    for (const name of ['Board', 'Chat Room', 'AiTool']) {
       const button = document.createElement('button'); button.type = 'button'; button.textContent = name;
-      button.setAttribute('role','tab'); button.addEventListener('click', () => select(name));
+      button.setAttribute('role','tab');
+      button.addEventListener('click', () => select(name === 'Board' && active === 'Board' ? 'Users Online' : name));
       buttons.set(name, button); tabs.appendChild(button);
     }
     const timer = setInterval(refresh, 8000);
