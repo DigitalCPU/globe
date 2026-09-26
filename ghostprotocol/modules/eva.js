@@ -59,7 +59,7 @@
     return true;
   }
 
-  async function request(path, options = {}) {
+  async function request(path, options = {}, activation = false) {
     if (!open()) return;
     if (busy) { line('EVA is still responding.', 'hint'); return; }
     const key = accountKey(), currentVersion = version;
@@ -70,7 +70,7 @@
     try {
       const data = await GP.api(`/api/eva/v1/${path}`, {...options, signal: controller.signal});
       let voiceResults;
-      if (path === 'status') {
+      if (path === 'status' && !activation) {
         voiceResults = await Promise.allSettled([
           GP.api('/api/voice/resolve?agent_id=eva_0', {signal: controller.signal}),
           GP.api('/api/voice/status', {signal: controller.signal})
@@ -87,7 +87,9 @@
           line(`eva> ${data.reply}`, 'eva-reply');
         }
       }
-      else if (path === 'status') {
+      else if (path === 'status' && activation) {
+        line(GP.dom.connectionState.textContent === 'online' ? 'Eva Online' : 'Eva Offline', 'eva-activation');
+      } else if (path === 'status') {
         const model = data.model || {};
         const voice = voiceResults[0].status === 'fulfilled' ? voiceResults[0].value.voice : null;
         const service = voiceResults[1].status === 'fulfilled' ? voiceResults[1].value : null;
@@ -131,7 +133,7 @@
   GP.evaCommand = function (key) {
     if (['closeeva', 'exiteva'].includes(key)) { GP.closeEva(); return; }
     const path = {eva: 'status', evastatus: 'status', evasecurity: 'security/status', evaevents: 'security/events'}[key];
-    if (path) void request(path);
+    if (path) void request(path, {}, key === 'eva');
   };
 
   const updateSession = GP.updateSession;
