@@ -3,6 +3,7 @@
   const accountKey = () => `${GP.state.account?.account_id || GP.state.account?.username || ''}:${GP.token()}`;
   let ownerKey = '';
   let previousConnection = 'online';
+  let thinkingAnimation = null;
 
   function line(text, className = '') {
     if (!output) return;
@@ -31,6 +32,7 @@
   };
 
   GP.closeEva = function () {
+    thinkingAnimation?.remove(); thinkingAnimation = null;
     version++;
     controller?.abort(); controller = null; busy = false;
     GP.state.evaMode = false;
@@ -64,7 +66,14 @@
     if (busy) { line('EVA is still responding.', 'hint'); return; }
     const key = accountKey(), currentVersion = version;
     busy = true;
-    const pending = line('EVA: connecting...', 'hint');
+    const animation = path === 'chat' ? GP.animatedStatusLine('Thinking') : null;
+    const pending = animation ? animation.element : line('EVA: connecting...', 'hint');
+    if (animation) {
+      thinkingAnimation = animation;
+      pending.textContent = 'Thinking.';
+      output.appendChild(pending);
+      GP.autoScroll();
+    }
     controller = new AbortController();
     const timeout = setTimeout(() => controller?.abort(), 155000);
     try {
@@ -112,11 +121,14 @@
       } else line(JSON.stringify(data, null, 2), 'eva-status');
     } catch (error) {
       if (version === currentVersion && key === accountKey() && panel?.isConnected) {
-        pending.textContent = error.name === 'AbortError' ? 'EVA request timed out.' : error.message;
-        pending.className = 'line error';
+        const message = error.name === 'AbortError' ? 'EVA request timed out.' : error.message;
+        if (animation) line(message, 'error');
+        else { pending.textContent = message; pending.className = 'line error'; }
         if (path === 'status') GP.dom.connectionState.textContent = 'unavailable';
       }
     } finally {
+      animation?.remove();
+      if (thinkingAnimation === animation) thinkingAnimation = null;
       clearTimeout(timeout);
       if (version === currentVersion) { busy = false; controller = null; }
     }
