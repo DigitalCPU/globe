@@ -17,6 +17,7 @@
 
   function enterChat() {
     if (!GP.requireAccount()) return;
+    GP.closeDatabase?.();
     GP.closeLobby?.();
     GP.closeBoard?.(true);
     GP.state.headerHint = undefined;
@@ -38,9 +39,9 @@
     GP.dom.terminalHint.classList.add('chat-header-links');
     [
       ['files', 'files'],
-      ['voice options', 'voice options'],
-      ['AI options', 'AI options'],
-      ['exit AiTool', 'exit aitool']
+      ['voice', 'voice'],
+      ['status', 'status'],
+      ['close', 'close']
     ].forEach(([label, command]) => {
       const button = document.createElement('button');
       button.type = 'button';
@@ -237,7 +238,7 @@
       await attachLocalFileToChat();
       return;
     }
-    if (key === 'voiceoptions') {
+    if (key === 'voice' || key === 'voiceoptions') {
       await GP.showVoiceOptions();
       return;
     }
@@ -261,12 +262,15 @@
       GP.setVoiceAutoplay(!GP.state.voiceAutoplayEnabled);
       return;
     }
-    if (key === 'aioptions') {
-      await GP.showAiOptions();
+    if (key === 'status' || key === 'aioptions') {
+      await GP.showAiStatus();
       return;
     }
     GP.write(`you> ${prompt}`);
     const thinking = animatedStatusLine('ai thinking');
+    const account = GP.state.account;
+    const session = GP.token();
+    const current = () => GP.state.account === account && GP.token() === session && GP.state.chatMode;
     try {
       const messages = [
         { role: 'user', content: CHAT_OPENING },
@@ -277,6 +281,8 @@
         method: 'POST',
         body: JSON.stringify({ messages, app: 'ghostprotocol' })
       });
+      thinking.remove();
+      if (!current()) return;
       const reply = String(data.reply || data.choices?.[0]?.message?.content || '').trim();
       if (!reply) throw new Error('empty AI reply');
       GP.state.chatMessages.push({ role: 'user', content: prompt });
@@ -285,7 +291,7 @@
       writeAiReply(reply);
     } catch (error) {
       thinking.remove();
-      GP.write(`AiTool failed: ${error.message}`, 'error');
+      if (current()) GP.write(`AiTool failed: ${error.message}`, 'error');
     }
   }
 

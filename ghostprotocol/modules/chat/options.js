@@ -1,6 +1,6 @@
 (function (GP) {
   function writeOptionValue(label, value) {
-    GP.write(`${label}: ${value || '--'}`);
+    GP.write(`${label}: ${value === null || value === undefined || value === '' ? '--' : value}`);
   }
 
   function setVoiceOutput(enabled) {
@@ -18,11 +18,11 @@
   }
 
   async function showVoiceOptions() {
-    GP.write('voice options');
+    GP.write('voice');
     const controls = document.createElement('div');
     controls.className = 'voice-option-switches';
     controls.setAttribute('role', 'group');
-    controls.setAttribute('aria-label', 'Voice options');
+    controls.setAttribute('aria-label', 'Voice');
     for (const [name, labelText, checked, change] of [
       ['output', 'voice output', GP.state.voiceOutputEnabled, setVoiceOutput],
       ['autoplay', 'auto play', GP.state.voiceAutoplayEnabled, setVoiceAutoplay]
@@ -48,7 +48,7 @@
       if (data.gpu?.label) writeOptionValue('gpu', data.gpu.label);
       await renderHostPresetSelector();
     } catch (error) {
-      GP.write(`voice options unavailable: ${error.message}`, 'error');
+      GP.write(`voice unavailable: ${error.message}`, 'error');
     }
   }
 
@@ -111,23 +111,59 @@
     GP.dom.screen.appendChild(panel);
     GP.autoScroll();
   }
-  async function showAiOptions() {
-    GP.write('AI options');
+  function offloadLabel(value) {
+    if (value === undefined) return 'not reported';
+    if (value === null) return 'runtime default';
+    if (value === -1) return 'auto / all layers';
+    if (value === 0) return 'CPU (0 layers)';
+    return `${value} layers`;
+  }
+
+  function writeModelSettings(settings, prefix = '') {
+    if (!settings || !Object.keys(settings).length) {
+      writeOptionValue(`${prefix}settings`, 'not reported by this backend');
+      return;
+    }
+    writeOptionValue(`${prefix}context tokens (configured)`, settings.n_ctx);
+    writeOptionValue(`${prefix}max reply tokens`, settings.max_tokens);
+    writeOptionValue(`${prefix}temperature`, settings.temperature);
+    writeOptionValue(`${prefix}GPU offload (configured)`, offloadLabel(settings.n_gpu_layers));
+  }
+
+  function readiness(value) {
+    return value === true ? 'ready' : value === false ? 'missing' : 'not reported';
+  }
+
+  async function showAiStatus() {
     try {
       const data = await GP.api('/api/status');
-      writeOptionValue('backend', data.ready ? 'ready' : 'not ready');
-      writeOptionValue('model', data.model);
-      if (data.vision) {
-        writeOptionValue('vision', data.vision.enabled ? data.vision.model : 'off');
+      writeOptionValue('backend', 'online');
+      writeOptionValue('text model', data.model);
+      writeOptionValue('text model status', data.ready === true ? 'ready' : data.ready === false ? 'not ready' : 'not reported');
+      writeModelSettings(data.settings);
+      GP.write('');
+      const vision = data.vision;
+      if (vision) {
+        writeOptionValue('vision model', vision.model);
+        writeOptionValue('vision status', vision.enabled === false ? 'off' : vision.configured === true ? 'configured / on demand' : vision.configured === false ? 'needs setup' : 'not reported');
+        writeOptionValue('vision runner', readiness(vision.command_ready));
+        writeOptionValue('vision model file', readiness(vision.model_ready));
+        writeOptionValue('vision projector', readiness(vision.mmproj_ready));
+        writeModelSettings(vision.settings, 'vision ');
+        if (vision.settings?.image_max_tokens != null) writeOptionValue('vision image token limit', vision.settings.image_max_tokens);
+        if (vision.settings?.max_image_edge != null) writeOptionValue('vision max image edge', `${vision.settings.max_image_edge} px`);
+        if (vision.timeout_seconds != null) writeOptionValue('vision timeout', `${vision.timeout_seconds} seconds`);
+      } else {
+        writeOptionValue('vision status', 'not reported');
       }
-      if (data.host && data.port) writeOptionValue('local endpoint', `${data.host}:${data.port}`);
     } catch (error) {
-      GP.write(`AI options unavailable: ${error.message}`, 'error');
+      GP.write(`status unavailable: ${error.message}`, 'error');
     }
   }
 
   GP.showVoiceOptions = showVoiceOptions;
-  GP.showAiOptions = showAiOptions;
+  GP.showAiStatus = showAiStatus;
+  GP.showAiOptions = showAiStatus;
   GP.setVoiceOutput = setVoiceOutput;
   GP.setVoiceAutoplay = setVoiceAutoplay;
 })(window.GhostProtocol);

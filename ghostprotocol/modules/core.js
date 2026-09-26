@@ -48,6 +48,7 @@
   }
 
   function clear() {
+    window.GhostProtocol.closeDatabase?.();
     window.GhostProtocol.closeLobby?.();
     window.GhostProtocol.closeBoard?.(true);
     state.headerHint = undefined;

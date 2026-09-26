@@ -45,22 +45,38 @@
   }
 
   function logout() {
+    if (GP.token()) void GP.api('/api/id/logout', { method: 'POST', body: '{}' }).catch(() => {});
     localStorage.removeItem(GP.sessionKey);
     GP.state.account = null;
+    if (GP.state.evaMode) GP.closeEva?.();
+    if (GP.state.chatMode) GP.exitChat?.();
+    GP.stopActiveVoice?.();
+    GP.state.controlMode = false;
+    GP.state.files = [];
+    GP.state.posts = [];
+    GP.state.chatMessages = [];
+    GP.state.databaseCategory = '';
+    GP.state.promptHandler = null;
+    GP.dom.input.value = '';
+    GP.dom.input.type = 'text';
+    GP.clear();
     GP.updateSession();
-    GP.write('logged out');
+    GP.write('signed out');
   }
 
   async function refreshMe() {
-    if (!GP.token()) {
+    const session = GP.token();
+    if (!session) {
       GP.updateSession();
       return;
     }
     try {
       const data = await GP.api('/api/id/me');
+      if (GP.token() !== session) return;
       GP.state.account = data.account;
       GP.updateSession();
     } catch (error) {
+      if (GP.token() !== session) return;
       localStorage.removeItem(GP.sessionKey);
       GP.state.account = null;
       GP.updateSession();

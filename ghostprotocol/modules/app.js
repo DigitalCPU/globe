@@ -59,12 +59,15 @@
     const command = rawCommand.toLowerCase();
     const key = GP.commandKey(rawCommand);
     if (!command) return;
+    if (['signout', 'logout', 'logoff'].includes(key)) { GP.logout(); return; }
+    if (GP.state.databaseOpen && (['help', 'menu', 'board', 'messageboard', '4', 'aitool', 'aitools', 'aitoolkit', 'ai', 'chat', '5', 'eva', 'evastatus', 'evasecurity', 'evaevents', 'lobby', 'publiclobby', 'editprofile', 'profile', 'accesscontrolpanelui'].includes(key) || command.startsWith('profile '))) {
+      GP.closeDatabase();
+    }
     if (!GP.state.controlMode && ['eva','evastatus','evasecurity','evaevents','closeeva','exiteva'].includes(key)) {
       GP.evaCommand(key); return;
     }
     if (GP.state.evaMode) {
       if (['exit','quit'].includes(key)) GP.closeEva();
-      else if (['signout','logout','logoff'].includes(key)) { GP.closeEva(); GP.logout(); }
       else if (key === 'help') GP.write('eva status | eva security | eva events | close eva');
       else void GP.sendEva(rawCommand);
       return;
@@ -76,14 +79,14 @@
     if (key === 'lobby' || key === 'publiclobby') { GP.lobby(); return; }
     if (key === 'closelobby') { GP.closeLobby(); return; }
     if (GP.state.chatMode) {
-      if (key === 'exitaitool' || key === 'exitchat' || key === 'exit' || key === 'quit') {
+      if (['close', 'exitaitool', 'exitchat', 'exit', 'quit'].includes(key)) {
         GP.exitChat();
       } else {
         void GP.sendChat(rawCommand);
       }
       return;
     }
-    GP.write(`> ${rawCommand}`);
+    if (!['mydatabase', 'database', 'uploadedfiles', 'files', '2'].includes(key) || GP.state.controlMode) GP.write(`> ${rawCommand}`);
     if (command === 'access control panel ui') {
       void GP.accessControlPanelUi();
       return;
@@ -98,13 +101,13 @@
     else if (['signup', 'register', 'createaccount', 'createprofile'].includes(key)) void GP.signUp();
     else if (command === 'menu') GP.menu();
     else if (command === 'upload' || command === '1') void GP.upload();
-    else if (command === 'mydatabase' || command === 'database' || command === 'uploaded-files' || command === 'files' || command === '2') void GP.myDatabase();
+    else if (['mydatabase', 'database', 'uploadedfiles', 'files'].includes(key) || command === '2') void GP.myDatabase();
     else if (command === 'camera' || command === 'use camera' || command === '3') void GP.camera();
     else if (command === 'board' || command === 'message board' || command === '4') void GP.board();
     else if (['aitool', 'ai tool', 'chat', 'ai'].includes(command) || ['aitool', 'aitools', 'aitoolkit'].includes(key) || command === '5') GP.enterChat();
     else if (key === 'postboard' || key === 'boardpost') void GP.postBoardMessage();
     else if (key === 'closeboard' || key === 'boardclose') GP.closeBoard();
-    else if (['logout', 'signout', 'logoff'].includes(key) || command === '6') GP.logout();
+    else if (command === '6') GP.logout();
     else if (command === 'clear') GP.clear();
     else if (command === 'full' || command === 'fullscreen' || command === 'immersion') void GP.enterFullscreen();
     else suggestCommand(rawCommand);

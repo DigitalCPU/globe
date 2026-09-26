@@ -603,6 +603,7 @@ body {
   box-sizing: border-box; width: 100%; min-width: 0; background: #000; color: var(--green);
   border: 1px solid var(--green-faint); padding: 8px; font: inherit;
 }
+
 .profile-form textarea { resize: vertical; }
 .personal-board-actions { gap: 6px 12px; }
 .personal-board-actions .profile-publish { margin-left: auto; }
@@ -638,6 +639,7 @@ body {
 }
 .lobby-navigation { flex: 1 0 100%; min-width: 0; }
 .session-shortcuts { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; }
+.session-shortcuts button[aria-current="page"] { text-decoration: underline; text-underline-offset: 3px; }
 .profile-post-image { display: block; max-width: 100%; max-height: 420px; object-fit: contain; margin: 8px 0; }
 .profile-post a { color: var(--green); overflow-wrap: anywhere; }
 .profile-connections > summary { cursor: pointer; padding: 12px 0; font-weight: bold; }
@@ -653,7 +655,7 @@ body {
 .board-header-links { margin: 0; color: var(--green); flex-wrap: wrap; }
 .board-header-links button { color: var(--green); background: transparent; font: inherit; border: 0; padding: 4px 8px; min-height: 32px; cursor: pointer; }
 .board-header-links button:hover, .board-header-links button:focus-visible { text-decoration: underline; }
-.terminal-header #connectionState, .terminal-header .chat-session-status { display: inline; }
+.terminal-header #connectionState, .terminal-header .chat-session-status, .terminal-header .database-session-status { display: inline; }
 .voice-option-switches { display: flex; flex-wrap: wrap; gap: 12px 24px; border: 1px solid var(--green-faint); padding: 8px 12px; margin: 4px 0 12px; }
 .voice-option-switches label { display: flex; gap: 8px; align-items: center; min-height: 32px; cursor: pointer; }
 .voice-option-switches input { accent-color: var(--green); width: 16px; height: 16px; margin: 0; }

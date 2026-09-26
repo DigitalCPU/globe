@@ -84,6 +84,10 @@
         slot.addEventListener('click', () => {
           preview.hidden = false;
           preview.innerHTML = '';
+          preview.appendChild(Files.actionButton('close image', () => {
+            preview.replaceChildren();
+            preview.hidden = true;
+          }));
           void Files.viewFile(file, preview);
         });
         gallery.appendChild(slot);
@@ -158,9 +162,26 @@
       GP.autoScroll();
     }
 
-    controls.appendChild(Files.actionButton('gallery', renderGallery));
-    controls.appendChild(Files.actionButton('scroll', renderScroller));
-    controls.appendChild(Files.actionButton('list', renderList));
+    let activeMode = '';
+    const modeButtons = new Map();
+    function closeMode() {
+      activeMode = '';
+      content.replaceChildren();
+      modeButtons.forEach(button => button.setAttribute('aria-expanded', 'false'));
+    }
+    for (const [name, render] of [['gallery', renderGallery], ['scroll', renderScroller], ['list', renderList]]) {
+      const button = Files.actionButton(name, () => {
+        if (activeMode === name) { closeMode(); return; }
+        closeMode();
+        activeMode = name;
+        button.setAttribute('aria-expanded', 'true');
+        render();
+        content.prepend(Files.actionButton('close view', closeMode));
+      });
+      button.setAttribute('aria-expanded', 'false');
+      modeButtons.set(name, button);
+      controls.appendChild(button);
+    }
     sectionBody.appendChild(controls);
     sectionBody.appendChild(content);
   }
@@ -193,41 +214,112 @@
     return section;
   }
 
+  const databaseCategories = { images: 'Images', audio: 'Audio', video: 'Video', documents: 'Documents' };
+  let databaseRequest = 0;
+
+  function closeDatabase() {
+    databaseRequest += 1;
+    document.querySelector('.database-session-status')?.remove();
+    GP.state.databaseOpen = false;
+    GP.state.databaseCategory = '';
+    GP.state.databaseLoading = false;
+    GP.state.databaseElement?.remove();
+    GP.state.databaseElement = null;
+    GP.renderMailHint?.();
+  }
+
+  function selectDatabaseCategory(category, toggle = false) {
+    if ((category && !Object.hasOwn(databaseCategories, category)) || !GP.state.databaseOpen || !GP.state.account) return;
+    if (toggle && GP.state.databaseCategory === category) category = '';
+    GP.state.databaseCategory = category;
+    GP.renderMailHint?.();
+    const content = GP.state.databaseElement?.querySelector('#databaseContent');
+    if (!content || GP.state.databaseLoading) return;
+    content.replaceChildren();
+    if (!category) {
+      content.removeAttribute('aria-label');
+      return;
+    }
+    const files = Files.categorizedFiles(GP.state.files)[category];
+    const title = document.createElement('div');
+    title.className = 'line';
+    title.textContent = `${databaseCategories[category]} (${files.length})`;
+    content.setAttribute('aria-label', databaseCategories[category]);
+    content.appendChild(title);
+    title.appendChild(Files.actionButton('close category', () => selectDatabaseCategory('')));
+    const body = document.createElement('div');
+    content.appendChild(body);
+    if (!files.length) body.textContent = 'empty';
+    else if (category === 'images') renderImageModes(files, body);
+    else renderFileRows(files, body, { read: category === 'documents', inspectDb: category === 'documents' });
+    GP.autoScroll();
+  }
+
   async function myDatabase() {
     if (!GP.requireAccount()) return;
+    const account = GP.state.account;
+    const session = GP.token();
+    const request = ++databaseRequest;
+    const inChat = GP.state.chatMode;
+    const current = () => request === databaseRequest && GP.state.account === account && GP.token() === session;
+    let database;
+    let summary;
+    if (!inChat) {
+      GP.closeLobby?.();
+      GP.closeBoard?.(true);
+      GP.state.databaseCategory = '';
+      GP.state.databaseOpen = true;
+      GP.state.databaseLoading = true;
+      GP.state.headerHint = undefined;
+      GP.state.databaseElement?.remove();
+      database = document.createElement('section');
+      database.className = 'database-panel';
+      database.setAttribute('aria-label', 'MyDatabase');
+      document.querySelector('.database-session-status')?.remove();
+      summary = document.createElement('span');
+      summary.className = 'database-session-status';
+      summary.setAttribute('role', 'status');
+      summary.textContent = ' / MyDatabase: loading...';
+      GP.dom.connectionState.insertAdjacentElement('afterend', summary);
+      const content = document.createElement('div');
+      content.id = 'databaseContent';
+      content.setAttribute('role', 'region');
+      database.appendChild(content);
+      GP.state.databaseElement = database;
+      GP.dom.screen.appendChild(database);
+      GP.renderMailHint?.();
+      GP.autoScroll();
+    }
     try {
       const data = await GP.api('/api/id/files');
+      if (!current()) return;
       GP.state.files = data.files || [];
-      if (GP.state.chatMode) {
-        Files.renderChatImageDatabase(GP.state.files);
+      if (inChat) {
+        if (GP.state.chatMode) Files.renderChatImageDatabase(GP.state.files);
         return;
       }
-      GP.write(`MyDatabase: ${GP.state.files.length} files`);
-      if (!GP.state.files.length) {
-        GP.write('empty');
-        return;
-      }
-      const groups = Files.categorizedFiles(GP.state.files);
-      if (GP.state.databaseElement) GP.state.databaseElement.remove();
-      const database = document.createElement('div');
-      database.className = 'database-panel';
-      GP.state.databaseElement = database;
-      database.appendChild(databaseSection('Images', groups.images, renderImageModes, true));
-      database.appendChild(databaseSection('Audio', groups.audio, (files, body) => renderFileRows(files, body)));
-      database.appendChild(databaseSection('Video', groups.video, (files, body) => renderFileRows(files, body)));
-      database.appendChild(databaseSection('Documents', groups.documents, (files, body) => renderFileRows(files, body, { read: true, inspectDb: true })));
-      GP.dom.screen.appendChild(database);
-      GP.dom.screen.scrollTop = GP.dom.screen.scrollHeight;
+      if (!database.isConnected) return;
+      GP.state.databaseLoading = false;
+      summary.textContent = ` / MyDatabase: ${GP.state.files.length} files`;
+      selectDatabaseCategory(GP.state.databaseCategory);
     } catch (error) {
-      GP.write(error.message || 'database unavailable', 'error');
+      if (!current()) return;
+      GP.state.databaseLoading = false;
+      if (summary?.isConnected) {
+        summary.textContent = ` / MyDatabase: ${error.message || 'unavailable'}`;
+        summary.classList.add('error');
+      } else if (inChat && GP.state.chatMode) GP.write(error.message || 'database unavailable', 'error');
     }
   }
 
   Files.renderFileRows = renderFileRows;
   Files.renderImageModes = renderImageModes;
   Files.databaseSection = databaseSection;
+  Files.databaseCategories = databaseCategories;
+  Files.selectDatabaseCategory = selectDatabaseCategory;
   Files.myDatabase = myDatabase;
 
+  GP.closeDatabase = closeDatabase;
   GP.myDatabase = myDatabase;
 })(window.GhostProtocol);
 

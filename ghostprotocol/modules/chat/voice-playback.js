@@ -44,6 +44,10 @@
   }
 
   async function toggleReplyVoice(replyElement, text) {
+    const account = GP.state.account;
+    const session = GP.token();
+    const current = () => GP.state.account === account && GP.token() === session && replyElement.isConnected;
+    if (!account || !current()) return;
     if (GP.state.activeVoiceReply === replyElement && GP.state.activeVoiceAudio) {
       stopActiveVoice();
       return;
@@ -58,13 +62,15 @@
         method: 'POST',
         body: JSON.stringify({ text, agent_id: replyElement?.dataset.agentId || 'ghost_host' })
       });
+      if (!current()) { rendering.remove(); return; }
       const url = await fetchVoiceAudioBlob(data.audio_url || '/api/voice/last.wav');
+      if (!current()) { URL.revokeObjectURL(url); rendering.remove(); return; }
       replyElement.dataset.audioUrl = url;
       rendering.remove();
       await playAudioUrl(url, replyElement);
     } catch (error) {
       rendering.remove();
-      throw error;
+      if (current()) throw error;
     }
   }
 

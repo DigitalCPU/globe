@@ -7,10 +7,25 @@
     const links = document.createElement('nav');
     links.className = 'session-shortcuts';
     links.setAttribute('aria-label', 'Account shortcuts');
-    for (const [label, command] of [
-      ['inbox', 'inbox'], ['mydatabase', 'mydatabase'],
+    const shortcuts = GP.state.databaseOpen ? [
+      ['inbox', 'inbox']
+    ] : [
+      ['mydatabase', 'mydatabase'],
       ['board', 'board'], ['AiTool', 'aitool'], ['eva', 'eva'], ['sign out', 'sign-out']
-    ]) GP.commandButton(label, command, links);
+    ];
+    for (const [label, command] of shortcuts) GP.commandButton(label, command, links);
+    if (GP.state.databaseOpen) {
+      links.setAttribute('aria-label', 'MyDatabase navigation');
+      for (const [category, label] of Object.entries(GP.Files.databaseCategories)) {
+        const button = GP.inlineButton(label, () => GP.Files.selectDatabaseCategory(category, true));
+        button.setAttribute('aria-controls', 'databaseContent');
+        button.setAttribute('aria-expanded', String(category === GP.state.databaseCategory));
+        if (category === GP.state.databaseCategory) button.setAttribute('aria-current', 'page');
+        links.appendChild(button);
+      }
+      links.appendChild(GP.inlineButton('close', () => GP.clear()));
+      GP.commandButton('sign out', 'sign-out', links);
+    }
     hint.appendChild(links);
     return true;
   };
