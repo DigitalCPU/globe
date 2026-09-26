@@ -2,6 +2,7 @@
   let panel = null, output = null, controller = null, busy = false, version = 0;
   const accountKey = () => `${GP.state.account?.account_id || GP.state.account?.username || ''}:${GP.token()}`;
   let ownerKey = '';
+  let previousConnection = 'online';
 
   function line(text, className = '') {
     if (!output) return;
@@ -35,6 +36,7 @@
     GP.state.evaMode = false;
     panel?.remove(); panel = null; output = null;
     if (GP.dom.appTitle) GP.dom.appTitle.textContent = 'Ghost Protocol';
+    if (GP.dom.connectionState) GP.dom.connectionState.textContent = previousConnection;
     GP.state.headerHint = undefined;
     GP.renderMailHint?.();
   };
@@ -46,7 +48,9 @@
     if (GP.state.chatMode) GP.exitChat();
     GP.state.evaMode = true;
     ownerKey = accountKey();
-    GP.dom.appTitle.textContent = 'Ghost Protocol / EVA-0';
+    previousConnection = GP.dom.connectionState.textContent;
+    GP.dom.appTitle.textContent = 'Eva';
+    GP.dom.connectionState.textContent = 'connecting';
     panel = document.createElement('section'); panel.className = 'eva-session';
     panel.setAttribute('aria-label', 'EVA conversation');
     output = document.createElement('div'); output.setAttribute('role', 'log');
@@ -65,8 +69,16 @@
     const timeout = setTimeout(() => controller?.abort(), 155000);
     try {
       const data = await GP.api(`/api/eva/v1/${path}`, {...options, signal: controller.signal});
+      let voiceResults;
+      if (path === 'status') {
+        voiceResults = await Promise.allSettled([
+          GP.api('/api/voice/resolve?agent_id=eva_0', {signal: controller.signal}),
+          GP.api('/api/voice/status', {signal: controller.signal})
+        ]);
+      }
       if (version !== currentVersion || key !== accountKey() || !panel?.isConnected) return;
       pending.remove();
+      GP.dom.connectionState.textContent = data.status?.Core === 'OFFLINE' ? 'offline' : 'online';
       if (path === 'chat') {
         if (GP.writeAiReply) {
           const reply = GP.writeAiReply(String(data.reply || ''), output, 'eva_0');
@@ -75,11 +87,32 @@
           line(`eva> ${data.reply}`, 'eva-reply');
         }
       }
-      else line(JSON.stringify(data.status || data, null, 2), 'eva-status');
+      else if (path === 'status') {
+        const model = data.model || {};
+        const voice = voiceResults[0].status === 'fulfilled' ? voiceResults[0].value.voice : null;
+        const service = voiceResults[1].status === 'fulfilled' ? voiceResults[1].value : null;
+        const layers = model.gpu_offload_layers;
+        const unknown = value => value ?? 'unavailable';
+        line([
+          `Eva: ${GP.dom.connectionState.textContent}`,
+          `Model: ${unknown(model.name)}`,
+          `Model loaded: ${model.loaded == null ? 'unavailable' : model.loaded ? 'yes' : 'no'}`,
+          `Context tokens: ${unknown(model.context_tokens)}`,
+          `Max response tokens: ${unknown(model.max_tokens)}`,
+          `Temperature: ${unknown(model.temperature)}`,
+          `GPU offload setting: ${layers === 0 ? '0 (CPU)' : layers === -1 ? 'all layers' : unknown(layers)}`,
+          `Votronix: ${service ? service.votronix_running ? 'online' : 'offline' : 'unavailable'}`,
+          `Linked voice: ${voice ? voice.preset_name || voice.preset_id || String(voice.voice_id || '').split(/[\\/]/).pop() || 'not assigned' : 'unavailable'}`,
+          `Voice assignment: ${voice?.voice_enabled == null ? 'unavailable' : voice.voice_enabled ? 'enabled' : 'disabled'}`,
+          `Voice output: ${GP.state.voiceOutputEnabled ? 'on' : 'off'}`,
+          `Autoplay: ${GP.state.voiceAutoplayEnabled ? 'on' : 'off'}`
+        ].join('\n'), 'eva-status');
+      } else line(JSON.stringify(data, null, 2), 'eva-status');
     } catch (error) {
       if (version === currentVersion && key === accountKey() && panel?.isConnected) {
         pending.textContent = error.name === 'AbortError' ? 'EVA request timed out.' : error.message;
         pending.className = 'line error';
+        if (path === 'status') GP.dom.connectionState.textContent = 'unavailable';
       }
     } finally {
       clearTimeout(timeout);
