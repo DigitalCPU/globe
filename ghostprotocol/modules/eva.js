@@ -72,7 +72,7 @@
       let voiceResults;
       if (path === 'status' && !activation) {
         voiceResults = await Promise.allSettled([
-          GP.api('/api/voice/resolve?agent_id=eva_0', {signal: controller.signal}),
+          GP.api('/api/voice/active', {signal: controller.signal}),
           GP.api('/api/voice/status', {signal: controller.signal})
         ]);
       }
@@ -91,7 +91,7 @@
         line(GP.dom.connectionState.textContent === 'online' ? 'Eva Online' : 'Eva Offline', 'eva-activation');
       } else if (path === 'status') {
         const model = data.model || {};
-        const voice = voiceResults[0].status === 'fulfilled' ? voiceResults[0].value.voice : null;
+        const voice = voiceResults[0].status === 'fulfilled' ? voiceResults[0].value : null;
         const service = voiceResults[1].status === 'fulfilled' ? voiceResults[1].value : null;
         const layers = model.gpu_offload_layers;
         const unknown = value => value ?? 'unavailable';
@@ -104,8 +104,8 @@
           `Temperature: ${unknown(model.temperature)}`,
           `GPU offload setting: ${layers === 0 ? '0 (CPU)' : layers === -1 ? 'all layers' : unknown(layers)}`,
           `Votronix: ${service ? service.votronix_running ? 'online' : 'offline' : 'unavailable'}`,
-          `Linked voice: ${voice ? voice.preset_name || voice.preset_id || String(voice.voice_id || '').split(/[\\/]/).pop() || 'not assigned' : 'unavailable'}`,
-          `Voice assignment: ${voice?.voice_enabled == null ? 'unavailable' : voice.voice_enabled ? 'enabled' : 'disabled'}`,
+          `Active voice: ${voice ? voice.name || String(voice.voice_id || '').split(/[\\/]/).pop() || 'system default' : 'unavailable'}`,
+          'Voice source: Votronix active voice',
           `Voice output: ${GP.state.voiceOutputEnabled ? 'on' : 'off'}`,
           `Autoplay: ${GP.state.voiceAutoplayEnabled ? 'on' : 'off'}`
         ].join('\n'), 'eva-status');
