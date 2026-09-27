@@ -32,6 +32,15 @@
     return `${name}: ${text} (${replyText})`;
   }
 
+  function scrollThreadIntoView(row) {
+    const target = row.closest('.board-post') || row;
+    if (target.scrollIntoView) {
+      target.scrollIntoView({ block: 'start', inline: 'nearest' });
+      return;
+    }
+    GP.dom.screen.scrollTop = Math.max(0, target.offsetTop - GP.dom.screen.offsetTop);
+  }
+
   async function refreshBoardPanel() {
     if (!GP.state.boardElement) return;
     const list = GP.state.boardElement.querySelector('.board-panel-list');
@@ -110,7 +119,7 @@
       }
       if (GP.state.account) detail.appendChild(GP.inlineButton('reply', () => replyToBoardThread(postId)));
       detail.appendChild(GP.inlineButton('close thread', () => { detail.remove(); row.setAttribute('aria-expanded', 'false'); }));
-      GP.autoScroll();
+      requestAnimationFrame(() => scrollThreadIntoView(row));
     } catch (error) {
       detail.textContent = error.message || 'thread unavailable';
       detail.classList.add('error');

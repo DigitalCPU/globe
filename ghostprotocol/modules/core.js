@@ -34,6 +34,8 @@
     activeVoiceReply: null,
     voiceOutputEnabled: localStorage.getItem(voiceEnabledKey) !== 'off',
     voiceAutoplayEnabled: localStorage.getItem(voiceAutoplayKey) === 'on',
+    connectionBase: 'offline',
+    statusSuffix: '',
     controlMode: false,
     boardOpen: false,
     boardElement: null
@@ -48,12 +50,18 @@
   }
 
   function clear() {
+    const reopenBoard = state.boardOpen && state.boardHeaderActive;
     window.GhostProtocol.closeDatabase?.();
     window.GhostProtocol.closeLobby?.();
     window.GhostProtocol.closeBoard?.(true);
+    setStatusSuffix('');
     state.headerHint = undefined;
-    window.GhostProtocol.renderMailHint?.();
     dom.screen.innerHTML = '';
+    if (reopenBoard) {
+      void window.GhostProtocol.board?.();
+      return;
+    }
+    window.GhostProtocol.renderMailHint?.();
   }
 
   function autoScroll() {
@@ -62,6 +70,16 @@
 
   function commandKey(value) {
     return String(value || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+  }
+
+  function setConnectionState(value) {
+    state.connectionBase = String(value || '');
+    dom.connectionState.textContent = `${state.connectionBase}${state.statusSuffix || ''}`;
+  }
+
+  function setStatusSuffix(value = '') {
+    state.statusSuffix = String(value || '');
+    setConnectionState(state.connectionBase);
   }
 
   function deviceId() {
@@ -213,6 +231,8 @@
     clear,
     autoScroll,
     commandKey,
+    setConnectionState,
+    setStatusSuffix,
     deviceId,
     enterFullscreen,
     activateImmersion,

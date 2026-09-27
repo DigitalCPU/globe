@@ -629,13 +629,22 @@ body {
 .lobby-compose button:disabled { opacity: 0.5; }
 
 .terminal-header > div:first-child { flex: 1 1 160px; min-width: 0; overflow-wrap: anywhere; }
-.help-links, .lobby-navigation {
+.lobby-navigation {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
   padding: 6px 8px;
   border: 1px solid var(--green-faint);
+}
+.help-command-row {
+  display: block;
+  max-width: 860px;
+}
+.help-command-link {
+  margin: 0;
+  padding: 0;
+  text-align: left;
 }
 .lobby-navigation { flex: 1 0 100%; min-width: 0; }
 .session-shortcuts { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; }

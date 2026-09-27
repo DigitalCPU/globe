@@ -1,7 +1,7 @@
 (function (GP) {
   const PUBLIC_COMMANDS = [
     ['inbox', 'mail', 'messages', 'messeges', 'message'],
-    ['help'], ['lobby', 'public lobby'], ['close lobby'], ['profile'], ['edit profile'],
+    ['help'], ['exit help'], ['lobby', 'public lobby'], ['close lobby'], ['profile'], ['edit profile'],
     ['sign-in', 'login', 'logon'], ['sign-up', 'register', 'create account', 'create profile'],
     ['sign-out', 'logout', 'logoff'], ['menu'], ['upload'],
     ['mydatabase', 'my database', 'database', 'uploaded-files', 'files'],
@@ -46,10 +46,10 @@
   async function status() {
     try {
       await GP.api('/api/status');
-      GP.dom.connectionState.textContent = 'online';
+      GP.setConnectionState('online');
       return true;
     } catch (error) {
-      GP.dom.connectionState.textContent = 'offline';
+      GP.setConnectionState('offline');
       return false;
     }
   }
@@ -60,6 +60,7 @@
     const key = GP.commandKey(rawCommand);
     if (!command) return;
     if (['signout', 'logout', 'logoff'].includes(key)) { GP.logout(); return; }
+    if (key === 'exithelp') { GP.clear(); return; }
     if (GP.state.databaseOpen && (['help', 'menu', 'board', 'messageboard', '4', 'aitool', 'aitools', 'aitoolkit', 'ai', 'chat', '5', 'eva', 'evastatus', 'evasecurity', 'evaevents', 'lobby', 'publiclobby', 'editprofile', 'profile', 'accesscontrolpanelui'].includes(key) || command.startsWith('profile '))) {
       GP.closeDatabase();
     }
