@@ -8,7 +8,7 @@
     ['camera', 'use camera'], ['aitool', 'ai tool', 'chat', 'ai'],
     ['post board', 'board post'], ['close board', 'board close'],
     ['eva'], ['eva status'], ['eva security'], ['eva events'], ['close eva'],
-    ['clear'], ['fullscreen', 'full', 'immersion']
+    ['clear'], ['clear all'], ['fullscreen', 'full', 'immersion']
   ];
 
   function commandDistance(a, b) {
@@ -110,6 +110,7 @@
     else if (key === 'closeboard' || key === 'boardclose') GP.closeBoard();
     else if (command === '6') GP.logout();
     else if (command === 'clear') GP.clear();
+    else if (command === 'clear all' || key === 'clearall') GP.clearAll();
     else if (command === 'full' || command === 'fullscreen' || command === 'immersion') void GP.enterFullscreen();
     else suggestCommand(rawCommand);
   }
@@ -156,7 +157,7 @@
       run(command);
     });
 
-    GP.clear();
+    GP.clearAll();
     void status();
     void GP.refreshMe();
   }

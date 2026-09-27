@@ -23,7 +23,7 @@
         if (category === GP.state.databaseCategory) button.setAttribute('aria-current', 'page');
         links.appendChild(button);
       }
-      links.appendChild(GP.inlineButton('close', () => GP.clear()));
+      links.appendChild(GP.inlineButton('close', () => GP.clearAll()));
       GP.commandButton('sign out', 'sign-out', links);
     }
     hint.appendChild(links);
@@ -64,6 +64,7 @@
     helpCommand('sign-in', 'sign-in');
     helpCommand('sign-out', 'sign-out');
     helpCommand('clear', 'clear');
+    helpCommand('clear all', 'clear all');
     helpCommand('exit help', 'exit help');
     if (GP.state.account) {
       helpCommand('menu', 'menu');

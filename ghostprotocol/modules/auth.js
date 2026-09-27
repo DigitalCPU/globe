@@ -59,7 +59,7 @@
     GP.state.promptHandler = null;
     GP.dom.input.value = '';
     GP.dom.input.type = 'text';
-    GP.clear();
+    GP.clearAll();
     GP.updateSession();
     GP.write('signed out');
   }

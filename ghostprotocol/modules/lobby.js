@@ -101,7 +101,11 @@
       busy = true;
       try {
         if (Date.now() - lastPresence > 30000) {
-          await GP.api('/api/lobby', {method:'POST', body:lobbyPayload(), signal:controller.signal});
+          try {
+            await GP.api('/api/lobby', {method:'POST', body:lobbyPayload(), signal:controller.signal});
+          } catch (presenceError) {
+            if (GP.state.account || !/not signed in/i.test(String(presenceError.message || ''))) throw presenceError;
+          }
           lastPresence = Date.now();
         }
         data = await GP.api('/api/lobby', {signal:controller.signal});

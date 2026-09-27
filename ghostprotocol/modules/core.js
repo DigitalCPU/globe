@@ -50,6 +50,19 @@
   }
 
   function clear() {
+    [...dom.screen.children].forEach((child) => {
+      if (
+        child.classList.contains('line') ||
+        child.classList.contains('help-command-row') ||
+        child.classList.contains('terminal-button')
+      ) {
+        child.remove();
+      }
+    });
+    autoScroll();
+  }
+
+  function clearAll() {
     const reopenBoard = state.boardOpen && state.boardHeaderActive;
     window.GhostProtocol.closeDatabase?.();
     window.GhostProtocol.closeLobby?.();
@@ -229,6 +242,7 @@
     state,
     write,
     clear,
+    clearAll,
     autoScroll,
     commandKey,
     setConnectionState,
