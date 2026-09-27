@@ -1,7 +1,11 @@
 (function (GP) {
   const PUBLIC_COMMANDS = [
     ['inbox', 'mail', 'messages', 'messeges', 'message'],
-    ['help'], ['exit help'], ['lobby', 'public lobby'], ['close lobby'], ['profile'], ['edit profile'],
+    ['help'], ['exit help'], ['lobby', 'public lobby'], ['close lobby'],
+    ['users online', 'online users', 'lobby users'],
+    ['chat room', 'chatroom', 'public chat', 'public room', 'lobby chat'],
+    ['message board', 'public board', 'lobby board'], ['close chat room'], ['close message board'],
+    ['profile'], ['edit profile'],
     ['sign-in', 'login', 'logon'], ['sign-up', 'register', 'create account', 'create profile'],
     ['sign-out', 'logout', 'logoff'], ['menu'], ['upload'],
     ['mydatabase', 'my database', 'database', 'uploaded-files', 'files'],
@@ -70,8 +74,25 @@
     if (['closekeyboard', 'keyboardclose', 'hidekeyboard'].includes(key)) { GP.closeKeyboard?.(); return; }
     if (key === 'keyboard') { GP.cycleKeyboard?.(); return; }
     if (key === 'closewindow') { GP.closeWindow?.(); return; }
-    if (GP.state.databaseOpen && (['help', 'menu', 'board', 'messageboard', '4', 'aitool', 'aitools', 'aitoolkit', 'ai', 'chat', '5', 'eva', 'evastatus', 'evasecurity', 'evaevents', 'lobby', 'publiclobby', 'editprofile', 'profile', 'accesscontrolpanelui'].includes(key) || command.startsWith('profile '))) {
+    if (GP.state.databaseOpen && (['help', 'menu', 'board', 'messageboard', '4', 'aitool', 'aitools', 'aitoolkit', 'ai', 'chat', '5', 'eva', 'evastatus', 'evasecurity', 'evaevents', 'lobby', 'publiclobby', 'usersonline', 'onlineusers', 'lobbyusers', 'chatroom', 'publicchat', 'publicroom', 'lobbychat', 'publicboard', 'lobbyboard', 'closechatroom', 'closemessageboard', 'editprofile', 'profile', 'accesscontrolpanelui'].includes(key) || command.startsWith('profile '))) {
       GP.closeDatabase();
+    }
+    const lobbyTabCommand = {
+      usersonline: 'Users Online',
+      onlineusers: 'Users Online',
+      lobbyusers: 'Users Online',
+      chatroom: 'Chat Room',
+      publicchat: 'Chat Room',
+      publicroom: 'Chat Room',
+      lobbychat: 'Chat Room',
+      messageboard: 'Board',
+      publicboard: 'Board',
+      lobbyboard: 'Board'
+    }[key];
+    if (lobbyTabCommand) { GP.lobbySelect?.(lobbyTabCommand); return; }
+    if (['closechatroom', 'closemessageboard'].includes(key)) {
+      if (!GP.closeLobbyTab?.()) GP.lobby('Users Online');
+      return;
     }
     if (!GP.state.controlMode && ['eva','evastatus','evasecurity','evaevents','closeeva','exiteva'].includes(key)) {
       GP.evaCommand(key); return;

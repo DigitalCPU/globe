@@ -59,6 +59,11 @@
     GP.renderMailHint?.();
     helpCommand('lobby', 'lobby');
     helpCommand('close lobby', 'close lobby');
+    helpCommand('users online', 'users online');
+    helpCommand('chat room', 'chat room');
+    helpCommand('message board', 'message board');
+    helpCommand('close chat room', 'close chat room');
+    helpCommand('close message board', 'close message board');
     helpCommand('profile <username>', 'profile ', { prefill: true });
     helpCommand('sign-up', 'sign-up', { pulse: true });
     helpCommand('sign-in', 'sign-in');

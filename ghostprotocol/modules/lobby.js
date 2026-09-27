@@ -1,7 +1,17 @@
 (function (GP) {
   let closeCurrent = null;
+  let selectCurrent = null;
   const guestNameKey = 'ghostprotocol:lobby-guest-name:v1';
   const guestAlphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+
+  function lobbyTabName(value) {
+    const key = GP.commandKey(value);
+    if (['users', 'usersonline', 'onlineusers', 'lobbyusers', 'publiclobby', 'online'].includes(key)) return 'Users Online';
+    if (['chatroom', 'publicchat', 'publicroom', 'room', 'lobbychat'].includes(key)) return 'Chat Room';
+    if (['board', 'messageboard', 'publicboard', 'lobbyboard'].includes(key)) return 'Board';
+    if (['aitool', 'aitools', 'ai', 'chat'].includes(key)) return 'AiTool';
+    return '';
+  }
 
   function guestName() {
     let name = localStorage.getItem(guestNameKey) || '';
@@ -29,7 +39,7 @@
     });
   }
 
-  GP.lobby = function () {
+  GP.lobby = function (initialTab = 'Users Online') {
     if (closeCurrent) closeCurrent();
     GP.closeBoard?.(true);
     if (GP.state.chatMode) GP.exitChat();
@@ -60,7 +70,7 @@
     document.querySelector('.terminal-header').appendChild(navigation);
     panel.append(header, status, body);
     GP.dom.screen.appendChild(panel);
-    let active = 'Users Online', data = {messages: [], users: []}, busy = false;
+    let active = lobbyTabName(initialTab) || 'Users Online', data = {messages: [], users: []}, busy = false;
     let list = null, users = null, form = null, accountId = '', lastPresence = 0;
     const controller = new AbortController();
     const buttons = new Map();
@@ -72,7 +82,10 @@
       if (GP.state.boardElement && !GP.state.boardElement.isConnected) {
         GP.state.boardElement = null; GP.state.boardOpen = false;
       }
+      if (selectCurrent === select) selectCurrent = null;
       closeCurrent = null;
+      GP.state.lobbyOpen = false;
+      GP.state.lobbyActive = '';
     }
     close.addEventListener('click', cleanup);
     function renderData() {
@@ -118,25 +131,28 @@
       } finally { busy = false; }
     }
     function select(name) {
-      active = name; list = users = form = null;
+      active = lobbyTabName(name) || name;
+      GP.state.lobbyOpen = true;
+      GP.state.lobbyActive = active;
+      list = users = form = null;
       actions.replaceChildren();
       body.replaceChildren();
-      title.textContent = name === 'Board' ? 'Message Board Open' : 'Public lobby';
+      title.textContent = active === 'Board' ? 'Message Board Open' : 'Public lobby';
       buttons.forEach((button, label) => {
-        const selected = label === name;
+        const selected = label === active;
         button.setAttribute('aria-selected', String(selected));
         if (label === 'Board') {
           button.textContent = selected ? 'close message board' : 'message board';
           button.setAttribute('aria-label', selected ? 'Close message board' : 'Open message board');
         }
       });
-      if (name === 'Board') { void GP.board(body, actions); return; }
-      if (name === 'Users Online') {
+      if (active === 'Board') { void GP.board(body, actions); return; }
+      if (active === 'Users Online') {
         const note = document.createElement('div'); note.className = 'hint';
         note.textContent = 'Active in this lobby within the last 90 seconds.';
         users = document.createElement('div'); body.append(note, users); renderData(); return;
       }
-      if (name === 'AiTool') {
+      if (active === 'AiTool') {
         const note = document.createElement('div');
         note.textContent = GP.state.account ? 'Your AI conversation is private.' : 'Sign in to start a private AI conversation.';
         body.appendChild(note);
@@ -182,7 +198,26 @@
     }
     const timer = setInterval(refresh, 8000);
     closeCurrent = cleanup;
+    selectCurrent = select;
+    GP.state.lobbyOpen = true;
     select(active); void refresh(); GP.autoScroll();
+  };
+  GP.lobbySelect = function (name) {
+    const tab = lobbyTabName(name);
+    if (!tab) return false;
+    if (selectCurrent) {
+      selectCurrent(tab);
+    } else {
+      GP.lobby(tab);
+    }
+    return true;
+  };
+  GP.closeLobbyTab = function () {
+    if (selectCurrent) {
+      selectCurrent('Users Online');
+      return true;
+    }
+    return false;
   };
   GP.closeLobby = () => { if (closeCurrent) closeCurrent(); };
 })(window.GhostProtocol);
