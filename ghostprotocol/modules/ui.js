@@ -65,6 +65,12 @@
     helpCommand('sign-out', 'sign-out');
     helpCommand('clear', 'clear');
     helpCommand('clear all', 'clear all');
+    helpCommand('minimize', 'minimize');
+    helpCommand('restore', 'restore');
+    helpCommand('open keyboard', 'open keyboard');
+    helpCommand('dock keyboard', 'dock keyboard');
+    helpCommand('close keyboard', 'close keyboard');
+    helpCommand('keyboard', 'keyboard');
     helpCommand('exit help', 'exit help');
     if (GP.state.account) {
       helpCommand('menu', 'menu');

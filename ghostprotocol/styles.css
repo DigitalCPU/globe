@@ -97,6 +97,28 @@ body {
   text-decoration: underline;
 }
 
+.terminal-window-controls button[aria-pressed="true"] {
+  color: #000;
+  background: var(--green);
+}
+
+body.terminal-command-mode #connectionState,
+body.terminal-command-mode #terminalHint,
+body.terminal-command-mode #sessionState,
+body.terminal-command-mode .lobby-navigation,
+body.terminal-command-mode .session-shortcuts {
+  display: none !important;
+}
+
+body.terminal-command-mode .terminal-header {
+  align-items: center;
+  padding-block: 4px;
+}
+
+body.terminal-command-mode .terminal-session {
+  gap: 0;
+}
+
 .terminal-header span,
 .muted {
   color: var(--green-dim);

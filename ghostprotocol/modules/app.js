@@ -8,7 +8,9 @@
     ['camera', 'use camera'], ['aitool', 'ai tool', 'chat', 'ai'],
     ['post board', 'board post'], ['close board', 'board close'],
     ['eva'], ['eva status'], ['eva security'], ['eva events'], ['close eva'],
-    ['clear'], ['clear all'], ['fullscreen', 'full', 'immersion']
+    ['clear'], ['clear all'], ['fullscreen', 'full', 'immersion'],
+    ['minimize', 'command mode'], ['restore', 'windowed'], ['close window'],
+    ['open keyboard'], ['dock keyboard'], ['close keyboard'], ['keyboard']
   ];
 
   function commandDistance(a, b) {
@@ -61,6 +63,13 @@
     if (!command) return;
     if (['signout', 'logout', 'logoff'].includes(key)) { GP.logout(); return; }
     if (key === 'exithelp') { GP.clear(); return; }
+    if (['minimize', 'commandmode', 'commandonly', 'terminalmode'].includes(key)) { GP.setCommandMode?.(true); return; }
+    if (['restore', 'windowed', 'showui', 'showlinks', 'exitcommandmode'].includes(key)) { GP.setCommandMode?.(false); return; }
+    if (['openkeyboard', 'keyboardopen'].includes(key)) { GP.openKeyboard?.(); return; }
+    if (['dockkeyboard', 'keyboarddock', 'bottomkeyboard'].includes(key)) { GP.dockKeyboard?.(); return; }
+    if (['closekeyboard', 'keyboardclose', 'hidekeyboard'].includes(key)) { GP.closeKeyboard?.(); return; }
+    if (key === 'keyboard') { GP.cycleKeyboard?.(); return; }
+    if (key === 'closewindow') { GP.closeWindow?.(); return; }
     if (GP.state.databaseOpen && (['help', 'menu', 'board', 'messageboard', '4', 'aitool', 'aitools', 'aitoolkit', 'ai', 'chat', '5', 'eva', 'evastatus', 'evasecurity', 'evaevents', 'lobby', 'publiclobby', 'editprofile', 'profile', 'accesscontrolpanelui'].includes(key) || command.startsWith('profile '))) {
       GP.closeDatabase();
     }
@@ -116,13 +125,39 @@
   }
 
   function bindWindowControls() {
+    function setCommandMode(enabled) {
+      const active = Boolean(enabled);
+      document.body.classList.toggle('terminal-command-mode', active);
+      document.querySelector('.terminal')?.classList.toggle('terminal-command-mode', active);
+      GP.dom.windowMinimize?.setAttribute('aria-pressed', String(active));
+      GP.dom.windowMinimize?.setAttribute('title', active ? 'Restore status and links' : 'Command mode');
+      GP.dom.input.focus();
+    }
+
+    function closeWindow() {
+      try { window.close(); } catch (_) { /* Some browsers reject script closing. */ }
+      window.setTimeout(() => {
+        if (window.closed) return;
+        if (document.fullscreenElement) void document.exitFullscreen().catch(() => {});
+        GP.dom.windowClose.title = 'This browser blocked closing the tab from the website';
+      }, 200);
+    }
+
+    GP.setCommandMode = setCommandMode;
+    GP.closeWindow = closeWindow;
+
     if (GP.dom.windowMinimize) {
-      GP.dom.windowMinimize.disabled = true;
-      GP.dom.windowMinimize.title = 'Browser minimization is unavailable to websites';
+      GP.dom.windowMinimize.disabled = false;
+      GP.dom.windowMinimize.title = 'Command mode';
+      GP.dom.windowMinimize.addEventListener('click', () => {
+        setCommandMode(!document.body.classList.contains('terminal-command-mode'));
+      });
     }
 
     GP.dom.windowRestore?.addEventListener('click', () => {
-      document.body.classList.remove('terminal-minimized', 'terminal-closed');
+      document.body.classList.remove('terminal-minimized', 'terminal-closed', 'terminal-command-mode');
+      document.querySelector('.terminal')?.classList.remove('terminal-command-mode');
+      GP.dom.windowMinimize?.setAttribute('aria-pressed', 'false');
       if (document.fullscreenElement) void document.exitFullscreen();
       GP.dom.input.focus();
     });
@@ -134,12 +169,7 @@
     });
 
     GP.dom.windowClose?.addEventListener('click', () => {
-      try { window.close(); } catch (_) { /* Some browsers reject script closing. */ }
-      window.setTimeout(() => {
-        if (window.closed) return;
-        if (document.fullscreenElement) void document.exitFullscreen().catch(() => {});
-        GP.dom.windowClose.title = 'This browser blocked closing the tab from the website';
-      }, 200);
+      closeWindow();
     });
   }
 

@@ -268,6 +268,13 @@
     else setMode('closed');
   }
 
+  GP.setKeyboardMode = setMode;
+  GP.openKeyboard = () => setMode('inline');
+  GP.dockKeyboard = () => setMode('docked');
+  GP.closeKeyboard = () => setMode('closed');
+  GP.cycleKeyboard = cycleMode;
+  GP.keyboardMode = () => keyboardMode;
+
   updateToggleUi();
   document.addEventListener('focusin', event => {
     if (editable(event.target)) remember(event.target);
