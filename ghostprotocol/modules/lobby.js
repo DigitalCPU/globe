@@ -1,5 +1,34 @@
 (function (GP) {
   let closeCurrent = null;
+  const guestNameKey = 'ghostprotocol:lobby-guest-name:v1';
+  const guestAlphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+
+  function guestName() {
+    let name = localStorage.getItem(guestNameKey) || '';
+    if (!/^Guest:[A-Z0-9]{3}$/.test(name)) {
+      let suffix = '';
+      for (let index = 0; index < 3; index += 1) {
+        suffix += guestAlphabet[Math.floor(Math.random() * guestAlphabet.length)];
+      }
+      name = `Guest:${suffix}`;
+      localStorage.setItem(guestNameKey, name);
+    }
+    return name;
+  }
+
+  function lobbyPayload(text) {
+    const payload = {};
+    if (text !== undefined) payload.text = text;
+    if (!GP.state.account) payload.guest_name = guestName();
+    return JSON.stringify(payload);
+  }
+
+  function scrollRoomIntoView(room) {
+    requestAnimationFrame(() => {
+      if (room?.isConnected) room.scrollIntoView({ block: 'start', inline: 'nearest' });
+    });
+  }
+
   GP.lobby = function () {
     if (closeCurrent) closeCurrent();
     GP.closeBoard?.(true);
@@ -71,13 +100,13 @@
       if (busy || document.hidden) return;
       busy = true;
       try {
-        if (GP.state.account && Date.now() - lastPresence > 30000) {
-          await GP.api('/api/lobby', {method:'POST', body:'{}', signal:controller.signal});
+        if (Date.now() - lastPresence > 30000) {
+          await GP.api('/api/lobby', {method:'POST', body:lobbyPayload(), signal:controller.signal});
           lastPresence = Date.now();
         }
         data = await GP.api('/api/lobby', {signal:controller.signal});
-        status.textContent = GP.state.account ? '' : 'Guest - view only';
-        const current = GP.state.account?.account_id || '';
+        status.textContent = GP.state.account ? '' : `${guestName()} active`;
+        const current = GP.state.account?.account_id || guestName();
         if (current !== accountId) { accountId = current; select(active); }
         renderData();
       } catch (error) {
@@ -110,26 +139,36 @@
         if (GP.state.account) body.appendChild(GP.inlineButton('open AiTool', () => { cleanup(); GP.enterChat(); }));
         return;
       }
+      const room = document.createElement('section');
+      room.className = 'lobby-chat-room';
+      room.setAttribute('aria-label', 'Public chat room');
+      const roomTitle = document.createElement('div');
+      roomTitle.className = 'lobby-chat-title';
+      roomTitle.textContent = GP.state.account
+        ? 'Chat Room'
+        : `Chat Room / ${guestName()}`;
       list = document.createElement('div'); list.className = 'lobby-messages';
-      list.setAttribute('role','log'); body.appendChild(list);
+      list.setAttribute('role','log');
+      room.append(roomTitle, list);
+      body.appendChild(room);
       renderData();
-      if (!GP.state.account) return;
       form = document.createElement('form'); form.className = 'lobby-compose';
       const input = document.createElement('input'); input.maxLength = 1000;
       input.placeholder = 'Message the public room'; input.setAttribute('aria-label', 'Public room message');
       const send = document.createElement('button'); send.type = 'submit'; send.textContent = 'send';
-      form.append(input, send); body.appendChild(form);
+      form.append(input, send); room.appendChild(form);
       input.addEventListener('keydown', event => event.stopPropagation());
       form.addEventListener('submit', async event => {
         event.preventDefault(); event.stopPropagation();
-        if (!input.value.trim() || send.disabled || !GP.requireAccount()) return;
+        if (!input.value.trim() || send.disabled) return;
         send.disabled = true;
         try {
-          await GP.api('/api/lobby', {method:'POST', body:JSON.stringify({text:input.value.trim()}), signal:controller.signal});
+          await GP.api('/api/lobby', {method:'POST', body:lobbyPayload(input.value.trim()), signal:controller.signal});
           input.value = ''; await refresh();
         } catch (error) { if (!controller.signal.aborted) status.textContent = error.message; }
         finally { send.disabled = false; }
       });
+      scrollRoomIntoView(room);
     }
     for (const name of ['Board', 'Chat Room', 'AiTool']) {
       const button = document.createElement('button'); button.type = 'button'; button.textContent = name;

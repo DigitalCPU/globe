@@ -4,6 +4,7 @@
   const terminal = document.querySelector('.terminal');
   const textTypes = new Set(['text', 'search', 'tel', 'url', 'email', 'password']);
   const originalModes = new Map();
+  let keyboardMode = 'closed';
   let opened = false;
   let target = GP.dom.input;
   let symbols = false;
@@ -211,16 +212,34 @@
     window.clearTimeout(repeatTimer);
   }
 
-  function setOpen(value) {
+  function updateToggleUi() {
+    const expanded = keyboardMode !== 'closed';
+    const title = keyboardMode === 'closed'
+      ? 'Open keyboard'
+      : keyboardMode === 'inline'
+        ? 'Dock keyboard at bottom'
+        : 'Close keyboard';
+    toggle.setAttribute('aria-expanded', String(expanded));
+    toggle.setAttribute('aria-label', title);
+    toggle.title = title;
+    toggle.dataset.mode = keyboardMode;
+  }
+
+  function setMode(value) {
+    const nextMode = value === 'inline' || value === 'docked' ? value : 'closed';
+    const wasOpened = opened;
     stopRepeat();
-    opened = value;
-    toggle.setAttribute('aria-expanded', String(opened));
+    keyboardMode = nextMode;
+    opened = keyboardMode !== 'closed';
+    updateToggleUi();
     panel.hidden = !opened;
     terminal.classList.toggle('keyboard-open', opened);
+    terminal.classList.toggle('keyboard-inline', opened && keyboardMode === 'inline');
+    terminal.classList.toggle('keyboard-docked', opened && keyboardMode === 'docked');
     if (opened) {
       render();
       prepareFields(terminal);
-      observer.observe(terminal, { childList: true, subtree: true });
+      if (!wasOpened) observer.observe(terminal, { childList: true, subtree: true });
       const field = activeField();
       if (field) {
         const [start, end] = selection(field);
@@ -239,6 +258,17 @@
     }
   }
 
+  function setOpen(value) {
+    setMode(value ? 'inline' : 'closed');
+  }
+
+  function cycleMode() {
+    if (keyboardMode === 'closed') setMode('inline');
+    else if (keyboardMode === 'inline') setMode('docked');
+    else setMode('closed');
+  }
+
+  updateToggleUi();
   document.addEventListener('focusin', event => {
     if (editable(event.target)) remember(event.target);
   });
@@ -246,7 +276,7 @@
     if (opened && editable(event.target)) suppressNativeKeyboard(event.target);
   }, true);
   toggle.addEventListener('pointerdown', event => event.preventDefault());
-  toggle.addEventListener('click', () => setOpen(!opened));
+  toggle.addEventListener('click', cycleMode);
   panel.addEventListener('pointerdown', event => {
     const button = event.target.closest('button');
     if (!button || event.button !== 0) return;
@@ -274,7 +304,7 @@
   document.addEventListener('keydown', event => {
     if (opened && event.key === 'Escape') {
       event.preventDefault();
-      setOpen(false);
+      setMode('closed');
     }
   }, true);
 })(window.GhostProtocol);

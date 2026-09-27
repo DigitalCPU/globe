@@ -624,6 +624,17 @@ body {
 .lobby-panel button { background: transparent; color: var(--green); border: 0; font: inherit; cursor: pointer; min-height: 36px; }
 .lobby-tabs [aria-selected="true"] { text-decoration: underline; color: #b8ffc5; }
 .lobby-body { min-height: 180px; overflow-wrap: anywhere; }
+.lobby-chat-room {
+  display: grid;
+  gap: 8px;
+  margin: 8px 0;
+  padding: 10px;
+  border: 1px solid var(--green-faint);
+  background: #000;
+}
+.lobby-chat-title {
+  color: #b8ffc5;
+}
 .lobby-messages { height: 260px; max-height: 45dvh; overflow-y: auto; scrollbar-color: var(--green) #000; }
 .lobby-compose input { flex: 1; min-width: 0; background: #000; color: var(--green); border: 1px solid var(--green-faint); padding: 8px; font: inherit; }
 .lobby-compose button:disabled { opacity: 0.5; }
