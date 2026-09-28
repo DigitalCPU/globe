@@ -64,21 +64,64 @@
     GP.write('AiTool closed.');
   }
 
+  function gpuText(payload) {
+    const usage = Number.isFinite(Number(payload?.usage_percent)) ? `${Number(payload.usage_percent)}%` : '---';
+    const used = Number.isFinite(Number(payload?.memory_used_mb)) ? Number(payload.memory_used_mb) : null;
+    const total = Number.isFinite(Number(payload?.memory_total_mb)) ? Number(payload.memory_total_mb) : null;
+    const memory = used !== null && total !== null ? `${used}/${total} MB` : '---';
+    return `GPU ${usage} / VRAM ${memory}`;
+  }
+
+  function startGpuIndicator(element) {
+    if (!element) return { remove() {} };
+    let stopped = false;
+    let pending = false;
+    let timer = null;
+
+    async function refresh() {
+      if (stopped || pending || !element.isConnected) return;
+      pending = true;
+      try {
+        element.textContent = gpuText(await GP.api('/api/gpu/status'));
+      } catch (_error) {
+        element.textContent = gpuText(null);
+      } finally {
+        pending = false;
+      }
+    }
+
+    element.textContent = gpuText(null);
+    refresh();
+    timer = window.setInterval(refresh, 1000);
+    return {
+      remove() {
+        stopped = true;
+        if (timer) window.clearInterval(timer);
+      }
+    };
+  }
+
   function animatedStatusLine(text) {
     const line = document.createElement('div');
+    const label = document.createElement('span');
+    const indicator = document.createElement('span');
     let tick = 0;
     line.className = 'line hint terminal-pulse';
-    line.textContent = text;
+    indicator.className = 'gpu-activity-indicator';
+    line.append(label, indicator);
+    label.textContent = text;
     GP.dom.screen.appendChild(line);
     GP.autoScroll();
+    const gpu = startGpuIndicator(indicator);
     const timer = window.setInterval(() => {
       tick = (tick + 1) % 4;
-      line.textContent = `${text}${'.'.repeat(tick + 1)}`;
+      label.textContent = `${text}${'.'.repeat(tick + 1)}`;
     }, 420);
     return {
       element: line,
       remove() {
         window.clearInterval(timer);
+        gpu.remove();
         line.remove();
       }
     };
@@ -110,6 +153,9 @@
     target.appendChild(wrap);
     if (target === GP.dom.screen) GP.autoScroll();
     else target.scrollTop = target.scrollHeight;
+    if (GP.state.voiceOutputEnabled && GP.prepareChunkedReplyVoice) {
+      void GP.prepareChunkedReplyVoice(wrap, reply);
+    }
     if (GP.state.voiceOutputEnabled && GP.state.voiceAutoplayEnabled) {
       void GP.toggleReplyVoice(wrap, reply);
     }
@@ -300,6 +346,7 @@
   GP.exitChat = exitChat;
   GP.sendChat = sendChat;
   GP.animatedStatusLine = animatedStatusLine;
+  GP.startGpuIndicator = startGpuIndicator;
   GP.writeAiReply = writeAiReply;
 })(window.GhostProtocol);
 

@@ -319,6 +319,7 @@ export default {
       return proxyToTunnel(request, env, url.pathname);
     }
     if (url.pathname === '/api/status' && request.method === 'GET') return proxyToTunnel(request, env, '/api/status');
+    if (url.pathname === '/api/gpu/status' && request.method === 'GET') return proxyToTunnel(request, env, '/api/gpu/status');
     if (url.pathname === '/api/id/status' && request.method === 'GET') return proxyToTunnel(request, env, '/api/id/status');
     if (url.pathname === '/api/id/me' && request.method === 'GET') return proxyToTunnel(request, env, '/api/id/me');
     if (url.pathname === '/api/id/files' && request.method === 'GET') return proxyToTunnel(request, env, `/api/id/files${url.search}`);
