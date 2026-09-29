@@ -112,9 +112,11 @@
     const line = document.createElement('div');
     const label = document.createElement('span');
     const indicator = document.createElement('span');
-    const useDots = options.dots !== false;
+    const isThinking = /\bthinking\b/i.test(text);
+    const useDots = options.dots === undefined ? !isThinking : options.dots !== false;
+    const bright = Boolean(options.bright || isThinking);
     let tick = 0;
-    line.className = `line hint terminal-pulse${options.bright ? ' terminal-pulse-bright' : ''}`;
+    line.className = `line hint terminal-pulse${bright ? ' terminal-pulse-bright' : ''}`;
     indicator.className = 'gpu-activity-indicator';
     line.append(label, indicator);
     label.textContent = text;
