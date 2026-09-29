@@ -64,6 +64,38 @@
     }
   }
 
+  function isPlaybackBlocked(error) {
+    const name = String(error?.name || '').toLowerCase();
+    const message = String(error?.message || error || '').toLowerCase();
+    return name === 'notallowederror'
+      || message.includes('request is not allowed')
+      || message.includes('play() failed')
+      || message.includes('user didn')
+      || message.includes('user gesture');
+  }
+
+  function markVoiceReady(replyElement) {
+    if (replyElement) {
+      replyElement.classList.remove('is-voice-playing');
+      replyElement.classList.add('is-voice-ready');
+      if (replyElement.dataset.voiceReadyNotice === '1') return;
+      replyElement.dataset.voiceReadyNotice = '1';
+    }
+    GP.write('voice ready. tap reply to play.', 'hint');
+  }
+
+  async function playAudioUrlIfAllowed(url, replyElement) {
+    try {
+      await playAudioUrl(url, replyElement);
+      if (replyElement) replyElement.classList.remove('is-voice-ready');
+      return true;
+    } catch (error) {
+      if (!isPlaybackBlocked(error)) throw error;
+      markVoiceReady(replyElement);
+      return false;
+    }
+  }
+
 
   function chunkTrayFor(replyElement) {
     let tray = replyElement.nextElementSibling;
@@ -103,7 +135,7 @@
     for (const button of ready) {
       if (!button.isConnected) return;
       if (!button.dataset.audioUrl) continue;
-      await playAudioUrl(button.dataset.audioUrl, replyElement);
+      await playAudioUrlIfAllowed(button.dataset.audioUrl, replyElement);
     }
   }
 
@@ -155,7 +187,7 @@
     button.dataset.audioPath = chunk.audio_url || `/api/voice/tts/jobs/${chunk.job_id}.wav`;
     button.addEventListener('click', async () => {
       if (!button.dataset.audioUrl) return;
-      await playAudioUrl(button.dataset.audioUrl, replyElement);
+      await playAudioUrlIfAllowed(button.dataset.audioUrl, replyElement);
     });
     tray.appendChild(button);
     if (chunk.status === 'ready') {
@@ -226,7 +258,7 @@
       return;
     }
     if (replyElement.dataset.audioUrl) {
-      await playAudioUrl(replyElement.dataset.audioUrl, replyElement);
+      await playAudioUrlIfAllowed(replyElement.dataset.audioUrl, replyElement);
       return;
     }
     const rendering = GP.animatedStatusLine('voice rendering');
@@ -244,7 +276,7 @@
       if (!current()) { URL.revokeObjectURL(url); rendering.remove(); return; }
       replyElement.dataset.audioUrl = url;
       rendering.remove();
-      await playAudioUrl(url, replyElement);
+      await playAudioUrlIfAllowed(url, replyElement);
     } catch (error) {
       rendering.remove();
       if (current() && error.name !== 'AbortError') throw error;
