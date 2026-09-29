@@ -69,6 +69,7 @@
     suppressNativeKeyboard(field);
     field.focus({ preventScroll: true });
     if (GP.dom.screen.contains(field)) field.scrollIntoView({ block: 'nearest' });
+    revealCaret(field);
   }
 
   function selection(field) {
@@ -78,6 +79,26 @@
   function setSelection(field, start, end = start) {
     // Email inputs do not expose the selection API.
     if (field.selectionStart !== null) field.setSelectionRange(start, end);
+    revealCaret(field);
+  }
+
+  function revealCaret(field) {
+    if (!editable(field)) return;
+    window.requestAnimationFrame(() => {
+      if (!field.isConnected) return;
+      const position = field.selectionEnd ?? field.value.length;
+      if (field instanceof HTMLInputElement) {
+        const maxScroll = Math.max(0, field.scrollWidth - field.clientWidth);
+        if (position >= field.value.length - 1) {
+          field.scrollLeft = field.scrollWidth;
+        } else {
+          const ratio = field.value.length ? position / field.value.length : 0;
+          field.scrollLeft = Math.max(0, Math.min(maxScroll, maxScroll * ratio));
+        }
+      } else if (field instanceof HTMLTextAreaElement && position >= field.value.length - 1) {
+        field.scrollTop = field.scrollHeight;
+      }
+    });
   }
 
   function boundaries(text) {
@@ -218,7 +239,9 @@
       ? 'Open keyboard'
       : keyboardMode === 'inline'
         ? 'Dock keyboard at bottom'
-        : 'Close keyboard';
+        : keyboardMode === 'docked'
+          ? 'Use iPad width keyboard'
+          : 'Close keyboard';
     toggle.setAttribute('aria-expanded', String(expanded));
     toggle.setAttribute('aria-label', title);
     toggle.title = title;
@@ -226,7 +249,7 @@
   }
 
   function setMode(value) {
-    const nextMode = value === 'inline' || value === 'docked' ? value : 'closed';
+    const nextMode = value === 'inline' || value === 'docked' || value === 'wide' ? value : 'closed';
     const wasOpened = opened;
     stopRepeat();
     keyboardMode = nextMode;
@@ -235,7 +258,8 @@
     panel.hidden = !opened;
     terminal.classList.toggle('keyboard-open', opened);
     terminal.classList.toggle('keyboard-inline', opened && keyboardMode === 'inline');
-    terminal.classList.toggle('keyboard-docked', opened && keyboardMode === 'docked');
+    terminal.classList.toggle('keyboard-docked', opened && (keyboardMode === 'docked' || keyboardMode === 'wide'));
+    terminal.classList.toggle('keyboard-wide', opened && keyboardMode === 'wide');
     if (opened) {
       render();
       prepareFields(terminal);
@@ -265,12 +289,14 @@
   function cycleMode() {
     if (keyboardMode === 'closed') setMode('inline');
     else if (keyboardMode === 'inline') setMode('docked');
+    else if (keyboardMode === 'docked') setMode('wide');
     else setMode('closed');
   }
 
   GP.setKeyboardMode = setMode;
   GP.openKeyboard = () => setMode('inline');
   GP.dockKeyboard = () => setMode('docked');
+  GP.wideKeyboard = () => setMode('wide');
   GP.closeKeyboard = () => setMode('closed');
   GP.cycleKeyboard = cycleMode;
   GP.keyboardMode = () => keyboardMode;

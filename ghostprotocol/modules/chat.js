@@ -108,26 +108,29 @@
     };
   }
 
-  function animatedStatusLine(text) {
+  function animatedStatusLine(text, options = {}) {
     const line = document.createElement('div');
     const label = document.createElement('span');
     const indicator = document.createElement('span');
+    const useDots = options.dots !== false;
     let tick = 0;
-    line.className = 'line hint terminal-pulse';
+    line.className = `line hint terminal-pulse${options.bright ? ' terminal-pulse-bright' : ''}`;
     indicator.className = 'gpu-activity-indicator';
     line.append(label, indicator);
     label.textContent = text;
     GP.dom.screen.appendChild(line);
     GP.autoScroll();
     const gpu = startGpuIndicator(indicator);
-    const timer = window.setInterval(() => {
-      tick = (tick + 1) % 4;
-      label.textContent = `${text}${'.'.repeat(tick + 1)}`;
-    }, 420);
+    const timer = useDots
+      ? window.setInterval(() => {
+        tick = (tick + 1) % 4;
+        label.textContent = `${text}${'.'.repeat(tick + 1)}`;
+      }, 420)
+      : null;
     return {
       element: line,
       remove() {
-        window.clearInterval(timer);
+        if (timer) window.clearInterval(timer);
         gpu.remove();
         line.remove();
       }

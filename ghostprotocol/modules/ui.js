@@ -74,6 +74,7 @@
     helpCommand('restore', 'restore');
     helpCommand('open keyboard', 'open keyboard');
     helpCommand('dock keyboard', 'dock keyboard');
+    helpCommand('wide keyboard', 'wide keyboard');
     helpCommand('close keyboard', 'close keyboard');
     helpCommand('keyboard', 'keyboard');
     helpCommand('exit help', 'exit help');

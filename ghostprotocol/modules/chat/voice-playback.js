@@ -261,7 +261,7 @@
       await playAudioUrlIfAllowed(replyElement.dataset.audioUrl, replyElement);
       return;
     }
-    const rendering = GP.animatedStatusLine('voice rendering');
+    const rendering = GP.animatedStatusLine('voice rendering', { dots: false, bright: true });
     activeVoiceController?.abort();
     activeVoiceController = new AbortController();
     const signal = activeVoiceController.signal;

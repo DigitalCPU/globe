@@ -46,6 +46,10 @@
   grid-row: 4;
 }
 
+.terminal.keyboard-wide .virtual-keyboard {
+  width: min(100%, 1024px);
+}
+
 .virtual-keyboard {
   display: grid;
   gap: 5px;
@@ -124,6 +128,10 @@
   }
 
   .terminal.keyboard-docked .virtual-keyboard {
+    width: 100%;
+  }
+
+  .terminal.keyboard-wide .virtual-keyboard {
     width: 100%;
   }
 

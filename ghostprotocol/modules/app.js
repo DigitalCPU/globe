@@ -11,10 +11,10 @@
     ['mydatabase', 'my database', 'database', 'uploaded-files', 'files'],
     ['camera', 'use camera'], ['aitool', 'ai tool', 'chat', 'ai'],
     ['post board', 'board post'], ['close board', 'board close'],
-    ['eva'], ['eva status'], ['eva security'], ['eva events'], ['close eva'],
+    ['eva'], ['eva status'], ['eva security'], ['eva events'], ['close eva'], ['stop'],
     ['clear'], ['clear all'], ['fullscreen', 'full', 'immersion'],
     ['minimize', 'command mode'], ['restore', 'windowed'], ['close window'],
-    ['open keyboard'], ['dock keyboard'], ['close keyboard'], ['keyboard']
+    ['open keyboard'], ['dock keyboard'], ['wide keyboard', 'ipad keyboard'], ['close keyboard'], ['keyboard']
   ];
 
   function commandDistance(a, b) {
@@ -71,6 +71,7 @@
     if (['restore', 'windowed', 'showui', 'showlinks', 'exitcommandmode'].includes(key)) { GP.setCommandMode?.(false); return; }
     if (['openkeyboard', 'keyboardopen'].includes(key)) { GP.openKeyboard?.(); return; }
     if (['dockkeyboard', 'keyboarddock', 'bottomkeyboard'].includes(key)) { GP.dockKeyboard?.(); return; }
+    if (['widekeyboard', 'keyboardwide', 'ipadkeyboard', 'keyboardipad'].includes(key)) { GP.wideKeyboard?.(); return; }
     if (['closekeyboard', 'keyboardclose', 'hidekeyboard'].includes(key)) { GP.closeKeyboard?.(); return; }
     if (key === 'keyboard') { GP.cycleKeyboard?.(); return; }
     if (key === 'closewindow') { GP.closeWindow?.(); return; }
@@ -99,6 +100,7 @@
     }
     if (GP.state.evaMode) {
       if (['exit','quit'].includes(key)) GP.closeEva();
+      else if (key === 'stop') GP.stopEva?.();
       else if (key === 'help') GP.write('eva status | eva security | eva events | close eva');
       else void GP.sendEva(rawCommand);
       return;
