@@ -1,4 +1,5 @@
 (function (GP) {
+  const WORDS_PER_VOICE_CHUNK = 8;
   let activeVoiceController = null;
 
   async function fetchVoiceAudioBlob(audioPath) {
@@ -39,21 +40,29 @@
     void GP.api('/api/voice/tts/cancel', { method: 'POST', body: JSON.stringify({}) }).catch(() => {});
     return stopped;
   }
-  async function playAudioUrl(url, replyElement) {
+  async function playAudioUrl(url, replyElement, options = {}) {
     stopActiveVoice();
     const audio = new Audio(url);
     GP.state.activeVoiceAudio = audio;
     GP.state.activeVoiceReply = replyElement || null;
     if (replyElement) replyElement.classList.add('is-voice-playing');
-    audio.addEventListener('ended', () => {
-      if (GP.state.activeVoiceAudio === audio) {
-        GP.state.activeVoiceAudio = null;
-        GP.state.activeVoiceReply = null;
-      }
-      if (replyElement) replyElement.classList.remove('is-voice-playing');
-    }, { once: true });
+    const ended = new Promise((resolve) => {
+      const finish = () => {
+        if (GP.state.activeVoiceAudio === audio) {
+          GP.state.activeVoiceAudio = null;
+          GP.state.activeVoiceReply = null;
+        }
+        if (replyElement) replyElement.classList.remove('is-voice-playing');
+        resolve();
+      };
+      audio.addEventListener('ended', finish, { once: true });
+      audio.addEventListener('pause', () => {
+        if (audio.currentTime === 0 || audio.ended) finish();
+      }, { once: true });
+    });
     try {
       await audio.play();
+      if (options.waitForEnd) await ended;
     } catch (error) {
       if (GP.state.activeVoiceAudio === audio) {
         GP.state.activeVoiceAudio = null;
@@ -84,9 +93,9 @@
     GP.write('voice ready. tap reply to play.', 'hint');
   }
 
-  async function playAudioUrlIfAllowed(url, replyElement) {
+  async function playAudioUrlIfAllowed(url, replyElement, options = {}) {
     try {
-      await playAudioUrl(url, replyElement);
+      await playAudioUrl(url, replyElement, options);
       if (replyElement) replyElement.classList.remove('is-voice-ready');
       return true;
     } catch (error) {
@@ -114,6 +123,23 @@
     }
   }
 
+  function voiceWords(text) {
+    return String(text || '').trim().split(/\s+/).filter(Boolean);
+  }
+
+  function splitVoiceChunks(text) {
+    const words = voiceWords(text);
+    const chunks = [];
+    for (let index = 0; index < words.length; index += WORDS_PER_VOICE_CHUNK) {
+      chunks.push(words.slice(index, index + WORDS_PER_VOICE_CHUNK).join(' '));
+    }
+    return chunks;
+  }
+
+  function shouldUseChunkedVoice(text) {
+    return voiceWords(text).length > WORDS_PER_VOICE_CHUNK;
+  }
+
   function relativeApiUrl(path) {
     return String(path || '').startsWith('/') ? path : `/${path}`;
   }
@@ -135,15 +161,16 @@
     for (const button of ready) {
       if (!button.isConnected) return;
       if (!button.dataset.audioUrl) continue;
-      await playAudioUrlIfAllowed(button.dataset.audioUrl, replyElement);
+      await playAudioUrlIfAllowed(button.dataset.audioUrl, replyElement, { waitForEnd: true });
     }
   }
 
-  async function prepareChunkedReplyVoice(replyElement, text) {
+  async function prepareChunkedReplyVoice(replyElement, text, options = {}) {
     if (replyElement.dataset.chunkedVoice === '1') return;
     replyElement.dataset.chunkedVoice = '1';
     const tray = chunkTrayFor(replyElement);
     tray.innerHTML = '';
+    const chunks = splitVoiceChunks(text);
 
     const controls = document.createElement('div');
     controls.className = 'voice-chunk-controls';
@@ -161,23 +188,43 @@
     tray.appendChild(controls);
     tray._gpuIndicator = GP.startGpuIndicator?.(gpu) || null;
 
-    try {
-      const data = await GP.api('/api/voice/tts/chunks', {
-        method: 'POST',
-        body: JSON.stringify({ text, agent_id: replyElement?.dataset.agentId || 'ghost_host', words_per_chunk: 5 })
-      });
-      const chunks = Array.isArray(data.chunks) ? data.chunks : [];
-      status.textContent = `${chunks.length} voice chunks rendering`;
-      if (!chunks.length) stopTrayGpuIndicator(tray);
-      chunks.forEach((chunk) => renderChunkButton(tray, replyElement, chunk, status));
-    } catch (error) {
+    if (!chunks.length) {
+      status.textContent = 'no voice chunks to render';
       stopTrayGpuIndicator(tray);
-      status.textContent = `voice chunks unavailable: ${error.message}`;
-      replyElement.dataset.chunkedVoice = '';
+      return;
+    }
+
+    const buttons = chunks.map((chunkText, index) => renderChunkButton(tray, replyElement, {
+      index,
+      text: chunkText,
+      status: 'queued'
+    }, status, false));
+    status.textContent = `${chunks.length} voice chunks rendering`;
+
+    activeVoiceController?.abort();
+    activeVoiceController = new AbortController();
+    const signal = activeVoiceController.signal;
+    try {
+      for (const button of buttons) {
+        if (signal.aborted || !button.isConnected) break;
+        await renderChunkAudio(button, replyElement, status, tray, signal);
+      }
+      updateChunkStatus(status, tray);
+      if (!signal.aborted && options.autoplay) await playReadyChunks(tray, replyElement);
+    } catch (error) {
+      if (error.name === 'AbortError') {
+        status.textContent = 'voice rendering stopped';
+      } else {
+        status.textContent = `voice chunks unavailable: ${error.message}`;
+        replyElement.dataset.chunkedVoice = '';
+      }
+    } finally {
+      if (activeVoiceController?.signal === signal) activeVoiceController = null;
+      updateChunkStatus(status, tray);
     }
   }
 
-  function renderChunkButton(tray, replyElement, chunk, status) {
+  function renderChunkButton(tray, replyElement, chunk, status, poll = true) {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = `voice-chunk ${chunk.status || 'queued'}`;
@@ -192,9 +239,33 @@
     tray.appendChild(button);
     if (chunk.status === 'ready') {
       markChunkReady(button, chunk.audio_url, status, tray);
-      return;
+      return button;
     }
-    pollChunk(button, status, tray);
+    if (poll) pollChunk(button, status, tray);
+    return button;
+  }
+
+  async function renderChunkAudio(button, replyElement, status, tray, signal) {
+    button.classList.remove('queued', 'ready', 'failed', 'canceled');
+    button.classList.add('rendering');
+    status.textContent = `${tray.querySelectorAll('.voice-chunk.ready').length}/${tray.querySelectorAll('.voice-chunk').length} ready`;
+    try {
+      const data = await GP.api('/api/voice/tts', {
+        method: 'POST',
+        body: JSON.stringify({ text: button.textContent, agent_id: replyElement?.dataset.agentId || 'ghost_host' }),
+        signal
+      });
+      if (signal.aborted || !button.isConnected) return;
+      button.dataset.audioUrl = await fetchChunkAudioBlob(data.audio_url || '/api/voice/last.wav');
+      markChunkReady(button, data.audio_url || '/api/voice/last.wav', status, tray);
+    } catch (error) {
+      if (error.name === 'AbortError') throw error;
+      button.disabled = true;
+      button.classList.remove('queued', 'rendering', 'ready');
+      button.classList.add('failed');
+      button.textContent = `failed: ${button.textContent}`;
+      updateChunkStatus(status, tray);
+    }
   }
 
   async function pollChunk(button, status, tray) {
@@ -259,6 +330,17 @@
     }
     if (replyElement.dataset.audioUrl) {
       await playAudioUrlIfAllowed(replyElement.dataset.audioUrl, replyElement);
+      return;
+    }
+    if (shouldUseChunkedVoice(text)) {
+      const tray = replyElement.nextElementSibling?.classList?.contains('voice-chunk-tray')
+        ? replyElement.nextElementSibling
+        : null;
+      if (replyElement.dataset.chunkedVoice === '1' && tray) {
+        await playReadyChunks(tray, replyElement);
+        return;
+      }
+      await prepareChunkedReplyVoice(replyElement, text, { autoplay: true });
       return;
     }
     const rendering = GP.animatedStatusLine('voice rendering', { dots: false, bright: true });
