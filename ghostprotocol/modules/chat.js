@@ -82,7 +82,14 @@
       if (stopped || pending || !element.isConnected) return;
       pending = true;
       try {
-        element.textContent = gpuText(await GP.api('/api/gpu/status'));
+        let data;
+        try {
+          data = await GP.api('/api/gpu/status');
+        } catch (_error) {
+          const voice = await GP.api('/api/voice/status');
+          data = voice?.gpu;
+        }
+        element.textContent = gpuText(data);
       } catch (_error) {
         element.textContent = gpuText(null);
       } finally {
@@ -153,9 +160,6 @@
     target.appendChild(wrap);
     if (target === GP.dom.screen) GP.autoScroll();
     else target.scrollTop = target.scrollHeight;
-    if (GP.state.voiceOutputEnabled && GP.prepareChunkedReplyVoice) {
-      void GP.prepareChunkedReplyVoice(wrap, reply);
-    }
     if (GP.state.voiceOutputEnabled && GP.state.voiceAutoplayEnabled) {
       void GP.toggleReplyVoice(wrap, reply);
     }
