@@ -947,8 +947,27 @@ body.terminal-command-mode .terminal-session {
   gap: 8px;
 }
 
+.voice-chunk-controls.is-rendering {
+  animation: terminalPulseBright 0.85s ease-in-out infinite;
+}
+
+.voice-chunk-controls.is-rendering .gpu-activity-indicator,
+.voice-chunk-controls.is-rendering .voice-chunk-status {
+  color: #b8ffc5;
+  opacity: 1;
+}
+
 .voice-chunk-status {
   color: var(--green-dim);
+}
+
+.voice-processing-toggle[aria-expanded="true"] {
+  color: #b8ffc5;
+  text-decoration: underline;
+}
+
+.voice-chunk-list[hidden] {
+  display: none;
 }
 
 .voice-chunk {

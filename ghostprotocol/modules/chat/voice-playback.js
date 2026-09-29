@@ -36,6 +36,7 @@
     });
     document.querySelectorAll('.voice-chunk-status').forEach((status) => {
       status.textContent = 'voice rendering stopped';
+      status.closest('.voice-chunk-controls')?.classList.remove('is-rendering');
     });
     void GP.api('/api/voice/tts/cancel', { method: 'POST', body: JSON.stringify({}) }).catch(() => {});
     return stopped;
@@ -184,8 +185,22 @@
     playReady.className = 'terminal-button voice-play-ready';
     playReady.textContent = 'play ready';
     playReady.addEventListener('click', () => playReadyChunks(tray, replyElement).catch((error) => GP.write(`voice unavailable: ${error.message}`, 'error')));
-    controls.append(status, gpu, playReady);
-    tray.appendChild(controls);
+    const processing = document.createElement('button');
+    processing.type = 'button';
+    processing.className = 'terminal-button voice-processing-toggle';
+    processing.textContent = 'processing';
+    processing.setAttribute('aria-expanded', 'false');
+    const chunkList = document.createElement('div');
+    chunkList.className = 'voice-chunk-list';
+    chunkList.hidden = true;
+    processing.addEventListener('click', () => {
+      const expanded = chunkList.hidden;
+      chunkList.hidden = !expanded;
+      processing.setAttribute('aria-expanded', String(expanded));
+    });
+    controls.append(status, gpu, playReady, processing);
+    tray.append(controls, chunkList);
+    tray._chunkList = chunkList;
     tray._gpuIndicator = GP.startGpuIndicator?.(gpu) || null;
 
     if (!chunks.length) {
@@ -200,6 +215,7 @@
       status: 'queued'
     }, status, false));
     status.textContent = `${chunks.length} voice chunks rendering`;
+    controls.classList.add('is-rendering');
 
     activeVoiceController?.abort();
     activeVoiceController = new AbortController();
@@ -213,7 +229,16 @@
       if (!signal.aborted && options.autoplay) await playReadyChunks(tray, replyElement);
     } catch (error) {
       if (error.name === 'AbortError') {
+        buttons.forEach((button) => {
+          if (!button.classList.contains('ready') && !button.classList.contains('failed')) {
+            button.disabled = true;
+            button.classList.remove('queued', 'rendering');
+            button.classList.add('canceled');
+          }
+        });
         status.textContent = 'voice rendering stopped';
+        controls.classList.remove('is-rendering');
+        stopTrayGpuIndicator(tray);
       } else {
         status.textContent = `voice chunks unavailable: ${error.message}`;
         replyElement.dataset.chunkedVoice = '';
@@ -236,7 +261,7 @@
       if (!button.dataset.audioUrl) return;
       await playAudioUrlIfAllowed(button.dataset.audioUrl, replyElement);
     });
-    tray.appendChild(button);
+    (tray._chunkList || tray).appendChild(button);
     if (chunk.status === 'ready') {
       markChunkReady(button, chunk.audio_url, status, tray);
       return button;
@@ -316,7 +341,9 @@
     const canceled = tray.querySelectorAll('.voice-chunk.canceled').length;
     const suffix = [failed ? `${failed} failed` : '', canceled ? `${canceled} canceled` : ''].filter(Boolean).join(', ');
     status.textContent = `${ready}/${total} ready${suffix ? `, ${suffix}` : ''}`;
-    if (total && ready + failed + canceled >= total) stopTrayGpuIndicator(tray);
+    const rendering = Boolean(total && ready + failed + canceled < total);
+    status.closest('.voice-chunk-controls')?.classList.toggle('is-rendering', rendering);
+    if (total && !rendering) stopTrayGpuIndicator(tray);
   }
 
   async function toggleReplyVoice(replyElement, text) {
