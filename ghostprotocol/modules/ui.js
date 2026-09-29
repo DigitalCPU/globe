@@ -77,6 +77,9 @@
     helpCommand('wide keyboard', 'wide keyboard');
     helpCommand('close keyboard', 'close keyboard');
     helpCommand('keyboard', 'keyboard');
+    helpCommand('predictive', 'predictive');
+    helpCommand('predictive on', 'predictive on');
+    helpCommand('predictive off', 'predictive off');
     helpCommand('exit help', 'exit help');
     if (GP.state.account) {
       helpCommand('menu', 'menu');

@@ -11,6 +11,7 @@
     appTitle: document.getElementById('appTitle'),
     terminalHint: document.getElementById('terminalHint'),
     form: document.getElementById('commandForm'),
+    predictiveBar: document.getElementById('predictiveBar'),
     input: document.getElementById('commandInput'),
     fileInput: document.getElementById('fileInput'),
     cameraInput: document.getElementById('cameraInput'),

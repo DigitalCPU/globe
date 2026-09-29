@@ -14,7 +14,10 @@
     ['eva'], ['eva status'], ['eva security'], ['eva events'], ['close eva'], ['stop'],
     ['clear'], ['clear all'], ['fullscreen', 'full', 'immersion'],
     ['minimize', 'command mode'], ['restore', 'windowed'], ['close window'],
-    ['open keyboard'], ['dock keyboard'], ['wide keyboard', 'ipad keyboard'], ['close keyboard'], ['keyboard']
+    ['open keyboard'], ['dock keyboard'], ['wide keyboard', 'ipad keyboard'], ['close keyboard'], ['keyboard'],
+    ['predictive', 'suggestions', 'autocomplete'],
+    ['predictive on', 'suggestions on', 'autocomplete on'],
+    ['predictive off', 'suggestions off', 'autocomplete off']
   ];
 
   function commandDistance(a, b) {
@@ -74,6 +77,9 @@
     if (['widekeyboard', 'keyboardwide', 'ipadkeyboard', 'keyboardipad'].includes(key)) { GP.wideKeyboard?.(); return; }
     if (['closekeyboard', 'keyboardclose', 'hidekeyboard'].includes(key)) { GP.closeKeyboard?.(); return; }
     if (key === 'keyboard') { GP.cycleKeyboard?.(); return; }
+    if (['predictive', 'suggestions', 'autocomplete'].includes(key)) { GP.predictiveStatus?.(); return; }
+    if (['predictiveon', 'suggestionson', 'autocompleteon'].includes(key)) { GP.setPredictiveEnabled?.(true); return; }
+    if (['predictiveoff', 'suggestionsoff', 'autocompleteoff'].includes(key)) { GP.setPredictiveEnabled?.(false); return; }
     if (key === 'closewindow') { GP.closeWindow?.(); return; }
     if (GP.state.databaseOpen && (['help', 'menu', 'board', 'messageboard', '4', 'aitool', 'aitools', 'aitoolkit', 'ai', 'chat', '5', 'eva', 'evastatus', 'evasecurity', 'evaevents', 'lobby', 'publiclobby', 'usersonline', 'onlineusers', 'lobbyusers', 'chatroom', 'publicchat', 'publicroom', 'lobbychat', 'publicboard', 'lobbyboard', 'closechatroom', 'closemessageboard', 'editprofile', 'profile', 'accesscontrolpanelui'].includes(key) || command.startsWith('profile '))) {
       GP.closeDatabase();
@@ -198,14 +204,19 @@
 
   function start() {
     bindWindowControls();
+    GP.setPredictiveCommands?.(PUBLIC_COMMANDS);
+    GP.initPredictive?.();
 
     GP.dom.form.addEventListener('submit', (event) => {
       event.preventDefault();
       if (GP.state.promptHandler) {
+        GP.hidePredictive?.();
         GP.state.promptHandler();
         return;
       }
       const command = GP.dom.input.value;
+      GP.rememberPredictiveEntry?.(command);
+      GP.hidePredictive?.();
       GP.dom.input.value = '';
       run(command);
     });

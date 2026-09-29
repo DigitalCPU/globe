@@ -39,6 +39,7 @@ body {
 .terminal-input {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 10px;
   padding: 8px;
   background: #000;
@@ -290,6 +291,49 @@ body.terminal-command-mode .terminal-session {
 .terminal-input label {
   flex: 0 0 auto;
   color: var(--green);
+}
+
+.predictive-bar {
+  order: -1;
+  display: flex;
+  flex: 1 0 100%;
+  gap: 6px;
+  min-width: 0;
+  overflow-x: auto;
+  padding: 0 0 2px 18px;
+  scrollbar-width: none;
+}
+
+.predictive-bar[hidden] {
+  display: none;
+}
+
+.predictive-bar::-webkit-scrollbar {
+  display: none;
+}
+
+.predictive-choice {
+  flex: 0 0 auto;
+  min-height: 22px;
+  max-width: min(38vw, 180px);
+  overflow: hidden;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--green-dim);
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  text-decoration: underline;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.predictive-choice:hover,
+.predictive-choice:focus {
+  color: #b8ffc5;
+  outline: 0;
 }
 
 .terminal-input input {
