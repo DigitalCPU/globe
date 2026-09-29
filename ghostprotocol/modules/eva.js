@@ -70,7 +70,6 @@
     const pending = animation ? animation.element : line('EVA: connecting...', 'hint');
     if (animation) {
       thinkingAnimation = animation;
-      pending.textContent = 'Thinking.';
       output.appendChild(pending);
       GP.autoScroll();
     }

@@ -191,6 +191,7 @@
     const status = document.createElement('div');
     status.className = 'chat-image-status hint';
     status.setAttribute('role', 'status');
+    let statusGpu = null;
     const form = document.createElement('form');
     form.className = 'chat-image-compose';
     const input = document.createElement('textarea');
@@ -222,6 +223,24 @@
         else appendLine(`you> ${message.content}`);
       });
       messages.scrollTop = messages.scrollHeight;
+    }
+
+    function startStatus(text) {
+      stopStatus();
+      const label = document.createElement('span');
+      const gpu = document.createElement('span');
+      label.textContent = text;
+      gpu.className = 'gpu-activity-indicator';
+      status.append(label, gpu);
+      status.classList.add('terminal-pulse');
+      statusGpu = GP.startGpuIndicator?.(gpu) || null;
+    }
+
+    function stopStatus() {
+      statusGpu?.remove();
+      statusGpu = null;
+      status.replaceChildren();
+      status.classList.remove('terminal-pulse');
     }
 
     async function saveAiDoc() {
@@ -257,8 +276,7 @@
       send.disabled = observe.disabled = scanAgain.disabled = saveDoc.disabled = true;
       input.value = '';
       appendLine(`you> ${question}`);
-      status.textContent = rescan ? `scanning ${subject}...` : `using saved ${subject} scan...`;
-      status.classList.add('terminal-pulse');
+      startStatus(rescan ? `scanning ${subject}` : `using saved ${subject} scan`);
       try {
         const conversationMemory = history.slice(-14).map((message) => ({
           role: message.role,
@@ -290,8 +308,7 @@
       } finally {
         busy = false;
         send.disabled = observe.disabled = scanAgain.disabled = saveDoc.disabled = false;
-        status.textContent = '';
-        status.classList.remove('terminal-pulse');
+        stopStatus();
       }
     }
     form.addEventListener('submit', (event) => {
