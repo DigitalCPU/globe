@@ -134,6 +134,22 @@
     setSelection(field, next);
   }
 
+  function moveCursorVertical(field, direction) {
+    focusField(field);
+    if (!(field instanceof HTMLTextAreaElement)) return;
+    const position = field.selectionEnd ?? field.value.length;
+    const lines = field.value.slice(0, position).split('\n');
+    const column = lines[lines.length - 1].length;
+    const currentLine = lines.length - 1;
+    const allLines = field.value.split('\n');
+    const nextLine = Math.max(0, Math.min(allLines.length - 1, currentLine + direction));
+    if (nextLine === currentLine) return;
+    let next = 0;
+    for (let index = 0; index < nextLine; index += 1) next += allLines[index].length + 1;
+    next += Math.min(column, allLines[nextLine].length);
+    setSelection(field, next);
+  }
+
   function enter(field) {
     focusField(field);
     // Honor each form's existing Enter handler (including the AiTool composer).
@@ -171,6 +187,7 @@
     if (action === 'backspace') edit(field, '', true);
     else if (action === 'right' && GP.acceptPredictiveSuggestion?.()) return;
     else if (action === 'left' || action === 'right') moveCursor(field, action === 'left' ? -1 : 1);
+    else if (action === 'up' || action === 'down') moveCursorVertical(field, action === 'up' ? -1 : 1);
     else if (action === 'enter') enter(field);
     else {
       const value = button.dataset.value;
@@ -203,30 +220,101 @@
     panel.querySelector('[data-action="shift"]').setAttribute('aria-pressed', String(shifted));
   }
 
-  function render() {
+  function row(parent, className = '') {
+    const element = document.createElement('div');
+    element.className = `keyboard-row${className ? ` ${className}` : ''}`;
+    parent.appendChild(element);
+    return element;
+  }
+
+  function renderCompact() {
     panel.replaceChildren();
     const layouts = symbols
       ? (shifted ? ['~`|\\^{}<>_', '.,;:?!\'"()', '+-=*/%&'] : ['1234567890', '@#$%&*-+=/', '()!?\'":'])
       : ['qwertyuiop', 'asdfghjkl', 'zxcvbnm'];
     layouts.forEach((letters, index) => {
-      const row = document.createElement('div');
-      row.className = 'keyboard-row';
-      if (index === 2) key(row, symbols ? '#+=' : '\u21e7', 'shift', 1.5, symbols ? 'More symbols' : 'Shift');
-      for (const letter of letters) key(row, letter);
-      if (index === 2) key(row, '\u232b', 'backspace', 1.5, 'Backspace');
-      panel.appendChild(row);
+      const keys = row(panel);
+      if (index === 2) key(keys, symbols ? '#+=' : '\u21e7', 'shift', 1.5, symbols ? 'More symbols' : 'Shift');
+      for (const letter of letters) key(keys, letter);
+      if (index === 2) key(keys, '\u232b', 'backspace', 1.5, 'Backspace');
     });
-    const row = document.createElement('div');
-    row.className = 'keyboard-row';
-    key(row, symbols ? 'abc' : '123', 'layout', 1.5, symbols ? 'Letters' : 'Numbers and symbols');
-    key(row, '@');
-    const space = key(row, 'space', null, 3, 'Space');
+    const keys = row(panel);
+    key(keys, symbols ? 'abc' : '123', 'layout', 1.5, symbols ? 'Letters' : 'Numbers and symbols');
+    key(keys, '@');
+    const space = key(keys, 'space', null, 3, 'Space');
     space.dataset.value = ' ';
-    key(row, '.');
-    key(row, '\u2190', 'left', 1, 'Move cursor left');
-    key(row, '\u2192', 'right', 1, 'Move cursor right');
-    key(row, '\u21b5', 'enter', 1.5, 'Enter');
-    panel.appendChild(row);
+    key(keys, '.');
+    key(keys, '\u2190', 'left', 1, 'Move cursor left');
+    key(keys, '\u2192', 'right', 1, 'Move cursor right');
+    key(keys, '\u21b5', 'enter', 1.5, 'Enter');
+    updateKeys();
+  }
+
+  function renderFull() {
+    panel.replaceChildren();
+    const layout = document.createElement('div');
+    layout.className = 'keyboard-full-layout';
+    const main = document.createElement('div');
+    main.className = 'keyboard-full-main';
+    const side = document.createElement('div');
+    side.className = 'keyboard-full-side';
+    layout.append(main, side);
+    panel.appendChild(layout);
+
+    [
+      ['`1234567890-=', '\u232b'],
+      ['qwertyuiop[]\\'],
+      ['asdfghjkl;\'', '\u21b5'],
+      ['zxcvbnm,./', '\u21e7']
+    ].forEach((parts, index) => {
+      const keys = row(main, 'keyboard-full-row');
+      if (index === 2) key(keys, 'caps', 'shift', 1.35, 'Shift');
+      if (index === 3) key(keys, '\u21e7', 'shift', 1.8, 'Shift');
+      for (const letter of parts[0]) key(keys, letter);
+      if (parts[1] === '\u232b') key(keys, parts[1], 'backspace', 2.15, 'Backspace');
+      else if (parts[1] === '\u21b5') key(keys, parts[1], 'enter', 2.2, 'Enter');
+      else if (parts[1] === '\u21e7') key(keys, parts[1], 'shift', 2.2, 'Shift');
+    });
+
+    const bottom = row(main, 'keyboard-full-row');
+    key(bottom, '123', 'layout', 1.35, symbols ? 'Letters' : 'Numbers and symbols');
+    key(bottom, '@');
+    const space = key(bottom, 'space', null, 7, 'Space');
+    space.dataset.value = ' ';
+    key(bottom, '.');
+    key(bottom, ',');
+    key(bottom, '\u2190', 'left', 1.2, 'Move cursor left');
+    key(bottom, '\u2192', 'right', 1.2, 'Move cursor right');
+
+    const numpad = document.createElement('div');
+    numpad.className = 'keyboard-numpad';
+    side.appendChild(numpad);
+    ['789', '456', '123'].forEach(letters => {
+      const keys = row(numpad, 'keyboard-numpad-row');
+      for (const letter of letters) key(keys, letter);
+    });
+    const zero = row(numpad, 'keyboard-numpad-row');
+    key(zero, '0', null, 2, '0');
+    key(zero, '.');
+    const ops = row(numpad, 'keyboard-numpad-row');
+    ['+', '-', '/', '*'].forEach(letter => key(ops, letter));
+
+    const arrows = document.createElement('div');
+    arrows.className = 'keyboard-arrow-pad';
+    side.appendChild(arrows);
+    const up = row(arrows, 'keyboard-arrow-row');
+    key(up, '\u2191', 'up', 1, 'Move cursor up');
+    const down = row(arrows, 'keyboard-arrow-row');
+    key(down, '\u2190', 'left', 1, 'Move cursor left');
+    key(down, '\u2193', 'down', 1, 'Move cursor down');
+    key(down, '\u2192', 'right', 1, 'Move cursor right');
+    key(row(arrows, 'keyboard-arrow-row'), '\u21b5', 'enter', 3, 'Enter');
+    updateKeys();
+  }
+
+  function render() {
+    if (keyboardMode === 'full') renderFull();
+    else renderCompact();
     updateKeys();
   }
 
@@ -242,7 +330,9 @@
         ? 'Dock keyboard at bottom'
         : keyboardMode === 'docked'
           ? 'Use iPad width keyboard'
-          : 'Close keyboard';
+          : keyboardMode === 'wide'
+            ? 'Use full desktop keyboard'
+            : 'Close keyboard';
     toggle.setAttribute('aria-expanded', String(expanded));
     toggle.setAttribute('aria-label', title);
     toggle.title = title;
@@ -250,7 +340,7 @@
   }
 
   function setMode(value) {
-    const nextMode = value === 'inline' || value === 'docked' || value === 'wide' ? value : 'closed';
+    const nextMode = ['inline', 'docked', 'wide', 'full'].includes(value) ? value : 'closed';
     const wasOpened = opened;
     stopRepeat();
     keyboardMode = nextMode;
@@ -259,8 +349,9 @@
     panel.hidden = !opened;
     terminal.classList.toggle('keyboard-open', opened);
     terminal.classList.toggle('keyboard-inline', opened && keyboardMode === 'inline');
-    terminal.classList.toggle('keyboard-docked', opened && (keyboardMode === 'docked' || keyboardMode === 'wide'));
+    terminal.classList.toggle('keyboard-docked', opened && (keyboardMode === 'docked' || keyboardMode === 'wide' || keyboardMode === 'full'));
     terminal.classList.toggle('keyboard-wide', opened && keyboardMode === 'wide');
+    terminal.classList.toggle('keyboard-full', opened && keyboardMode === 'full');
     if (opened) {
       render();
       prepareFields(terminal);
@@ -291,6 +382,7 @@
     if (keyboardMode === 'closed') setMode('inline');
     else if (keyboardMode === 'inline') setMode('docked');
     else if (keyboardMode === 'docked') setMode('wide');
+    else if (keyboardMode === 'wide') setMode('full');
     else setMode('closed');
   }
 
@@ -298,6 +390,7 @@
   GP.openKeyboard = () => setMode('inline');
   GP.dockKeyboard = () => setMode('docked');
   GP.wideKeyboard = () => setMode('wide');
+  GP.fullKeyboard = () => setMode('full');
   GP.closeKeyboard = () => setMode('closed');
   GP.cycleKeyboard = cycleMode;
   GP.keyboardMode = () => keyboardMode;

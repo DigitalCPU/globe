@@ -50,6 +50,11 @@
   width: min(100%, 1024px);
 }
 
+.terminal.keyboard-full .virtual-keyboard {
+  width: min(100%, 1442px);
+  padding-block: 10px;
+}
+
 .virtual-keyboard {
   display: grid;
   gap: 5px;
@@ -119,6 +124,35 @@
   caret-color: var(--green);
 }
 
+.keyboard-full-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 280px);
+  gap: 8px;
+  width: 100%;
+}
+
+.keyboard-full-main,
+.keyboard-full-side,
+.keyboard-numpad,
+.keyboard-arrow-pad {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.keyboard-full-layout .keyboard-row {
+  height: 52px;
+  padding-inline: 0;
+}
+
+.keyboard-full-layout .keyboard-key {
+  font-size: 17px;
+}
+
+.keyboard-full-layout .keyboard-key[data-action] {
+  font-size: 14px;
+}
+
 @media (max-width: 560px) {
   .terminal-header {
     display: grid;
@@ -133,6 +167,18 @@
 
   .terminal.keyboard-wide .virtual-keyboard {
     width: 100%;
+  }
+
+  .terminal.keyboard-full .virtual-keyboard {
+    width: 100%;
+  }
+
+  .keyboard-full-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .keyboard-full-layout .keyboard-row {
+    height: 38px;
   }
 
   .terminal-session,

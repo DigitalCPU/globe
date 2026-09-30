@@ -14,7 +14,8 @@
     ['eva'], ['eva status'], ['eva security'], ['eva events'], ['close eva'], ['stop'],
     ['clear'], ['clear all'], ['fullscreen', 'full', 'immersion'],
     ['minimize', 'command mode'], ['restore', 'windowed'], ['close window'],
-    ['open keyboard'], ['dock keyboard'], ['wide keyboard', 'ipad keyboard'], ['close keyboard'], ['keyboard'],
+    ['open keyboard'], ['dock keyboard'], ['wide keyboard', 'ipad keyboard'],
+    ['full keyboard', 'desktop keyboard'], ['close keyboard'], ['keyboard'],
     ['predictive', 'suggestions', 'autocomplete'],
     ['predictive on', 'suggestions on', 'autocomplete on'],
     ['predictive off', 'suggestions off', 'autocomplete off']
@@ -88,6 +89,7 @@
     if (['openkeyboard', 'keyboardopen'].includes(key)) { GP.openKeyboard?.(); return; }
     if (['dockkeyboard', 'keyboarddock', 'bottomkeyboard'].includes(key)) { GP.dockKeyboard?.(); return; }
     if (['widekeyboard', 'keyboardwide', 'ipadkeyboard', 'keyboardipad'].includes(key)) { GP.wideKeyboard?.(); return; }
+    if (['fullkeyboard', 'keyboardfull', 'desktopkeyboard', 'keyboarddesktop'].includes(key)) { GP.fullKeyboard?.(); return; }
     if (['closekeyboard', 'keyboardclose', 'hidekeyboard'].includes(key)) { GP.closeKeyboard?.(); return; }
     if (key === 'keyboard') { GP.cycleKeyboard?.(); return; }
     if (['predictive', 'suggestions', 'autocomplete'].includes(key)) { GP.predictiveStatus?.(); return; }
