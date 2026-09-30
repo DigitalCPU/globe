@@ -41,17 +41,29 @@
     GP.dom.screen.scrollTop = Math.max(0, target.offsetTop - GP.dom.screen.offsetTop);
   }
 
+  function postTime(post) {
+    const value = Date.parse(post?.created_at || post?.updated_at || '');
+    return Number.isFinite(value) ? value : 0;
+  }
+
+  function scrollBoardTop() {
+    requestAnimationFrame(() => {
+      const target = GP.state.boardElement?.querySelector('.board-post') || GP.state.boardElement;
+      if (target?.scrollIntoView) target.scrollIntoView({ block: 'start', inline: 'nearest' });
+    });
+  }
+
   async function refreshBoardPanel() {
     if (!GP.state.boardElement) return;
     const list = GP.state.boardElement.querySelector('.board-panel-list');
     list.textContent = 'loading board...';
     const data = await GP.api('/api/board/posts?limit=80');
     if (!list.isConnected) return;
-    GP.state.posts = data.posts || [];
+    GP.state.posts = [...(data.posts || [])].sort((a, b) => postTime(b) - postTime(a));
     list.innerHTML = '';
     if (!GP.state.posts.length) {
       list.textContent = 'no board messages yet';
-      GP.autoScroll();
+      scrollBoardTop();
       return;
     }
     GP.state.posts.forEach((post, index) => {
@@ -70,7 +82,7 @@
       list.appendChild(card);
       void GP.fetchBoardImage(post, row);
     });
-    GP.autoScroll();
+    scrollBoardTop();
   }
 
   async function openBoardThread(postId, row) {
@@ -161,7 +173,11 @@
   async function postBoardMessage() {
     if (!GP.requireAccount()) return;
     try {
-      const text = await GP.promptLine('new board post, or leave blank to cancel:');
+      const text = await GP.promptLine('new board post, or leave blank to cancel:', 'text', {
+        source: 'board',
+        cancelOnCommand: true
+      });
+      if (text === null) return;
       const key = GP.commandKey(text);
       if (!text.trim()) {
         GP.write('board post canceled');
@@ -185,7 +201,11 @@
   async function replyToBoardThread(postId) {
     if (!GP.requireAccount()) return;
     try {
-      const text = await GP.promptLine('reply text, or leave blank to cancel:');
+      const text = await GP.promptLine('reply text, or leave blank to cancel:', 'text', {
+        source: 'board',
+        cancelOnCommand: true
+      });
+      if (text === null) return;
       const key = GP.commandKey(text);
       if (!text.trim()) {
         GP.write('reply canceled');
@@ -211,6 +231,7 @@
       if (!actions) {
         GP.closeLobby?.();
         if (GP.state.chatMode) GP.exitChat();
+        GP.setStatusSuffix('/ Message Board Open');
       }
       GP.state.boardOpen = true;
       clearBoardElement();
@@ -237,8 +258,10 @@
   }
 
   function closeBoard(silent = false) {
+    GP.cancelPrompt?.('board');
     GP.state.boardOpen = false;
     clearBoardElement();
+    if (!GP.state.lobbyOpen) GP.setStatusSuffix('');
     GP.renderMailHint?.();
     if (!silent) GP.write('board closed');
   }

@@ -217,18 +217,38 @@
     dom.sessionState.appendChild(link);
   }
 
-  function promptLine(question, type = 'text') {
+  function cancelPrompt(source = '') {
+    const meta = state.promptMeta;
+    if (!meta || (source && meta.source !== source)) return false;
+    if (typeof meta.cancel === 'function') meta.cancel();
+    return true;
+  }
+
+  function promptLine(question, type = 'text', options = {}) {
     return new Promise((resolve) => {
       write(question);
       const oldType = dom.input.type;
       dom.input.type = type;
       dom.input.value = '';
       dom.input.focus();
+      const cleanupPrompt = () => {
+        dom.input.type = oldType;
+        state.promptHandler = null;
+        state.promptMeta = null;
+      };
+      state.promptMeta = {
+        source: options.source || '',
+        cancelOnCommand: Boolean(options.cancelOnCommand),
+        cancel() {
+          dom.input.value = '';
+          cleanupPrompt();
+          resolve(null);
+        }
+      };
       state.promptHandler = () => {
         const value = dom.input.value;
         dom.input.value = '';
-        dom.input.type = oldType;
-        state.promptHandler = null;
+        cleanupPrompt();
         resolve(value);
       };
     });
@@ -260,6 +280,7 @@
     isOwner,
     formatBytes,
     updateSession,
+    cancelPrompt,
     promptLine
   };
 })();

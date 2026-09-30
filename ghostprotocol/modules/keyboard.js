@@ -169,6 +169,7 @@
     const field = activeField();
     if (!field) return;
     if (action === 'backspace') edit(field, '', true);
+    else if (action === 'right' && GP.acceptPredictiveSuggestion?.()) return;
     else if (action === 'left' || action === 'right') moveCursor(field, action === 'left' ? -1 : 1);
     else if (action === 'enter') enter(field);
     else {

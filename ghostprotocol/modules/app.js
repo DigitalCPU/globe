@@ -52,6 +52,16 @@
     closest.forEach(match => GP.commandButton(match.command, match.command));
   }
 
+  function isPromptCancelCommand(raw) {
+    const value = String(raw || '').trim();
+    const key = GP.commandKey(value);
+    if (!key) return false;
+    const directKeys = new Set(['1', '2', '3', '4', '5', '6', 'accesscontrolpanelui']);
+    if (directKeys.has(key)) return true;
+    if (/^(profile|mail)\s+\S/i.test(value)) return true;
+    return PUBLIC_COMMANDS.some(group => group.some(command => GP.commandKey(command) === key));
+  }
+
   async function status() {
     try {
       await GP.api('/api/status');
@@ -68,6 +78,9 @@
     const command = rawCommand.toLowerCase();
     const key = GP.commandKey(rawCommand);
     if (!command) return;
+    if (GP.state.promptHandler && GP.state.promptMeta?.cancelOnCommand && isPromptCancelCommand(rawCommand)) {
+      GP.cancelPrompt?.();
+    }
     if (['signout', 'logout', 'logoff'].includes(key)) { GP.logout(); return; }
     if (key === 'exithelp') { GP.clear(); return; }
     if (['minimize', 'commandmode', 'commandonly', 'terminalmode'].includes(key)) { GP.setCommandMode?.(true); return; }
@@ -210,6 +223,14 @@
     GP.dom.form.addEventListener('submit', (event) => {
       event.preventDefault();
       if (GP.state.promptHandler) {
+        const command = GP.dom.input.value;
+        if (GP.state.promptMeta?.cancelOnCommand && isPromptCancelCommand(command)) {
+          GP.cancelPrompt?.();
+          GP.hidePredictive?.();
+          GP.dom.input.value = '';
+          run(command);
+          return;
+        }
         GP.hidePredictive?.();
         GP.state.promptHandler();
         return;

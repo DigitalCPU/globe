@@ -41,8 +41,12 @@
 
   GP.lobby = function (initialTab = 'Users Online') {
     if (closeCurrent) closeCurrent();
+    GP.cancelPrompt?.('board');
     GP.closeBoard?.(true);
     if (GP.state.chatMode) GP.exitChat();
+    GP.closeDatabase?.();
+    GP.dom.screen.innerHTML = '';
+    GP.setStatusSuffix('/ Public lobby');
     GP.state.headerHint = '';
     GP.renderMailHint?.();
     const panel = document.createElement('section');
@@ -75,8 +79,10 @@
     const controller = new AbortController();
     const buttons = new Map();
     function cleanup() {
+      GP.cancelPrompt?.('board');
       clearInterval(timer); controller.abort(); panel.remove();
       navigation.remove();
+      GP.setStatusSuffix('');
       GP.state.headerHint = undefined;
       GP.renderMailHint?.();
       if (GP.state.boardElement && !GP.state.boardElement.isConnected) {
@@ -131,13 +137,16 @@
       } finally { busy = false; }
     }
     function select(name) {
-      active = lobbyTabName(name) || name;
+      const next = lobbyTabName(name) || name;
+      if (active !== next) GP.cancelPrompt?.('board');
+      active = next;
+      GP.setStatusSuffix(active === 'Board' ? '/ Message Board Open' : '/ Public lobby');
       GP.state.lobbyOpen = true;
       GP.state.lobbyActive = active;
       list = users = form = null;
       actions.replaceChildren();
       body.replaceChildren();
-      title.textContent = active === 'Board' ? 'Message Board Open' : 'Public lobby';
+      title.textContent = 'Public lobby';
       buttons.forEach((button, label) => {
         const selected = label === active;
         button.setAttribute('aria-selected', String(selected));
@@ -200,7 +209,7 @@
     closeCurrent = cleanup;
     selectCurrent = select;
     GP.state.lobbyOpen = true;
-    select(active); void refresh(); GP.autoScroll();
+    select(active); void refresh(); scrollRoomIntoView(panel);
   };
   GP.lobbySelect = function (name) {
     const tab = lobbyTabName(name);
