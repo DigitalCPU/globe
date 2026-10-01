@@ -51,8 +51,10 @@
 }
 
 .terminal.keyboard-full .virtual-keyboard {
-  width: min(100%, 1442px);
+  width: min(100%, 1600px);
   padding-block: 10px;
+  overflow-x: auto;
+  scrollbar-color: var(--green) #000;
 }
 
 .virtual-keyboard {
@@ -126,31 +128,123 @@
 
 .keyboard-full-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(220px, 280px);
-  gap: 8px;
+  gap: 14px;
+  min-width: 1180px;
   width: 100%;
 }
 
-.keyboard-full-main,
-.keyboard-full-side,
-.keyboard-numpad,
-.keyboard-arrow-pad {
+.keyboard-function-row {
   display: grid;
-  gap: 5px;
+  grid-template-columns:
+    minmax(64px, 1fr) minmax(50px, 1.05fr)
+    repeat(4, minmax(64px, 1fr)) minmax(18px, 0.38fr)
+    repeat(4, minmax(64px, 1fr)) minmax(18px, 0.38fr)
+    repeat(4, minmax(64px, 1fr)) minmax(18px, 0.38fr)
+    repeat(3, minmax(64px, 1fr));
+  gap: 8px;
+  min-height: 58px;
+}
+
+.keyboard-full-body {
+  display: grid;
+  grid-template-columns: minmax(0, 6.2fr) minmax(190px, 1.35fr) minmax(250px, 1.9fr);
+  gap: 14px;
+  align-items: stretch;
+}
+
+.keyboard-full-main {
+  display: grid;
+  grid-template-columns: repeat(15, minmax(0, 1fr));
+  grid-template-rows: repeat(5, 58px);
+  gap: 8px;
+}
+
+.keyboard-full-middle {
+  display: grid;
+  grid-template-rows: repeat(2, 58px) 1fr repeat(2, 58px);
+  gap: 8px;
+}
+
+.keyboard-nav-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-rows: repeat(2, 58px);
+  gap: 8px;
+}
+
+.keyboard-arrow-grid {
+  display: grid;
+  grid-row: 4 / span 2;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-rows: repeat(2, 58px);
+  gap: 8px;
+}
+
+.keyboard-numpad {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-rows: repeat(5, 58px);
+  gap: 8px;
+}
+
+.keyboard-full-spacer {
   min-width: 0;
 }
 
-.keyboard-full-layout .keyboard-row {
-  height: 52px;
-  padding-inline: 0;
+.keyboard-full-spacer.is-wide {
+  min-width: 34px;
 }
 
 .keyboard-full-layout .keyboard-key {
-  font-size: 17px;
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  padding: 4px 6px;
+  border: 2px solid var(--green);
+  border-radius: 7px;
+  background:
+    linear-gradient(rgba(57, 255, 106, 0.06), rgba(57, 255, 106, 0.02)),
+    repeating-linear-gradient(180deg, rgba(57, 255, 106, 0.04), rgba(57, 255, 106, 0.04) 1px, transparent 1px, transparent 4px),
+    #010904;
+  box-shadow:
+    0 0 12px rgba(57, 255, 106, 0.34),
+    inset 0 0 14px rgba(57, 255, 106, 0.16),
+    inset 0 0 0 1px rgba(184, 255, 197, 0.2);
+  clip-path: polygon(8px 0, calc(100% - 8px) 0, 100% 8px, 100% calc(100% - 8px), calc(100% - 8px) 100%, 8px 100%, 0 calc(100% - 8px), 0 8px);
+  color: var(--green);
+  font-size: clamp(10px, 0.95vw, 18px);
+  font-weight: 700;
+  line-height: 1.12;
+  text-align: center;
+  text-shadow:
+    0 0 7px rgba(57, 255, 106, 0.75),
+    0 0 16px rgba(57, 255, 106, 0.45);
+  white-space: pre-line;
 }
 
 .keyboard-full-layout .keyboard-key[data-action] {
-  font-size: 14px;
+  font-size: clamp(10px, 0.83vw, 15px);
+}
+
+.keyboard-full-layout .keyboard-key.is-space {
+  letter-spacing: 0;
+}
+
+.keyboard-full-layout .keyboard-key.is-tall {
+  align-content: center;
+}
+
+.keyboard-full-layout .keyboard-key:active,
+.keyboard-full-layout .keyboard-key[aria-pressed="true"] {
+  color: #000;
+  background: var(--green);
+  text-shadow: none;
+  box-shadow:
+    0 0 18px rgba(57, 255, 106, 0.65),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.5);
 }
 
 @media (max-width: 560px) {
@@ -174,11 +268,35 @@
   }
 
   .keyboard-full-layout {
-    grid-template-columns: minmax(0, 1fr);
+    min-width: 1060px;
   }
 
-  .keyboard-full-layout .keyboard-row {
-    height: 38px;
+  .keyboard-full-body {
+    grid-template-columns: minmax(650px, 6.2fr) minmax(160px, 1.35fr) minmax(220px, 1.9fr);
+  }
+
+  .keyboard-function-row,
+  .keyboard-full-main,
+  .keyboard-nav-grid,
+  .keyboard-arrow-grid,
+  .keyboard-numpad {
+    gap: 5px;
+  }
+
+  .keyboard-full-main,
+  .keyboard-nav-grid,
+  .keyboard-arrow-grid,
+  .keyboard-numpad {
+    grid-template-rows: repeat(5, 42px);
+  }
+
+  .keyboard-nav-grid,
+  .keyboard-arrow-grid {
+    grid-template-rows: repeat(2, 42px);
+  }
+
+  .keyboard-full-middle {
+    grid-template-rows: repeat(2, 42px) 1fr repeat(2, 42px);
   }
 
   .terminal-session,

@@ -189,6 +189,7 @@
     else if (action === 'left' || action === 'right') moveCursor(field, action === 'left' ? -1 : 1);
     else if (action === 'up' || action === 'down') moveCursorVertical(field, action === 'up' ? -1 : 1);
     else if (action === 'enter') enter(field);
+    else if (action) return;
     else {
       const value = button.dataset.value;
       edit(field, !symbols && shifted ? value.toUpperCase() : value);
@@ -212,12 +213,13 @@
 
   function updateKeys() {
     for (const button of panel.querySelectorAll('[data-value]')) {
+      if (button.dataset.staticLabel === 'true') continue;
       const value = button.dataset.value;
       if (value === ' ') continue;
       button.textContent = !symbols && shifted ? value.toUpperCase() : value;
       button.setAttribute('aria-label', button.textContent);
     }
-    panel.querySelector('[data-action="shift"]').setAttribute('aria-pressed', String(shifted));
+    panel.querySelector('[data-action="shift"]')?.setAttribute('aria-pressed', String(shifted));
   }
 
   function row(parent, className = '') {
@@ -254,61 +256,118 @@
     panel.replaceChildren();
     const layout = document.createElement('div');
     layout.className = 'keyboard-full-layout';
+    const functionRow = document.createElement('div');
+    functionRow.className = 'keyboard-function-row';
+    const body = document.createElement('div');
+    body.className = 'keyboard-full-body';
     const main = document.createElement('div');
     main.className = 'keyboard-full-main';
-    const side = document.createElement('div');
-    side.className = 'keyboard-full-side';
-    layout.append(main, side);
-    panel.appendChild(layout);
-
-    [
-      ['`1234567890-=', '\u232b'],
-      ['qwertyuiop[]\\'],
-      ['asdfghjkl;\'', '\u21b5'],
-      ['zxcvbnm,./', '\u21e7']
-    ].forEach((parts, index) => {
-      const keys = row(main, 'keyboard-full-row');
-      if (index === 2) key(keys, 'caps', 'shift', 1.35, 'Shift');
-      if (index === 3) key(keys, '\u21e7', 'shift', 1.8, 'Shift');
-      for (const letter of parts[0]) key(keys, letter);
-      if (parts[1] === '\u232b') key(keys, parts[1], 'backspace', 2.15, 'Backspace');
-      else if (parts[1] === '\u21b5') key(keys, parts[1], 'enter', 2.2, 'Enter');
-      else if (parts[1] === '\u21e7') key(keys, parts[1], 'shift', 2.2, 'Shift');
-    });
-
-    const bottom = row(main, 'keyboard-full-row');
-    key(bottom, '123', 'layout', 1.35, symbols ? 'Letters' : 'Numbers and symbols');
-    key(bottom, '@');
-    const space = key(bottom, 'space', null, 7, 'Space');
-    space.dataset.value = ' ';
-    key(bottom, '.');
-    key(bottom, ',');
-    key(bottom, '\u2190', 'left', 1.2, 'Move cursor left');
-    key(bottom, '\u2192', 'right', 1.2, 'Move cursor right');
-
+    const middle = document.createElement('div');
+    middle.className = 'keyboard-full-middle';
+    const nav = document.createElement('div');
+    nav.className = 'keyboard-nav-grid';
+    const arrows = document.createElement('div');
+    arrows.className = 'keyboard-arrow-grid';
     const numpad = document.createElement('div');
     numpad.className = 'keyboard-numpad';
-    side.appendChild(numpad);
-    ['789', '456', '123'].forEach(letters => {
-      const keys = row(numpad, 'keyboard-numpad-row');
-      for (const letter of letters) key(keys, letter);
-    });
-    const zero = row(numpad, 'keyboard-numpad-row');
-    key(zero, '0', null, 2, '0');
-    key(zero, '.');
-    const ops = row(numpad, 'keyboard-numpad-row');
-    ['+', '-', '/', '*'].forEach(letter => key(ops, letter));
+    middle.append(nav, arrows);
+    body.append(main, middle, numpad);
+    layout.append(functionRow, body);
+    panel.appendChild(layout);
 
-    const arrows = document.createElement('div');
-    arrows.className = 'keyboard-arrow-pad';
-    side.appendChild(arrows);
-    const up = row(arrows, 'keyboard-arrow-row');
-    key(up, '\u2191', 'up', 1, 'Move cursor up');
-    const down = row(arrows, 'keyboard-arrow-row');
-    key(down, '\u2190', 'left', 1, 'Move cursor left');
-    key(down, '\u2193', 'down', 1, 'Move cursor down');
-    key(down, '\u2192', 'right', 1, 'Move cursor right');
-    key(row(arrows, 'keyboard-arrow-row'), '\u21b5', 'enter', 3, 'Enter');
+    function fullKey(parent, label, options = {}) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = `keyboard-key keyboard-full-key${options.className ? ` ${options.className}` : ''}`;
+      button.textContent = label;
+      button.title = options.name || label.replace(/\n/g, ' ');
+      button.setAttribute('aria-label', button.title);
+      button.dataset.staticLabel = 'true';
+      if (options.action) button.dataset.action = options.action;
+      else if (options.value !== undefined) button.dataset.value = options.value;
+      else button.dataset.action = 'noop';
+      if (options.col) button.style.gridColumn = options.col;
+      if (options.row) button.style.gridRow = options.row;
+      parent.appendChild(button);
+      return button;
+    }
+
+    function spacer(parent, className = '') {
+      const gap = document.createElement('div');
+      gap.className = `keyboard-full-spacer${className ? ` ${className}` : ''}`;
+      parent.appendChild(gap);
+    }
+
+    fullKey(functionRow, 'ESC', { action: 'noop' });
+    spacer(functionRow, 'is-wide');
+    ['F1', 'F2', 'F3', 'F4'].forEach(label => fullKey(functionRow, label, { action: 'noop' }));
+    spacer(functionRow);
+    ['F5', 'F6', 'F7', 'F8'].forEach(label => fullKey(functionRow, label, { action: 'noop' }));
+    spacer(functionRow);
+    ['F9', 'F10', 'F11', 'F12'].forEach(label => fullKey(functionRow, label, { action: 'noop' }));
+    spacer(functionRow);
+    fullKey(functionRow, 'PRTSC\nSYSRQ', { action: 'noop' });
+    fullKey(functionRow, 'SCROLL\nLOCK', { action: 'noop' });
+    fullKey(functionRow, 'PAUSE\nBREAK', { action: 'noop' });
+
+    [
+      ['~\n`', '`'], ['!\n1', '1'], ['@\n2', '2'], ['#\n3', '3'], ['$\n4', '4'],
+      ['%\n5', '5'], ['^\n6', '6'], ['&\n7', '7'], ['*\n8', '8'], ['(\n9', '9'],
+      [')\n0', '0'], ['_\n-', '-'], ['+\n=', '=']
+    ].forEach(([label, value], index) => fullKey(main, label, { value, row: '1', col: String(index + 1) }));
+    fullKey(main, 'BACKSPACE\n\u2190', { action: 'backspace', row: '1', col: '14 / span 2', className: 'is-wide' });
+
+    fullKey(main, 'TAB\n\u21e4', { value: '\t', row: '2', col: '1 / span 2', className: 'is-wide' });
+    'qwertyuiop'.split('').forEach((letter, index) => fullKey(main, letter.toUpperCase(), { value: letter, row: '2', col: String(index + 3) }));
+    fullKey(main, '{\n[', { value: '[', row: '2', col: '13' });
+    fullKey(main, '}\n]', { value: ']', row: '2', col: '14' });
+    fullKey(main, '|\n\\', { value: '\\', row: '2', col: '15' });
+
+    fullKey(main, 'CAPS LOCK', { action: 'shift', row: '3', col: '1 / span 2', className: 'is-wide' });
+    'asdfghjkl'.split('').forEach((letter, index) => fullKey(main, letter.toUpperCase(), { value: letter, row: '3', col: String(index + 3) }));
+    fullKey(main, ':\n;', { value: ';', row: '3', col: '12' });
+    fullKey(main, '"\n\'', { value: '\'', row: '3', col: '13' });
+    fullKey(main, 'ENTER\n\u21b5', { action: 'enter', row: '3', col: '14 / span 2', className: 'is-wide' });
+
+    fullKey(main, '\u2b06 SHIFT', { action: 'shift', row: '4', col: '1 / span 3', className: 'is-wide is-shift' });
+    'zxcvbnm'.split('').forEach((letter, index) => fullKey(main, letter.toUpperCase(), { value: letter, row: '4', col: String(index + 4) }));
+    fullKey(main, '<\n,', { value: ',', row: '4', col: '11' });
+    fullKey(main, '>\n.', { value: '.', row: '4', col: '12' });
+    fullKey(main, '?\n/', { value: '/', row: '4', col: '13' });
+    fullKey(main, '\u2b06 SHIFT', { action: 'shift', row: '4', col: '14 / span 2', className: 'is-wide is-shift' });
+
+    fullKey(main, 'CTRL', { action: 'noop', row: '5', col: '1' });
+    fullKey(main, '\u25a3', { action: 'noop', row: '5', col: '2', name: 'System key' });
+    fullKey(main, 'ALT', { action: 'noop', row: '5', col: '3' });
+    fullKey(main, 'SPACE', { value: ' ', row: '5', col: '4 / span 7', className: 'is-space' });
+    fullKey(main, 'ALT', { action: 'noop', row: '5', col: '11' });
+    fullKey(main, 'FN', { action: 'noop', row: '5', col: '12' });
+    fullKey(main, '\u2630', { action: 'noop', row: '5', col: '13', name: 'Menu' });
+    fullKey(main, 'CTRL', { action: 'noop', row: '5', col: '14 / span 2' });
+
+    [
+      ['INSERT', '1', '1'], ['HOME', '2', '1'], ['PAGE\nUP', '3', '1'],
+      ['DELETE', '1', '2'], ['END', '2', '2'], ['PAGE\nDOWN', '3', '2']
+    ].forEach(([label, col, navRow]) => fullKey(nav, label, { action: 'noop', col, row: navRow }));
+
+    fullKey(arrows, '\u2b06', { action: 'up', col: '2', row: '1', name: 'Move cursor up' });
+    fullKey(arrows, '\u25c0', { action: 'left', col: '1', row: '2', name: 'Move cursor left' });
+    fullKey(arrows, '\u2b07', { action: 'down', col: '2', row: '2', name: 'Move cursor down' });
+    fullKey(arrows, '\u25b6', { action: 'right', col: '3', row: '2', name: 'Move cursor right' });
+
+    [
+      ['NUM\nLOCK', 'noop', '1', '1'], ['/', '/', '2', '1'], ['*', '*', '3', '1'], ['-', '-', '4', '1'],
+      ['7\nHOME', '7', '1', '2'], ['8\n\u2b06', '8', '2', '2'], ['9\nPG UP', '9', '3', '2'],
+      ['4\n\u25c0', '4', '1', '3'], ['5', '5', '2', '3'], ['6\n\u25b6', '6', '3', '3'],
+      ['1\nEND', '1', '1', '4'], ['2\n\u2b07', '2', '2', '4'], ['3\nPG DN', '3', '3', '4']
+    ].forEach(([label, value, col, numRow]) => {
+      const opts = value === 'noop' ? { action: 'noop', col, row: numRow } : { value, col, row: numRow };
+      fullKey(numpad, label, opts);
+    });
+    fullKey(numpad, '+', { value: '+', col: '4', row: '2 / span 2', className: 'is-tall' });
+    fullKey(numpad, '0\nINS', { value: '0', col: '1 / span 2', row: '5', className: 'is-wide' });
+    fullKey(numpad, '.\nDEL', { value: '.', col: '3', row: '5' });
+    fullKey(numpad, 'ENTER', { action: 'enter', col: '4', row: '4 / span 2', className: 'is-tall' });
     updateKeys();
   }
 
