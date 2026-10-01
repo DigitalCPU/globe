@@ -329,12 +329,12 @@
     fullKey(main, '"\n\'', { value: '\'', row: '3', col: '13' });
     fullKey(main, 'ENTER\n\u21b5', { action: 'enter', row: '3', col: '14 / span 2', className: 'is-wide' });
 
-    fullKey(main, '\u2b06 SHIFT', { action: 'shift', row: '4', col: '1 / span 3', className: 'is-wide is-shift' });
+    fullKey(main, 'SHIFT', { action: 'shift', row: '4', col: '1 / span 3', className: 'is-wide is-shift' });
     'zxcvbnm'.split('').forEach((letter, index) => fullKey(main, letter.toUpperCase(), { value: letter, row: '4', col: String(index + 4) }));
     fullKey(main, '<\n,', { value: ',', row: '4', col: '11' });
     fullKey(main, '>\n.', { value: '.', row: '4', col: '12' });
     fullKey(main, '?\n/', { value: '/', row: '4', col: '13' });
-    fullKey(main, '\u2b06 SHIFT', { action: 'shift', row: '4', col: '14 / span 2', className: 'is-wide is-shift' });
+    fullKey(main, 'SHIFT', { action: 'shift', row: '4', col: '14 / span 2', className: 'is-wide is-shift' });
 
     fullKey(main, 'CTRL', { action: 'noop', row: '5', col: '1' });
     fullKey(main, '\u25a3', { action: 'noop', row: '5', col: '2', name: 'System key' });
@@ -350,16 +350,16 @@
       ['DELETE', '1', '2'], ['END', '2', '2'], ['PAGE\nDOWN', '3', '2']
     ].forEach(([label, col, navRow]) => fullKey(nav, label, { action: 'noop', col, row: navRow }));
 
-    fullKey(arrows, '\u2b06', { action: 'up', col: '2', row: '1', name: 'Move cursor up' });
+    fullKey(arrows, '^', { action: 'up', col: '2', row: '1', name: 'Move cursor up' });
     fullKey(arrows, '\u25c0', { action: 'left', col: '1', row: '2', name: 'Move cursor left' });
-    fullKey(arrows, '\u2b07', { action: 'down', col: '2', row: '2', name: 'Move cursor down' });
+    fullKey(arrows, 'v', { action: 'down', col: '2', row: '2', name: 'Move cursor down' });
     fullKey(arrows, '\u25b6', { action: 'right', col: '3', row: '2', name: 'Move cursor right' });
 
     [
       ['NUM\nLOCK', 'noop', '1', '1'], ['/', '/', '2', '1'], ['*', '*', '3', '1'], ['-', '-', '4', '1'],
-      ['7\nHOME', '7', '1', '2'], ['8\n\u2b06', '8', '2', '2'], ['9\nPG UP', '9', '3', '2'],
+      ['7\nHOME', '7', '1', '2'], ['8\n^', '8', '2', '2'], ['9\nPG UP', '9', '3', '2'],
       ['4\n\u25c0', '4', '1', '3'], ['5', '5', '2', '3'], ['6\n\u25b6', '6', '3', '3'],
-      ['1\nEND', '1', '1', '4'], ['2\n\u2b07', '2', '2', '4'], ['3\nPG DN', '3', '3', '4']
+      ['1\nEND', '1', '1', '4'], ['2\nv', '2', '2', '4'], ['3\nPG DN', '3', '3', '4']
     ].forEach(([label, value, col, numRow]) => {
       const opts = value === 'noop' ? { action: 'noop', col, row: numRow } : { value, col, row: numRow };
       fullKey(numpad, label, opts);
