@@ -53,6 +53,7 @@
   }
 
   function exitChat() {
+    GP.stopVoiceActivity?.('aitool');
     GP.state.chatMode = false;
     document.querySelector('.chat-session-status')?.remove();
     if (GP.dom.appTitle) GP.dom.appTitle.textContent = 'Ghost Protocol';
@@ -139,7 +140,7 @@
     };
   }
 
-  function writeAiReply(reply, target = GP.dom.screen, agentId = 'ghost_host') {
+  function writeAiReply(reply, target = GP.dom.screen, agentId = 'aitool') {
     const wrap = document.createElement('button');
     wrap.type = 'button';
     wrap.className = 'ai-reply';
@@ -166,7 +167,7 @@
     if (target === GP.dom.screen) GP.autoScroll();
     else target.scrollTop = target.scrollHeight;
     if (GP.state.voiceOutputEnabled && GP.state.voiceAutoplayEnabled) {
-      void GP.toggleReplyVoice(wrap, reply);
+      void GP.toggleReplyVoice(wrap, reply).catch(error => GP.write(`voice unavailable: ${error.message}`, 'error'));
     }
     return wrap;
   }
@@ -334,7 +335,7 @@
       ];
       const data = await GP.api('/api/chat', {
         method: 'POST',
-        body: JSON.stringify({ messages, app: 'ghostprotocol' })
+        body: JSON.stringify({ messages, app: 'ghostprotocol', persona_id: GP.state.aiPersonaId || '' })
       });
       thinking.remove();
       if (!current()) return;
@@ -358,4 +359,3 @@
   GP.startGpuIndicator = startGpuIndicator;
   GP.writeAiReply = writeAiReply;
 })(window.GhostProtocol);
-

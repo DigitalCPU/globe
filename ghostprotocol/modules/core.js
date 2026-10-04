@@ -5,6 +5,7 @@
   const deviceKey = 'ghostprotocol:device-id:v1';
   const voiceEnabledKey = 'ghostprotocol:voice-enabled:v1';
   const voiceAutoplayKey = 'ghostprotocol:voice-autoplay:v1';
+  const aiPersonaKey = 'ghostprotocol:aitool-persona:v1';
 
   const dom = {
     screen: document.getElementById('screen'),
@@ -35,6 +36,7 @@
     activeVoiceReply: null,
     voiceOutputEnabled: localStorage.getItem(voiceEnabledKey) !== 'off',
     voiceAutoplayEnabled: localStorage.getItem(voiceAutoplayKey) === 'on',
+    aiPersonaId: localStorage.getItem(aiPersonaKey) || '',
     connectionBase: 'offline',
     statusSuffix: '',
     controlMode: false,
@@ -259,6 +261,7 @@
     sessionKey,
     voiceEnabledKey,
     voiceAutoplayKey,
+    aiPersonaKey,
     dom,
     state,
     write,

@@ -46,19 +46,20 @@
       writeOptionValue('provider', data.default_tts_provider);
       writeOptionValue('voice', data.default_voice_id);
       if (data.gpu?.label) writeOptionValue('gpu', data.gpu.label);
-      await renderHostPresetSelector();
+      await renderAiToolPresetSelector();
+      await renderAiToolPersonaSelector();
     } catch (error) {
       GP.write(`voice unavailable: ${error.message}`, 'error');
     }
   }
 
-  async function renderHostPresetSelector() {
+  async function renderAiToolPresetSelector() {
     let presetsData;
     let resolvedData;
     try {
       [presetsData, resolvedData] = await Promise.all([
         GP.api('/api/voice/presets'),
-        GP.api('/api/voice/resolve?agent_id=ghost_host')
+        GP.api('/api/voice/resolve?agent_id=aitool')
       ]);
     } catch (error) {
       GP.write(`character presets unavailable: ${error.message}`, 'hint');
@@ -69,11 +70,11 @@
     const panel = document.createElement('div');
     panel.className = 'voice-option-switches voice-preset-picker';
     const label = document.createElement('label');
-    label.textContent = 'Host preset ';
+    label.textContent = 'AiTool preset ';
     const select = document.createElement('select');
     const empty = document.createElement('option');
     empty.value = '';
-    empty.textContent = presets.length ? 'application default' : 'no saved character presets';
+    empty.textContent = presets.length ? 'Votronix global voice' : 'no saved character presets';
     select.appendChild(empty);
     for (const preset of presets) {
       const option = document.createElement('option');
@@ -88,14 +89,14 @@
         const result = await GP.api('/api/voice/assign', {
           method: 'POST',
           body: JSON.stringify({
-            agent_id: 'ghost_host',
-            display_name: 'Host Assistant',
+            agent_id: 'aitool',
+            display_name: 'AiTool',
             preset_id: select.value,
             voice_enabled: true
           })
         });
         const voice = result.voice || {};
-        GP.write(`host preset: ${voice.preset_name || 'application default'}`);
+        GP.write(`AiTool preset: ${voice.preset_name || 'Votronix global voice'}`);
       } catch (error) {
         GP.write(`preset update failed: ${error.message}`, 'error');
       }
@@ -108,6 +109,53 @@
       note.textContent = ` current: ${resolved.preset_name || resolved.fallback_reason}`;
       panel.appendChild(note);
     }
+    GP.dom.screen.appendChild(panel);
+    GP.autoScroll();
+  }
+
+  async function renderAiToolPersonaSelector() {
+    let data;
+    try {
+      data = await GP.api('/api/personas');
+    } catch (error) {
+      GP.write(`personas unavailable: ${error.message}`, 'hint');
+      return;
+    }
+    const personas = Array.isArray(data.personas) ? data.personas : [];
+    const panel = document.createElement('div');
+    panel.className = 'voice-option-switches voice-preset-picker';
+    const label = document.createElement('label');
+    label.textContent = 'AiTool persona ';
+    const select = document.createElement('select');
+    const empty = document.createElement('option');
+    empty.value = '';
+    empty.textContent = 'Default terminal assistant';
+    select.appendChild(empty);
+    for (const persona of personas) {
+      const option = document.createElement('option');
+      option.value = persona.id || '';
+      option.textContent = persona.name || persona.id || 'unnamed persona';
+      if (option.value && option.value === GP.state.aiPersonaId) option.selected = true;
+      select.appendChild(option);
+    }
+    select.addEventListener('change', () => {
+      GP.state.aiPersonaId = select.value;
+      localStorage.setItem(GP.aiPersonaKey, select.value);
+      const selected = personas.find(persona => persona.id === select.value);
+      GP.write(`AiTool persona: ${selected?.name || 'Default terminal assistant'}`);
+      if (selected?.description) GP.write(selected.description, 'hint');
+    });
+    label.appendChild(select);
+    panel.appendChild(label);
+    const current = personas.find(persona => persona.id === GP.state.aiPersonaId);
+    const note = document.createElement('span');
+    note.className = 'hint';
+    note.textContent = ` current: ${current?.name || 'Default terminal assistant'}`;
+    panel.appendChild(note);
+    select.addEventListener('change', () => {
+      const selected = personas.find(persona => persona.id === select.value);
+      note.textContent = ` current: ${selected?.name || 'Default terminal assistant'}`;
+    });
     GP.dom.screen.appendChild(panel);
     GP.autoScroll();
   }
@@ -136,6 +184,8 @@
 
   async function showAiStatus() {
     try {
+      await renderAiToolPersonaSelector();
+      GP.write('');
       const data = await GP.api('/api/status');
       writeOptionValue('backend', 'online');
       writeOptionValue('text model', data.model);
