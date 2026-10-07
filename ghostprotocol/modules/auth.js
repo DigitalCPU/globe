@@ -77,6 +77,11 @@
       GP.updateSession();
     } catch (error) {
       if (GP.token() !== session) return;
+      const message = String(error?.message || '').toLowerCase();
+      if (message.includes('backend offline') || message.includes('failed to fetch') || message.includes('network')) {
+        GP.updateSession();
+        return;
+      }
       localStorage.removeItem(GP.sessionKey);
       GP.state.account = null;
       GP.updateSession();
@@ -88,3 +93,4 @@
   GP.logout = logout;
   GP.refreshMe = refreshMe;
 })(window.GhostProtocol);
+

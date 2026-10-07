@@ -63,13 +63,23 @@
     return PUBLIC_COMMANDS.some(group => group.some(command => GP.commandKey(command) === key));
   }
 
+  function writeOfflineBetaNotice(error) {
+    if (GP.state.offlineNoticeShown) return;
+    GP.state.offlineNoticeShown = true;
+    GP.write('Ghost Protocol is temporarily in super beta update mode.', 'hint');
+    GP.write('Systems are being updated periodically and should be back online soon.', 'hint');
+    if (error?.message) GP.write(`status: ${error.message}`, 'hint');
+  }
+
   async function status() {
     try {
       await GP.api('/api/status');
+      GP.state.offlineNoticeShown = false;
       GP.setConnectionState('online');
       return true;
     } catch (error) {
-      GP.setConnectionState('offline');
+      GP.setConnectionState('super beta update mode');
+      writeOfflineBetaNotice(error);
       return false;
     }
   }
@@ -245,6 +255,7 @@
     });
 
     GP.clearAll();
+    GP.startHeartbeat?.();
     void status();
     void GP.refreshMe();
   }
@@ -254,5 +265,6 @@
   GP.start = start;
   start();
 })(window.GhostProtocol);
+
 
 
