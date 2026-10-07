@@ -46,6 +46,11 @@
     target.appendChild(bar);
   }
 
+  function closeBoardView() {
+    if (GP.state.lobbyOpen && GP.closeLobbyTab?.()) return;
+    closeBoard();
+  }
+
   GP.renderBoardHeader = function () {
     if (!GP.state.boardElement?.isConnected) return false;
     const hint = GP.state.boardHeaderHost || (GP.state.boardHeaderActive ? GP.dom.terminalHint : null);
@@ -61,7 +66,7 @@
     const right = document.createElement('span');
     right.className = 'board-header-right';
     right.appendChild(GP.inlineButton('refresh', () => refreshBoardPanel().catch(error => GP.write(error.message, 'error'))));
-    right.appendChild(GP.inlineButton('close message board', () => closeBoard()));
+    right.appendChild(GP.inlineButton('close message board', () => closeBoardView()));
     header.append(left, right);
     hint.appendChild(header);
     return true;
@@ -371,7 +376,7 @@
       const right = document.createElement('span');
       right.className = 'board-header-right';
       right.appendChild(GP.inlineButton('refresh', () => refreshBoardPanel().catch((error) => GP.write(error.message, 'error'))));
-      if (!actions) right.appendChild(GP.inlineButton('close message board', () => closeBoard()));
+      right.appendChild(GP.inlineButton('close message board', () => closeBoardView()));
       header.append(left, right);
       if (actions) actions.appendChild(header);
       else panel.appendChild(header);

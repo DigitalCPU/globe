@@ -147,6 +147,7 @@
       actions.replaceChildren();
       body.replaceChildren();
       tabs.hidden = active === 'Board';
+      close.hidden = active === 'Board';
       title.textContent = 'Public lobby';
       buttons.forEach((button, label) => {
         const selected = label === active;
