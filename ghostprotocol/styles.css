@@ -760,6 +760,7 @@ body.terminal-command-mode .terminal-session {
 .lobby-header, .lobby-tabs, .lobby-compose { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
 .lobby-header strong { flex: 1; }
 .lobby-tabs { border-bottom: 1px solid var(--green-faint); margin: 12px 0; padding-bottom: 8px; }
+.lobby-tabs[hidden] { display: none; }
 .lobby-panel button { background: transparent; color: var(--green); border: 0; font: inherit; cursor: pointer; min-height: 36px; }
 .lobby-tabs [aria-selected="true"] { text-decoration: underline; color: #b8ffc5; }
 .lobby-body { min-height: 180px; overflow-wrap: anywhere; }
@@ -893,6 +894,7 @@ body.terminal-command-mode .terminal-session {
 .voice-preset-picker .hint { opacity: 0.8; }
 .session-shortcuts .terminal-button { margin: 0; padding: 4px 0; min-height: 32px; }
 .lobby-navigation .lobby-tabs { margin: 0; padding: 0; border: 0; flex: 1 1 auto; gap: 8px; }
+.lobby-navigation .lobby-tabs[hidden] { display: none; }
 .lobby-navigation button { background: transparent; color: var(--green); border: 0; font: inherit; cursor: pointer; min-height: 32px; }
 .lobby-navigation .board-panel-header { margin: 0; }
 .lobby-panel { border: 0; padding: 0; }
