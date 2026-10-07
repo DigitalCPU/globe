@@ -820,26 +820,29 @@ body.terminal-command-mode .terminal-session {
   min-width: 0;
   margin: 0;
   color: var(--green);
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
+  white-space: nowrap;
+  scrollbar-color: var(--green) #000;
+  overscroll-behavior-x: contain;
 }
 .board-header-left,
 .board-header-right {
   display: flex;
   align-items: center;
   gap: 10px;
-  min-width: 0;
+  flex: 0 0 auto;
+  min-width: max-content;
 }
-.board-header-left { flex: 1 1 auto; }
-.board-header-right { flex: 0 0 auto; margin-left: auto; }
+.board-header-left { margin: 0; }
+.board-header-right { margin: 0; }
 .board-category-bar {
   display: flex;
-  flex: 1 1 auto;
+  flex: 0 0 auto;
   gap: 18px;
-  min-width: 0;
-  overflow-x: auto;
-  overflow-y: hidden;
+  min-width: max-content;
+  overflow: visible;
   white-space: nowrap;
-  scrollbar-color: var(--green) #000;
 }
 .board-category-title { margin: 8px 0; color: #b8ffc5; }
 .board-header-links button { color: var(--green); background: transparent; font: inherit; border: 0; padding: 4px 8px; min-height: 32px; cursor: pointer; white-space: nowrap; }
