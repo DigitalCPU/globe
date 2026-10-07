@@ -817,8 +817,9 @@ body.terminal-command-mode .terminal-session {
   flex-wrap: nowrap;
   align-items: center;
   gap: 10px;
-  width: 100%;
-  min-width: 0;
+  width: max-content;
+  max-width: 100%;
+  min-width: 100%;
   margin: 0;
   color: var(--green);
   overflow-x: auto;
@@ -826,6 +827,7 @@ body.terminal-command-mode .terminal-session {
   white-space: nowrap;
   scrollbar-color: var(--green) #000;
   overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
 }
 .board-header-left,
 .board-header-right {
@@ -846,7 +848,7 @@ body.terminal-command-mode .terminal-session {
   white-space: nowrap;
 }
 .board-category-title { margin: 8px 0; color: #b8ffc5; }
-.board-header-links button { color: var(--green); background: transparent; font: inherit; border: 0; padding: 4px 8px; min-height: 32px; cursor: pointer; white-space: nowrap; }
+.board-header-links button { flex: 0 0 auto; color: var(--green); background: transparent; font: inherit; border: 0; padding: 4px 8px; min-height: 32px; cursor: pointer; white-space: nowrap; }
 .board-header-links button:hover, .board-header-links button:focus-visible { text-decoration: underline; }
 .board-category-bar button.active,
 .board-category-bar button[aria-current="page"] { text-decoration: underline; text-underline-offset: 3px; color: #b8ffc5; }
@@ -895,6 +897,19 @@ body.terminal-command-mode .terminal-session {
 .session-shortcuts .terminal-button { margin: 0; padding: 4px 0; min-height: 32px; }
 .lobby-navigation .lobby-tabs { margin: 0; padding: 0; border: 0; flex: 1 1 auto; gap: 8px; }
 .lobby-navigation .lobby-tabs[hidden] { display: none; }
+.lobby-navigation .lobby-actions {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-color: var(--green) #000;
+  -webkit-overflow-scrolling: touch;
+}
+.lobby-navigation .lobby-actions .board-header-links {
+  max-width: none;
+  overflow: visible;
+}
 .lobby-navigation button { background: transparent; color: var(--green); border: 0; font: inherit; cursor: pointer; min-height: 32px; }
 .lobby-navigation .board-panel-header { margin: 0; }
 .lobby-panel { border: 0; padding: 0; }
