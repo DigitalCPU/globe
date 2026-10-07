@@ -69,6 +69,20 @@
     return { job, url };
   }
 
+  async function requestProgressiveVoiceJob(text, operation) {
+    const signal = operation.controller.signal;
+    const job = await GP.api('/api/voice/tts', {
+      method: 'POST',
+      body: JSON.stringify({ text, agent_id: operation.agentId, async: true }),
+      signal
+    });
+    if (!job.job_id || !job.status_url || !Array.isArray(job.segments)) {
+      throw new Error('Votronix2 progressive voice job is unavailable');
+    }
+    operation.jobIds.add(job.job_id);
+    return job;
+  }
+
   async function voiceBackendMode() {
     const now = Date.now();
     const cached = GP.state.voiceBackendStatus;
@@ -368,6 +382,119 @@
     }
   }
 
+  function renderProgressiveSegment(tray, replyElement, segment, status) {
+    const button = renderChunkButton(tray, replyElement, {
+      index: segment.index,
+      text: segment.text || `segment ${Number(segment.index || 0) + 1}`,
+      status: segment.status || 'queued',
+      audio_url: segment.audio_url || '',
+      status_url: segment.status_url || ''
+    }, status, false);
+    button.dataset.segmentIndex = String(segment.index ?? '');
+    return button;
+  }
+
+  async function prepareVastProgressiveReplyVoice(replyElement, text, options = {}) {
+    if (replyElement.dataset.chunkedVoice === '1') return;
+    const operation = beginVoiceOperation(replyElement);
+    const signal = operation.controller.signal;
+    replyElement.dataset.chunkedVoice = '1';
+    const tray = chunkTrayFor(replyElement);
+    tray.querySelectorAll('.voice-chunk').forEach(button => {
+      if (button.dataset.audioUrl) URL.revokeObjectURL(button.dataset.audioUrl);
+    });
+    tray.innerHTML = '';
+
+    const controls = document.createElement('div');
+    controls.className = 'voice-chunk-controls is-rendering';
+    const status = document.createElement('span');
+    status.className = 'voice-chunk-status';
+    status.textContent = 'voice rendering';
+    const gpu = document.createElement('span');
+    gpu.className = 'gpu-activity-indicator';
+    const playReady = document.createElement('button');
+    playReady.type = 'button';
+    playReady.className = 'terminal-button voice-play-ready';
+    playReady.textContent = 'play ready';
+    playReady.addEventListener('click', () => playReadyChunks(tray, replyElement).catch((error) => GP.write(`voice unavailable: ${error.message}`, 'error')));
+    const processing = document.createElement('button');
+    processing.type = 'button';
+    processing.className = 'terminal-button voice-processing-toggle';
+    processing.textContent = 'processing';
+    processing.setAttribute('aria-expanded', 'false');
+    const chunkList = document.createElement('div');
+    chunkList.className = 'voice-chunk-list';
+    chunkList.hidden = true;
+    processing.addEventListener('click', () => {
+      const expanded = chunkList.hidden;
+      chunkList.hidden = !expanded;
+      processing.setAttribute('aria-expanded', String(expanded));
+    });
+    controls.append(status, gpu, playReady, processing);
+    tray.append(controls, chunkList);
+    tray._chunkList = chunkList;
+    tray._gpuIndicator = GP.startGpuIndicator?.(gpu) || null;
+
+    try {
+      const job = await requestProgressiveVoiceJob(text, operation);
+      const buttons = new Map();
+      (job.segments || []).forEach((segment) => {
+        buttons.set(Number(segment.index), renderProgressiveSegment(tray, replyElement, segment, status));
+      });
+      updateChunkStatus(status, tray);
+      const played = new Set();
+      const deadline = Date.now() + 180000;
+      let latest = job;
+      while (!signal.aborted && latest.status !== 'ready') {
+        if (latest.status === 'failed') throw new Error(latest.error || 'voice rendering failed');
+        if (latest.status === 'cancelled' || latest.status === 'canceled') throw abortError();
+        if (Date.now() > deadline) throw new Error('voice rendering timed out');
+        for (const segment of latest.segments || []) {
+          const index = Number(segment.index);
+          let button = buttons.get(index);
+          if (!button) {
+            button = renderProgressiveSegment(tray, replyElement, segment, status);
+            buttons.set(index, button);
+          }
+          button.classList.remove('queued', 'rendering', 'ready', 'failed', 'canceled');
+          button.classList.add(segment.status || 'queued');
+          if (segment.status === 'ready') await markChunkReady(button, segment.audio_url, status, tray);
+        }
+        if (options.autoplay) {
+          const ready = [...tray.querySelectorAll('.voice-chunk.ready')]
+            .sort((a, b) => Number(a.dataset.segmentIndex || 0) - Number(b.dataset.segmentIndex || 0));
+          for (const button of ready) {
+            const key = button.dataset.segmentIndex || '';
+            if (played.has(key) || !button.dataset.audioUrl) continue;
+            played.add(key);
+            const ok = await playAudioUrlIfAllowed(button.dataset.audioUrl, replyElement, { waitForEnd: true });
+            if (!ok) break;
+          }
+        }
+        await voiceDelay(signal);
+        latest = await fetchJobStatus(job.status_url);
+      }
+      for (const segment of latest.segments || []) {
+        const index = Number(segment.index);
+        const button = buttons.get(index) || renderProgressiveSegment(tray, replyElement, segment, status);
+        if (segment.status === 'ready') await markChunkReady(button, segment.audio_url, status, tray);
+      }
+      updateChunkStatus(status, tray);
+    } catch (error) {
+      if (error.name === 'AbortError') {
+        status.textContent = 'voice rendering stopped';
+      } else {
+        status.textContent = `voice unavailable: ${error.message}`;
+        GP.write(`voice unavailable: ${error.message}`, 'error');
+      }
+      controls.classList.remove('is-rendering');
+      stopTrayGpuIndicator(tray);
+    } finally {
+      finishVoiceOperation(operation);
+      updateChunkStatus(status, tray);
+    }
+  }
+
   function renderChunkButton(tray, replyElement, chunk, status, poll = true) {
     const button = document.createElement('button');
     button.type = 'button';
@@ -482,6 +609,17 @@
       return;
     }
     const backend = await voiceBackendMode();
+    if ((backend.backend === 'vast' || backend.status?.votronix2_status) && shouldUseChunkedVoice(text)) {
+      const tray = replyElement.nextElementSibling?.classList?.contains('voice-chunk-tray')
+        ? replyElement.nextElementSibling
+        : null;
+      if (replyElement.dataset.chunkedVoice === '1' && tray) {
+        await playReadyChunks(tray, replyElement);
+        return;
+      }
+      await prepareVastProgressiveReplyVoice(replyElement, text, { autoplay: true });
+      return;
+    }
     if (backend.backend !== 'vast' && shouldUseChunkedVoice(text)) {
       const tray = replyElement.nextElementSibling?.classList?.contains('voice-chunk-tray')
         ? replyElement.nextElementSibling
@@ -495,6 +633,8 @@
     }
     const rendering = GP.animatedStatusLine('voice rendering', { dots: false, bright: true });
     const operation = beginVoiceOperation(replyElement);
+    GP.state.voiceRendering = true;
+    void GP.sendHeartbeat?.('voice-rendering');
     try {
       const { url } = backend.backend === 'vast'
         ? await requestFullVoice(text, operation)
@@ -507,6 +647,8 @@
       rendering.remove();
       if (current() && error.name !== 'AbortError') throw error;
     } finally {
+      GP.state.voiceRendering = false;
+      void GP.sendHeartbeat?.();
       finishVoiceOperation(operation);
     }
   }
