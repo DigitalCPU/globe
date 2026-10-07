@@ -146,6 +146,7 @@
       list = users = form = null;
       actions.replaceChildren();
       body.replaceChildren();
+      tabs.hidden = active === 'Board';
       title.textContent = 'Public lobby';
       buttons.forEach((button, label) => {
         const selected = label === active;
