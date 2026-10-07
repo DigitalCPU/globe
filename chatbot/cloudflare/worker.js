@@ -369,6 +369,11 @@ export default {
     if (url.pathname === '/api/voice/voices' && request.method === 'GET') return proxyToTunnel(request, env, `/api/voice/voices${url.search}`);
     if (url.pathname === '/api/voice/active' && request.method === 'GET') return proxyToTunnel(request, env, '/api/voice/active');
     if (url.pathname === '/api/voice/tts' && request.method === 'POST') return proxyToTunnel(request, env, '/api/voice/tts');
+    if (['/api/voice/presets', '/api/voice/assignments', '/api/voice/resolve'].includes(url.pathname) && request.method === 'GET') return proxyToTunnel(request, env, url.pathname + url.search);
+    if (['/api/voice/assign', '/api/voice/tts/cancel'].includes(url.pathname) && request.method === 'POST') return proxyToTunnel(request, env, url.pathname);
+    if (/^\/api\/voice\/tts\/jobs\/[0-9a-f]{32}(?:\.wav)?$/.test(url.pathname) && request.method === 'GET') return proxyToTunnel(request, env, url.pathname);
+    if (/^\/api\/voice\/votronix2\/audio\/[^/]+\.wav$/.test(url.pathname) && request.method === 'GET') return proxyToTunnel(request, env, url.pathname);
+    if (/^\/api\/voice\/renders\/[0-9a-f]{32}\.wav$/.test(url.pathname) && request.method === 'GET') return proxyToTunnel(request, env, url.pathname);
     if (url.pathname === '/api/voice/last.wav' && request.method === 'GET') return proxyToTunnel(request, env, '/api/voice/last.wav');
     if ((url.pathname === '/api/chat' || url.pathname === '/v1/chat/completions') && request.method === 'POST') {
       return proxyToTunnel(request, env, url.pathname);
