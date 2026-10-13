@@ -91,10 +91,13 @@
         content.appendChild(heading);
         for (const entry of entries) {
           const [label, command, prefill] = Array.isArray(entry) ? entry : [entry, entry, false];
-          helpCommand(label, command, {prefill, target: content});
+          helpCommand(label, command, {prefill, target: content, pulse: !GP.state.account && command === 'sign-up'});
         }
       });
       nav.appendChild(link);
+    }
+    if (!GP.state.account) {
+      Array.from(nav.children).find(button => button.textContent === 'Account')?.click();
     }
     GP.autoScroll();
   }
