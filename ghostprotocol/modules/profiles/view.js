@@ -67,7 +67,7 @@
         });
         const remove = Profiles.button('remove attachment', () => { attachmentId = ''; attachmentStatus.textContent = ''; remove.hidden = true; });
         remove.hidden = true;
-        const send = Profiles.node('Profiles.button','publish'); send.type = 'submit';
+        const send = Profiles.node('button','publish'); send.type = 'submit';
         async function attachUpload(file) {
           if (!file || uploading || !GP.requireAccount()) return;
           uploading = true; upload.disabled = camera.disabled = database.disabled = select.disabled = send.disabled = remove.disabled = true;
