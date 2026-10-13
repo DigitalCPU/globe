@@ -47,7 +47,7 @@
       GP.run(command);
     });
     row.appendChild(button);
-    GP.dom.screen.appendChild(row);
+    (options.target || GP.dom.screen).appendChild(row);
     GP.autoScroll();
   }
 
@@ -57,49 +57,46 @@
     GP.setStatusSuffix('/ terminal portal commands');
     GP.state.headerHint = '';
     GP.renderMailHint?.();
-    helpCommand('lobby', 'lobby');
-    helpCommand('close lobby', 'close lobby');
-    helpCommand('users online', 'users online');
-    helpCommand('chat room', 'chat room');
-    helpCommand('message board', 'message board');
-    helpCommand('close chat room', 'close chat room');
-    helpCommand('close message board', 'close message board');
-    helpCommand('profile <username>', 'profile ', { prefill: true });
-    helpCommand('sign-up', 'sign-up', { pulse: true });
-    helpCommand('sign-in', 'sign-in');
-    helpCommand('sign-out', 'sign-out');
-    helpCommand('clear', 'clear');
-    helpCommand('clear all', 'clear all');
-    helpCommand('minimize', 'minimize');
-    helpCommand('restore', 'restore');
-    helpCommand('open keyboard', 'open keyboard');
-    helpCommand('dock keyboard', 'dock keyboard');
-    helpCommand('wide keyboard', 'wide keyboard');
-    helpCommand('full keyboard', 'full keyboard');
-    helpCommand('close keyboard', 'close keyboard');
-    helpCommand('keyboard', 'keyboard');
-    helpCommand('predictive', 'predictive');
-    helpCommand('predictive on', 'predictive on');
-    helpCommand('predictive off', 'predictive off');
-    helpCommand('exit help', 'exit help');
+    const container = document.createElement('section');
+    container.className = 'help-categories';
+    const nav = document.createElement('nav');
+    nav.className = 'profile-actions';
+    nav.setAttribute('aria-label', 'Help categories');
+    const content = document.createElement('div');
+    container.append(nav, content);
+    GP.dom.screen.appendChild(container);
+    const groups = {
+      Interface: ['clear', 'clear all', 'minimize', 'restore', 'open keyboard', 'dock keyboard', 'wide keyboard', 'full keyboard', 'close keyboard', 'keyboard', 'predictive', 'predictive on', 'predictive off', 'exit help'],
+      Social: ['lobby', 'close lobby', 'users online', 'chat room', 'message board', 'close chat room', 'close message board', ['profile search <username>', 'profile ', true]],
+      Account: ['sign-up', 'sign-in'],
+    };
     if (GP.state.account) {
-      helpCommand('menu', 'menu');
-      helpCommand('edit profile', 'edit profile');
-      helpCommand('inbox / mail / messages', 'inbox');
-      helpCommand('mail <username>', 'mail ', { prefill: true });
-      helpCommand('upload', 'upload');
-      helpCommand('mydatabase', 'mydatabase');
-      helpCommand('camera', 'camera');
-      helpCommand('board', 'board');
-      helpCommand('AiTool', 'aitool');
-      helpCommand('eva', 'eva');
-      helpCommand('eva status', 'eva status');
-      helpCommand('eva security / eva events', 'eva security');
-      helpCommand('close eva', 'close eva');
-      helpCommand('post board', 'post board');
-      helpCommand('close board', 'close board');
+      groups.Social.push('edit profile', ['add connection: <username> add', '<username> add', true], ['remove connection: <username> remove', '<username> remove', true], ['inbox / mail / messages', 'inbox'], ['mail <username>', 'mail ', true], 'board', 'post board', 'close board');
+      groups.Account = ['menu', 'sign-out'];
+      groups.Files = ['upload', 'mydatabase', 'camera'];
+      groups.AI = [['AiTool', 'aitool']];
+      groups.EVA = ['eva', 'eva status', 'eva security', 'eva events', 'close eva'];
     }
-    GP.write('');
+    for (const [category, entries] of Object.entries(groups)) {
+      const link = document.createElement('button');
+      link.type = 'button';
+      link.className = 'terminal-button';
+      link.textContent = category;
+      link.setAttribute('aria-pressed', 'false');
+      link.addEventListener('click', () => {
+        for (const button of nav.children) button.setAttribute('aria-pressed', String(button === link));
+        content.replaceChildren();
+        const heading = document.createElement('h3');
+        heading.textContent = category;
+        content.appendChild(heading);
+        for (const entry of entries) {
+          const [label, command, prefill] = Array.isArray(entry) ? entry : [entry, entry, false];
+          helpCommand(label, command, {prefill, target: content});
+        }
+      });
+      nav.appendChild(link);
+    }
+    GP.autoScroll();
   }
 
   function menu() {
